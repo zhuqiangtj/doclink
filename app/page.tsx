@@ -1,103 +1,202 @@
-import Image from "next/image";
+'use client';
 
-export default function Home() {
+import { useState, useEffect } from 'react';
+
+// --- Interfaces ---
+interface Doctor {
+  id: string;
+  name: string;
+}
+
+interface Schedule {
+  id: string;
+  date: string;
+  room: { id: string; name: string };
+  timeSlots: { time: string; total: number; booked: number }[];
+}
+
+// --- Component ---
+export default function HomePage() {
+  // Data states
+  const [doctors, setDoctors] = useState<Doctor[]>([]);
+  const [schedules, setSchedules] = useState<Schedule[]>([]);
+
+  // UI states
+  const [selectedDoctorId, setSelectedDoctorId] = useState<string>('');
+  const [selectedSlot, setSelectedSlot] = useState<{ scheduleId: string; roomId: string; time: string } | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string>('');
+
+  // Fetch doctors on initial load
+  useEffect(() => {
+    const fetchDoctors = async () => {
+      try {
+        const res = await fetch('/api/doctors');
+        if (!res.ok) throw new Error("Could not fetch doctors.");
+        const data = await res.json();
+        setDoctors(data);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'An unknown error occurred');
+      }
+    };
+    fetchDoctors();
+  }, []);
+
+  // Fetch schedules when a doctor is selected
+  useEffect(() => {
+    if (!selectedDoctorId) {
+      setSchedules([]);
+      return;
+    }
+
+    const fetchSchedules = async () => {
+      setIsLoading(true);
+      setError(null);
+      setSchedules([]);
+      setSelectedSlot(null);
+      try {
+        const res = await fetch(`/api/public/schedules?doctorId=${selectedDoctorId}`);
+        if (!res.ok) throw new Error("Could not fetch schedules.");
+        const data = await res.json();
+        setSchedules(data);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'An unknown error occurred');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchSchedules();
+  }, [selectedDoctorId]);
+
+  const handleBooking = async () => {
+    if (!selectedSlot || !selectedDoctorId) {
+      setError("Please select a doctor and a time slot.");
+      return;
+    }
+    setError(null);
+    setSuccessMessage('');
+
+    // --- SIMULATED USER DATA ---
+    // In a real app, these would come from the logged-in user's session
+    const MOCK_USER_ID = "user_placeholder_id";
+    const MOCK_PATIENT_ID = "patient_placeholder_id";
+    // We need to create these placeholder records in the DB for the foreign key constraint to pass
+    // This will be handled properly once authentication is added.
+
+    try {
+      const response = await fetch('/api/appointments', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: MOCK_USER_ID,
+          patientId: MOCK_PATIENT_ID,
+          doctorId: selectedDoctorId,
+          scheduleId: selectedSlot.scheduleId,
+          time: selectedSlot.time,
+          roomId: selectedSlot.roomId, // This needs to be passed correctly
+        }),
+      });
+
+      if (!response.ok) {
+        const errData = await response.json();
+        throw new Error(errData.error || "Booking failed.");
+      }
+
+      setSuccessMessage(`Appointment booked successfully for ${selectedSlot.time}!`);
+      setSelectedSlot(null);
+      // Refresh schedules to show updated availability
+      const schedulesRes = await fetch(`/api/public/schedules?doctorId=${selectedDoctorId}`);
+      const data = await schedulesRes.json();
+      setSchedules(data);
+
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'An unknown error occurred');
+    }
+  };
+
   return (
-    <div className="font-sans grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="font-mono list-inside list-decimal text-sm/6 text-center sm:text-left">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] font-mono font-semibold px-1 py-0.5 rounded">
-              app/page.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
+    <main className="container mx-auto p-4 sm:p-6 md:p-8">
+      <div className="max-w-2xl mx-auto">
+        <h1 className="text-3xl font-bold text-center mb-6">预约挂号 (Book an Appointment)</h1>
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+        {/* Step 1: Select Doctor */}
+        <div className="mb-6">
+          <label htmlFor="doctor-select" className="block text-lg font-medium text-gray-800 mb-2">
+            第一步: 选择医生 (Step 1: Select a Doctor)
+          </label>
+          <select
+            id="doctor-select"
+            value={selectedDoctorId}
+            onChange={(e) => setSelectedDoctorId(e.target.value)}
+            className="block w-full p-3 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
           >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+            <option value="">-- Please select a doctor --</option>
+            {doctors.map((doc) => (
+              <option key={doc.id} value={doc.id}>{doc.name}</option>
+            ))}
+          </select>
         </div>
-      </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
-    </div>
+
+        {/* Step 2: Select Time Slot */}
+        {selectedDoctorId && (
+          <div>
+            <h2 className="text-lg font-medium text-gray-800 mb-2">
+              第二步: 选择时间 (Step 2: Select a Time Slot)
+            </h2>
+            {isLoading && <p>Loading available times...</p>}
+            {error && <p className="text-red-500 bg-red-100 p-3 rounded-md">{error}</p>}
+            <div className="space-y-4">
+              {schedules.map((schedule) => (
+                <div key={schedule.id} className="p-4 border rounded-lg">
+                  <h3 className="font-semibold">{schedule.date} ({schedule.room.name})</h3>
+                  <div className="grid grid-cols-3 sm:grid-cols-4 gap-2 mt-2">
+                    {schedule.timeSlots.map((slot) => (
+                      <button
+                        key={slot.time}
+                        onClick={() => setSelectedSlot({ scheduleId: schedule.id, roomId: schedule.room.id, time: slot.time })}
+                        disabled={slot.booked >= slot.total}
+                        className={`p-2 border rounded-md text-center text-sm
+                          ${selectedSlot?.scheduleId === schedule.id && selectedSlot?.time === slot.time
+                            ? 'bg-indigo-600 text-white ring-2 ring-indigo-500'
+                            : 'bg-white text-gray-700 hover:bg-gray-50'
+                          }
+                          ${slot.booked >= slot.total ? 'bg-gray-200 text-gray-400 cursor-not-allowed' : ''}
+                        `}
+                      >
+                        {slot.time}
+                        <span className="block text-xs">({slot.booked}/{slot.total})</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Step 3: Confirm and Book */}
+        {selectedSlot && (
+          <div className="mt-6 p-4 bg-gray-50 rounded-lg text-center">
+             <p className="font-semibold mb-3">
+              您已选择: {selectedSlot.time}
+            </p>
+            <button
+              onClick={handleBooking}
+              className="w-full max-w-xs py-3 px-4 bg-green-600 text-white font-semibold rounded-md shadow-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
+            >
+              确认预约 (Confirm Booking)
+            </button>
+          </div>
+        )}
+
+        {successMessage && (
+          <div className="mt-6 p-4 bg-green-100 text-green-800 rounded-lg text-center">
+            {successMessage}
+          </div>
+        )}
+      </div>
+    </main>
   );
 }

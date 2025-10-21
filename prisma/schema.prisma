@@ -1,0 +1,75 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Room {
+  id        String   @id @default(cuid())
+  name      String
+  bedCount  Int
+  doctors   Doctor[] @relation("DoctorToRoom")
+  schedules Schedule[]
+  appointments Appointment[]
+}
+
+model Doctor {
+  id          String   @id @default(cuid())
+  name        String
+  accountId   String   @unique
+  rooms       Room[]   @relation("DoctorToRoom")
+  schedules   Schedule[]
+  appointments Appointment[]
+}
+
+model Schedule {
+  id        String   @id @default(cuid())
+  doctor    Doctor   @relation(fields: [doctorId], references: [id])
+  doctorId  String
+  date      String
+  timeSlots Json
+  room      Room     @relation(fields: [roomId], references: [id])
+  roomId    String
+  appointments Appointment[]
+}
+
+model Appointment {
+  id          String   @id @default(cuid())
+  user        User     @relation(fields: [userId], references: [id])
+  userId      String
+  patient     Patient  @relation(fields: [patientId], references: [id])
+  patientId   String
+  doctor      Doctor   @relation(fields: [doctorId], references: [id])
+  doctorId    String
+  schedule    Schedule @relation(fields: [scheduleId], references: [id])
+  scheduleId  String
+  time        String
+  room        Room     @relation(fields: [roomId], references: [id])
+  roomId      String
+  bedId       Int
+  status      String
+  createTime  DateTime @default(now())
+}
+
+model User {
+  id              String        @id @default(cuid())
+  phone           String        @unique
+  credibilityScore Int          @default(15)
+  isSuspended     Boolean       @default(false)
+  appointments    Appointment[]
+  patients        Patient[]
+}
+
+model Patient {
+  id            String        @id @default(cuid())
+  name          String
+  user          User          @relation(fields: [userId], references: [id])
+  userId        String
+  appointments  Appointment[]
+}
