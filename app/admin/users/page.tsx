@@ -113,7 +113,7 @@ export default function AdminUsersPage() {
     const url = modalMode === 'add' ? '/api/users' : `/api/users?userId=${selectedUser?.id}`;
     const method = modalMode === 'add' ? 'POST' : 'PUT';
 
-    let body: any = {};
+    let body: Record<string, unknown> = {};
     if (modalMode === 'add') {
       body = { name, email, password, role, roomIds: selectedRoomIds };
     } else if (modalMode === 'edit') {
@@ -134,7 +134,7 @@ export default function AdminUsersPage() {
         throw new Error(errData.error || 'Operation failed.');
       }
 
-      const result = await response.json();
+      await response.json(); // Consume the response but don't assign to unused variable
       
       // Refresh user list after operation
       const usersRes = await fetch('/api/users');

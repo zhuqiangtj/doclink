@@ -1,124 +1,227 @@
 'use client';
 
 import { useState, useEffect, FormEvent } from 'react';
+import { useSession } from 'next-auth/react';
+import { useRouter } from 'next/navigation';
 
+// --- Interfaces ---
 interface Room {
   id: string;
   name: string;
   bedCount: number;
+  doctorId: string;
+  doctor: { id: string; name: string };
 }
 
-export default function RoomsPage() {
+interface Doctor {
+  id: string;
+  name: string;
+}
+
+interface UserWithDoctorProfile {
+  id: string;
+  email: string;
+  role: 'PATIENT' | 'DOCTOR' | 'ADMIN';
+  doctorProfile?: { id: string; name: string; };
+}
+
+// --- Component ---
+export default function AdminRoomsPage() {
+  const { data: session, status } = useSession();
+  const router = useRouter();
+
+  // --- Data States ---
   const [rooms, setRooms] = useState<Room[]>([]);
-  const [name, setName] = useState('');
-  const [bedCount, setBedCount] = useState('');
+  const [doctors, setDoctors] = useState<Doctor[]>([]); // All doctors for selection
+  
+  // --- UI States ---
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
+  
+  // --- Modal States ---
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [modalMode, setModalMode] = useState<'add' | 'edit'>('add');
+  const [selectedRoom, setSelectedRoom] = useState<Room | null>(null);
 
+  // --- Form States ---
+  const [name, setName] = useState('');
+  const [bedCount, setBedCount] = useState(1);
+  const [selectedDoctorId, setSelectedDoctorId] = useState<string>(''); // Single doctor ID
+
+  // --- Effects ---
+  // Auth check
   useEffect(() => {
-    fetchRooms();
-  }, []);
-
-  const fetchRooms = async () => {
-    try {
-      setIsLoading(true);
-      const response = await fetch('/api/rooms');
-      if (!response.ok) {
-        throw new Error('Failed to fetch rooms');
-      }
-      const data = await response.json();
-      setRooms(data);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'An unknown error occurred');
-    } finally {
-      setIsLoading(false);
+    if (status === 'unauthenticated') router.push('/auth/signin');
+    if (status === 'authenticated' && session.user.role !== 'ADMIN') {
+      setError('Access Denied: You must be an admin to view this page.');
     }
+  }, [status, session, router]);
+
+  // Initial data fetch
+  useEffect(() => {
+    if (status !== 'authenticated' || session?.user.role !== 'ADMIN') return;
+    
+    const fetchRoomsAndDoctors = async () => {
+      setIsLoading(true);
+      try {
+        const [roomsRes, usersRes] = await Promise.all([
+          fetch('/api/rooms'), // Admin gets all rooms
+          fetch('/api/users?role=DOCTOR'), // Admin gets all doctors
+        ]);
+
+        if (!roomsRes.ok) throw new Error('Failed to fetch rooms.');
+        if (!usersRes.ok) throw new Error('Failed to fetch doctors.');
+
+        setRooms(await roomsRes.json());
+        // Filter out only doctor profiles from users API response
+        const doctorUsers: UserWithDoctorProfile[] = await usersRes.json();
+        setDoctors(doctorUsers.filter(user => user.role === 'DOCTOR' && user.doctorProfile).map(user => user.doctorProfile as Doctor));
+
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'An unknown error occurred');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchRoomsAndDoctors();
+  }, [status, session]);
+
+  // --- Modal Logic ---
+  const openModal = (mode: 'add' | 'edit', room: Room | null = null) => {
+    setModalMode(mode);
+    setSelectedRoom(room);
+    setName(room?.name || '');
+    setBedCount(room?.bedCount || 1);
+    setSelectedDoctorId(room?.doctorId || ''); // Set single doctor ID
+    setIsModalOpen(true);
   };
 
+  const closeModal = () => {
+    setIsModalOpen(false);
+    setSelectedRoom(null);
+    setError(null);
+    setSuccess(null);
+  };
+
+  // --- Handlers ---
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setError(null);
+    setSuccess(null);
+
+    if (!selectedDoctorId) {
+      setError('Please select a doctor for the room.');
+      return;
+    }
+
+    const url = modalMode === 'add' ? '/api/rooms' : `/api/rooms?roomId=${selectedRoom?.id}`;
+    const method = modalMode === 'add' ? 'POST' : 'PUT';
+
+    const body = { name, bedCount, doctorId: selectedDoctorId }; // Send single doctorId
 
     try {
-      const response = await fetch('/api/rooms', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ name, bedCount: Number(bedCount) }),
+      const response = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
       });
 
       if (!response.ok) {
-        throw new Error('Failed to create room');
+        const errData = await response.json();
+        throw new Error(errData.error || 'Operation failed.');
       }
 
-      // Clear form and refresh list
-      setName('');
-      setBedCount('');
-      fetchRooms();
+      // Refresh room list after operation
+      const roomsRes = await fetch('/api/rooms');
+      setRooms(await roomsRes.json());
+      
+      setSuccess(`Room ${modalMode === 'add' ? 'added' : 'updated'} successfully!`);
+      closeModal();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An unknown error occurred');
     }
   };
 
+  const handleDelete = async (roomId: string) => {
+    if (window.confirm('Are you sure you want to delete this room? This action cannot be undone.')) {
+      try {
+        const response = await fetch(`/api/rooms?roomId=${roomId}`, { method: 'DELETE' });
+        if (!response.ok) throw new Error('Failed to delete room.');
+        setRooms(prev => prev.filter(r => r.id !== roomId));
+        setSuccess('Room deleted successfully!');
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'An unknown error occurred');
+      }
+    }
+  };
+
+  // --- Render Logic ---
+  if (status === 'loading' || isLoading) return <div className="container mx-auto p-8 text-center">Loading...</div>;
+  if (session?.user.role !== 'ADMIN') return <div className="container mx-auto p-8 text-center text-red-600">{error}</div>;
+
   return (
-    <div className="container mx-auto p-4">
-      <h1 className="text-2xl font-bold mb-4">诊室管理 (Room Management)</h1>
-
-      <div className="mb-8 p-4 border rounded-lg shadow-md">
-        <h2 className="text-xl font-semibold mb-2">添加新诊室 (Add New Room)</h2>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label htmlFor="name" className="block text-sm font-medium text-gray-700">
-              诊室名称 (Room Name)
-            </label>
-            <input
-              id="name"
-              type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-              required
-            />
-          </div>
-          <div>
-            <label htmlFor="bedCount" className="block text-sm font-medium text-gray-700">
-              默认床位数 (Default Bed Count)
-            </label>
-            <input
-              id="bedCount"
-              type="number"
-              value={bedCount}
-              onChange={(e) => setBedCount(e.target.value)}
-              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-              required
-            />
-          </div>
-          <button
-            type="submit"
-            className="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-          >
-            添加 (Add)
-          </button>
-        </form>
-        {error && <p className="mt-4 text-red-500">{error}</p>}
+    <div className="container mx-auto p-4 sm:p-6 md:p-8">
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-3xl font-bold">Room Management</h1>
+        <button onClick={() => openModal('add')} className="py-2 px-4 bg-indigo-600 text-white rounded-md hover:bg-indigo-700">
+          Add Room
+        </button>
       </div>
 
-      <div className="p-4 border rounded-lg shadow-md">
-        <h2 className="text-xl font-semibold mb-2">现有诊室 (Existing Rooms)</h2>
-        {isLoading ? (
-          <p>Loading...</p>
-        ) : (
-          <ul className="space-y-2">
-            {rooms.map((room) => (
-              <li key={room.id} className="p-2 border-b flex justify-between items-center">
-                <span>{room.name}</span>
-                <span className="text-gray-500">床位数 (Beds): {room.bedCount}</span>
-              </li>
-            ))}
-          </ul>
-        )}
+      {error && <div className="p-3 mb-4 text-sm text-red-700 bg-red-100 rounded-md">{error}</div>}
+      {success && <div className="p-3 mb-4 text-sm text-green-700 bg-green-100 rounded-md">{success}</div>}
+
+      <div className="bg-white p-4 border rounded-lg shadow-md">
+        <ul className="space-y-3">
+          {rooms.length > 0 ? rooms.map((room) => (
+            <li key={room.id} className="p-3 border rounded-md flex justify-between items-center">
+              <div>
+                <p className="font-semibold">{room.name} ({room.bedCount} beds)</p>
+                <p className="text-sm text-gray-600">Owner: {room.doctor.name}</p>
+              </div>
+              <div className="space-x-2">
+                <button onClick={() => openModal('edit', room)} className="text-sm text-blue-600 hover:underline">Edit</button>
+                <button onClick={() => handleDelete(room.id)} className="text-sm text-red-600 hover:underline">Delete</button>
+              </div>
+            </li>
+          )) : <p className="text-gray-500">No rooms found.</p>}
+        </ul>
       </div>
+
+      {/* Modal */}
+      {isModalOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white p-8 rounded-lg shadow-xl w-full max-w-md">
+            <h2 className="text-2xl font-bold mb-4 capitalize">{modalMode === 'add' ? 'Add Room' : 'Edit Room'}</h2>
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <input type="text" value={name} onChange={e => setName(e.target.value)} placeholder="Room Name" className="block w-full rounded-md border-gray-300" required />
+              <input type="number" value={bedCount} onChange={e => setBedCount(parseInt(e.target.value, 10))} placeholder="Bed Count" className="block w-full rounded-md border-gray-300" min="1" required />
+              
+              <div>
+                <label htmlFor="doctor-select" className="block text-sm font-medium">Assign Owner Doctor</label>
+                <select
+                  id="doctor-select"
+                  value={selectedDoctorId}
+                  onChange={e => setSelectedDoctorId(e.target.value)}
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm"
+                  required
+                >
+                  <option value="">-- Select a Doctor --</option>
+                  {doctors.map(doctor => (
+                    <option key={doctor.id} value={doctor.id}>{doctor.name}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="flex justify-end gap-4">
+                <button type="button" onClick={closeModal} className="py-2 px-4 bg-gray-200 rounded-md">Cancel</button>
+                <button type="submit" className="py-2 px-4 bg-indigo-600 text-white rounded-md">Save</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

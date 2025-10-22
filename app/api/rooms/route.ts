@@ -2,12 +2,12 @@ import { PrismaClient } from '@prisma/client';
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '../auth/[...nextauth]/route';
-import { createAuditLog } from '../../../lib/audit'; // Import from shared utility
+import { createAuditLog } from '@/lib/audit'; // Import from shared utility
 
 const prisma = new PrismaClient();
 
 // GET rooms (Admin gets all, Doctor gets their own)
-export async function GET(request: Request) {
+export async function GET() {
   const session = await getServerSession(authOptions);
   if (!session) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -17,63 +17,84 @@ export async function GET(request: Request) {
     let rooms;
     if (session.user.role === 'ADMIN') {
       rooms = await prisma.room.findMany({
+        include: { doctor: { select: { id: true, name: true } } }, // Include doctor info
         orderBy: { name: 'asc' },
       });
     } else if (session.user.role === 'DOCTOR') {
       const doctorProfile = await prisma.doctor.findUnique({
         where: { userId: session.user.id },
-        include: { rooms: true },
       });
-      rooms = doctorProfile?.rooms || [];
+      if (!doctorProfile) return NextResponse.json({ error: 'Doctor profile not found' }, { status: 404 });
+
+      rooms = await prisma.room.findMany({
+        where: { doctorId: doctorProfile.id },
+        include: { doctor: { select: { id: true, name: true } } }, // Include doctor info
+        orderBy: { name: 'asc' },
+      });
     } else {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
     return NextResponse.json(rooms);
-  } catch (error) {
-    console.error('Error fetching rooms:', error);
+  } catch (err) {
+    console.error('Error fetching rooms:', err);
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
   }
 }
 
-// POST a new room (Doctor only)
+// POST a new room (Doctor creates for self, Admin creates for specified doctor)
 export async function POST(request: Request) {
   const session = await getServerSession(authOptions);
-
-  if (!session || session.user.role !== 'DOCTOR') {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
+  if (!session) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
   try {
-    const { name, bedCount } = await request.json();
+    const { name, bedCount, doctorId: requestDoctorId } = await request.json();
 
     if (!name || bedCount === undefined || bedCount < 1) {
       return NextResponse.json({ error: 'Missing required fields or invalid bedCount' }, { status: 400 });
     }
 
-    const doctorProfile = await prisma.doctor.findUnique({
-      where: { userId: session.user.id },
-    });
+    let targetDoctorId: string;
 
-    if (!doctorProfile) {
-      return NextResponse.json({ error: 'Doctor profile not found' }, { status: 404 });
+    if (session.user.role === 'DOCTOR') {
+      const doctorProfile = await prisma.doctor.findUnique({
+        where: { userId: session.user.id },
+      });
+      if (!doctorProfile) return NextResponse.json({ error: 'Doctor profile not found' }, { status: 404 });
+      targetDoctorId = doctorProfile.id;
+      // If doctor tries to specify a different doctorId, forbid it
+      if (requestDoctorId && requestDoctorId !== targetDoctorId) {
+        return NextResponse.json({ error: 'Forbidden: Doctors can only create rooms for themselves.' }, { status: 403 });
+      }
+    } else if (session.user.role === 'ADMIN') {
+      if (!requestDoctorId) {
+        return NextResponse.json({ error: 'Admin must specify doctorId for the room.' }, { status: 400 });
+      }
+      const doctorExists = await prisma.doctor.findUnique({ where: { id: requestDoctorId } });
+      if (!doctorExists) {
+        return NextResponse.json({ error: 'Specified doctor not found.' }, { status: 404 });
+      }
+      targetDoctorId = requestDoctorId;
+    } else {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
     const newRoom = await prisma.room.create({
       data: {
         name,
         bedCount: Number(bedCount),
-        doctors: {
-          connect: { id: doctorProfile.id },
-        },
+        doctorId: targetDoctorId,
       },
+      include: { doctor: { select: { id: true, name: true } } },
     });
 
-    await createAuditLog(session, 'CREATE_ROOM', 'Room', newRoom.id, { name, bedCount, doctorId: doctorProfile.id });
+    await createAuditLog(session, 'CREATE_ROOM', 'Room', newRoom.id, { name, bedCount, doctorId: targetDoctorId });
     return NextResponse.json(newRoom, { status: 201 });
 
-  } catch (error) {
-    console.error('Error creating room:', error);
+  } catch (err) {
+    console.error('Error creating room:', err);
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
   }
 }
@@ -92,39 +113,55 @@ export async function PUT(request: Request) {
   }
 
   try {
-    const { name, bedCount } = await request.json();
-    if (!name && bedCount === undefined) {
+    const { name, bedCount, doctorId: newDoctorId } = await request.json();
+    if (!name && bedCount === undefined && newDoctorId === undefined) {
       return NextResponse.json({ error: 'No update data provided' }, { status: 400 });
     }
 
-    const existingRoom = await prisma.room.findUnique({ where: { id: roomId }, include: { doctors: true } });
+    const existingRoom = await prisma.room.findUnique({ where: { id: roomId } });
     if (!existingRoom) {
       return NextResponse.json({ error: 'Room not found' }, { status: 404 });
     }
 
-    // Authorization
+    // Authorization and data preparation
+    const updateData: { name?: string; bedCount?: number; doctorId?: string } = {};
+
     if (session.user.role === 'DOCTOR') {
       const doctorProfile = await prisma.doctor.findUnique({ where: { userId: session.user.id } });
-      if (!doctorProfile || !existingRoom.doctors.some(d => d.id === doctorProfile.id)) {
+      if (!doctorProfile || existingRoom.doctorId !== doctorProfile.id) {
         return NextResponse.json({ error: 'Forbidden: You can only update your own rooms.' }, { status: 403 });
       }
-    } else if (session.user.role !== 'ADMIN') {
+      // Doctors can only update name and bedCount, not change owner
+      if (name) updateData.name = name;
+      if (bedCount !== undefined) updateData.bedCount = Number(bedCount);
+      if (newDoctorId !== undefined && newDoctorId !== existingRoom.doctorId) {
+        return NextResponse.json({ error: 'Forbidden: Doctors cannot change room ownership.' }, { status: 403 });
+      }
+    } else if (session.user.role === 'ADMIN') {
+      if (name) updateData.name = name;
+      if (bedCount !== undefined) updateData.bedCount = Number(bedCount);
+      if (newDoctorId !== undefined) {
+        const doctorExists = await prisma.doctor.findUnique({ where: { id: newDoctorId } });
+        if (!doctorExists) {
+          return NextResponse.json({ error: 'Specified new doctor owner not found.' }, { status: 404 });
+        }
+        updateData.doctorId = newDoctorId;
+      }
+    } else {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
     const updatedRoom = await prisma.room.update({
       where: { id: roomId },
-      data: {
-        name: name || existingRoom.name,
-        bedCount: bedCount !== undefined ? Number(bedCount) : existingRoom.bedCount,
-      },
+      data: updateData,
+      include: { doctor: { select: { id: true, name: true } } },
     });
 
     await createAuditLog(session, 'UPDATE_ROOM', 'Room', updatedRoom.id, { old: existingRoom, new: updatedRoom });
     return NextResponse.json(updatedRoom);
 
-  } catch (error) {
-    console.error(`Error updating room ${roomId}:`, error);
+  } catch (err) {
+    console.error(`Error updating room ${roomId}:`, err);
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
   }
 }
@@ -144,7 +181,7 @@ export async function DELETE(request: Request) {
   }
 
   try {
-    const existingRoom = await prisma.room.findUnique({ where: { id: roomId }, include: { doctors: true } });
+    const existingRoom = await prisma.room.findUnique({ where: { id: roomId } });
     if (!existingRoom) {
       return NextResponse.json({ error: 'Room not found' }, { status: 404 });
     }
@@ -152,15 +189,12 @@ export async function DELETE(request: Request) {
     // Authorization
     if (session.user.role === 'DOCTOR') {
       const doctorProfile = await prisma.doctor.findUnique({ where: { userId: session.user.id } });
-      if (!doctorProfile || !existingRoom.doctors.some(d => d.id === doctorProfile.id)) {
+      if (!doctorProfile || existingRoom.doctorId !== doctorProfile.id) {
         return NextResponse.json({ error: 'Forbidden: You can only delete your own rooms.' }, { status: 403 });
       }
     } else if (session.user.role !== 'ADMIN') {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
-
-    // Note: Add logic here to handle existing schedules or appointments in this room if necessary
-    // For now, we will just delete it.
 
     await prisma.room.delete({
       where: { id: roomId },
@@ -169,9 +203,8 @@ export async function DELETE(request: Request) {
     await createAuditLog(session, 'DELETE_ROOM', 'Room', roomId, { name: existingRoom.name });
     return NextResponse.json({ message: 'Room deleted successfully' }, { status: 200 });
 
-  } catch (error) {
-    console.error(`Error deleting room ${roomId}:`, error);
+  } catch (err) {
+    console.error(`Error deleting room ${roomId}:`, err);
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
   }
 }
-

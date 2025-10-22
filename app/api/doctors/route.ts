@@ -7,7 +7,7 @@ import bcrypt from 'bcrypt';
 const prisma = new PrismaClient();
 
 // GET all doctors
-export async function GET(request: Request) {
+export async function GET() {
   const session = await getServerSession(authOptions);
   if (!session || session.user.role !== 'ADMIN') {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
@@ -25,7 +25,8 @@ export async function GET(request: Request) {
       },
     });
     return NextResponse.json(doctors);
-  } catch (error) {
+  } catch (err) {
+    console.error('Error fetching doctors:', err);
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
   }
 }
@@ -73,7 +74,8 @@ export async function POST(request: Request) {
     });
 
     return NextResponse.json(newDoctor, { status: 201 });
-  } catch (error) {
+  } catch (err) {
+    console.error('Error creating doctor:', err);
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
   }
 }
@@ -93,7 +95,6 @@ export async function PUT(request: Request) {
 
   try {
     const { name, password } = await request.json();
-    let dataToUpdate: any = {};
 
     if (name) {
       // Update doctor's name
@@ -120,7 +121,8 @@ export async function PUT(request: Request) {
 
     return NextResponse.json({ error: 'No update data provided' }, { status: 400 });
 
-  } catch (error) {
+  } catch (err) {
+    console.error('Error updating doctor:', err);
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
   }
 }
@@ -151,7 +153,8 @@ export async function DELETE(request: Request) {
     });
 
     return NextResponse.json({ message: 'Doctor deleted successfully' }, { status: 200 });
-  } catch (error) {
+  } catch (err) {
+    console.error('Error deleting doctor:', err);
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
   }
 }

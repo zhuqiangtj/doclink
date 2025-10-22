@@ -1,5 +1,5 @@
 // This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
+// learn more about it in the docs: https://pris.lyd/prisma-schema
 
 generator client {
   provider = "prisma-client-js"
@@ -76,7 +76,9 @@ model Room {
   id           String        @id @default(cuid())
   name         String
   bedCount     Int
-  doctors      Doctor[]      @relation("DoctorToRoom")
+  // New: One-to-many relationship with Doctor
+  doctor       Doctor        @relation(fields: [doctorId], references: [id])
+  doctorId     String        // Foreign key to Doctor
   schedules    Schedule[]
   appointments Appointment[]
 }
@@ -86,7 +88,7 @@ model Doctor {
   name         String
   user         User          @relation(fields: [userId], references: [id])
   userId       String        @unique
-  rooms        Room[]        @relation("DoctorToRoom")
+  rooms        Room[]        // This will now be the "many" side of the one-to-many
   schedules    Schedule[]
   appointments Appointment[]
 }

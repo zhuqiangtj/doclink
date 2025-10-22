@@ -1,12 +1,12 @@
 import { PrismaClient } from '@prisma/client';
-import { NextResponse } from 'next/server';
+import { NextResponse, NextRequest } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '../../../auth/[...nextauth]/route';
-import { createAuditLog } from '../../../../lib/audit'; // Import from shared utility
+import { createAuditLog } from '@/lib/audit'; // Import from shared utility
 
 const prisma = new PrismaClient();
 
-export async function POST(request: Request, { params }: { params: { id: string } }) {
+export async function POST(request: NextRequest, { params }: { params: { id: string } }) {
   const session = await getServerSession(authOptions);
   if (!session || session.user.role !== 'DOCTOR') {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });

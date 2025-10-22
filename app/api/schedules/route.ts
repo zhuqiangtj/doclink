@@ -2,12 +2,12 @@ import { PrismaClient } from '@prisma/client';
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '../auth/[...nextauth]/route';
-import { createAuditLog } from '../../../lib/audit'; // Import from shared utility
+import { createAuditLog } from '@/lib/audit'; // Import from shared utility
 
 const prisma = new PrismaClient();
 
 // GET schedules for the logged-in doctor
-export async function GET(request: Request) {
+export async function GET() {
   const session = await getServerSession(authOptions);
 
   if (!session || session.user.role !== 'DOCTOR') {

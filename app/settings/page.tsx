@@ -23,9 +23,9 @@ export default function SettingsPage() {
     if (status === 'authenticated') {
       // Assuming name and phone are on the user's profile object
       // This part will need adjustment based on the actual API response
-      // @ts-ignore
+      // @ts-expect-error: session.user might not have 'name' or 'phone' directly, as they are on profile objects
       setName(session.user.name || '');
-      // @ts-ignore
+      // @ts-expect-error: session.user might not have 'name' or 'phone' directly, as they are on profile objects
       setPhone(session.user.phone || '');
     }
   }, [status, session]);

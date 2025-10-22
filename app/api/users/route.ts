@@ -3,12 +3,12 @@ import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '../auth/[...nextauth]/route';
 import bcrypt from 'bcrypt';
-import { createAuditLog } from '../../../lib/audit'; // Import from shared utility
+import { createAuditLog } from '@/lib/audit'; // Import from shared utility
 
 const prisma = new PrismaClient();
 
 // GET all users (Admin only)
-export async function GET(request: Request) {
+export async function GET() {
   const session = await getServerSession(authOptions);
   if (!session || session.user.role !== 'ADMIN') {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });

@@ -2,7 +2,7 @@ import { PrismaClient } from '@prisma/client';
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '../auth/[...nextauth]/route';
-import { createAuditLog } from '../../../lib/audit'; // Import from shared utility
+import { createAuditLog } from '@/lib/audit'; // Import from shared utility
 
 const prisma = new PrismaClient();
 
@@ -13,18 +13,14 @@ interface TimeSlot {
 }
 
 // GET appointments (for doctors or patients)
-export async function GET(request: Request) {
+export async function GET() {
   const session = await getServerSession(authOptions);
   if (!session) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
   }
 
-  const { searchParams } = new URL(request.url);
-  const doctorId = searchParams.get('doctorId');
-  const patientId = searchParams.get('patientId');
-
   try {
-    let whereClause: any = {};
+    const whereClause: { doctorId?: string; patientId?: string } = {};
 
     if (session.user.role === 'DOCTOR') {
       const userProfile = await prisma.user.findUnique({ where: { id: session.user.id }, include: { doctorProfile: true } });
@@ -101,6 +97,7 @@ export async function POST(request: Request) {
 
       await tx.schedule.update({
         where: { id: scheduleId },
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         data: { timeSlots: timeSlots as any },
       });
 
@@ -136,7 +133,7 @@ export async function DELETE(request: Request) {
   }
 
   try {
-    const result = await prisma.$transaction(async (tx) => {
+    await prisma.$transaction(async (tx) => {
       const appointment = await tx.appointment.findUnique({ where: { id: appointmentId } });
       if (!appointment) throw new Error('Appointment not found.');
 
@@ -163,6 +160,7 @@ export async function DELETE(request: Request) {
         targetSlot.booked -= 1;
         await tx.schedule.update({
           where: { id: appointment.scheduleId },
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           data: { timeSlots: timeSlots as any },
         });
       }

@@ -9,6 +9,8 @@ interface Room {
   id: string;
   name: string;
   bedCount: number;
+  doctorId: string;
+  doctor: { id: string; name: string };
 }
 
 interface DoctorProfile {
@@ -74,7 +76,7 @@ export default function DoctorRoomsPage() {
         body: JSON.stringify({
           name: newRoomName,
           bedCount: newRoomBedCount,
-          doctorId: doctorProfile.id,
+          doctorId: doctorProfile.id, // Explicitly send doctorId
         }),
       });
       if (!response.ok) throw new Error('Failed to add room.');

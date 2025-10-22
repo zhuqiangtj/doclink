@@ -1,7 +1,7 @@
 import { PrismaClient, Role } from '@prisma/client';
 import { NextResponse } from 'next/server';
 import bcrypt from 'bcrypt';
-import { createAuditLog } from '../../../lib/audit'; // Adjust path as needed
+import { createAuditLog } from '@/lib/audit'; // Adjust path as needed
 
 const prisma = new PrismaClient();
 
@@ -35,6 +35,7 @@ export async function POST(request: Request) {
     await createAuditLog(null, 'REGISTER_PATIENT', 'User', user.id, { email: user.email, role: user.role });
 
     // Don't return the password hash in the response
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { password: _, ...userWithoutPassword } = user;
 
     return NextResponse.json(userWithoutPassword, { status: 201 });

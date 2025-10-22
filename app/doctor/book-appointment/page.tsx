@@ -7,8 +7,23 @@ import { useRouter } from 'next/navigation';
 // --- Interfaces ---
 interface Patient {
   id: string;
+  userId: string; // Add userId for correct booking
   name: string;
-  email: string; // Assuming user email is available on patient profile
+  email: string;
+}
+
+interface ScheduleTimeSlot {
+  time: string;
+  total: number;
+  booked: number;
+}
+
+interface ScheduleApiResponse {
+  id: string;
+  date: string;
+  roomId: string;
+  room: { name: string };
+  timeSlots: ScheduleTimeSlot[];
 }
 
 interface Schedule {
@@ -16,7 +31,7 @@ interface Schedule {
   date: string;
   roomId: string;
   roomName: string;
-  timeSlots: { time: string; total: number; booked: number }[];
+  timeSlots: ScheduleTimeSlot[];
 }
 
 interface DoctorProfile {
@@ -62,8 +77,8 @@ export default function BookAppointmentPage() {
           setDoctorProfile(userData.doctorProfile);
 
           const schedulesRes = await fetch(`/api/schedules`); // Fetches own schedules
-          const schedulesData = await schedulesRes.json();
-          const formattedSchedules = schedulesData.map((s: any) => ({ ...s, roomName: s.room.name }));
+          const schedulesData: ScheduleApiResponse[] = await schedulesRes.json();
+          const formattedSchedules = schedulesData.map(s => ({ ...s, roomName: s.room.name }));
           setSchedules(formattedSchedules);
 
         } catch (err) {
@@ -81,7 +96,7 @@ export default function BookAppointmentPage() {
     if (!patientSearch) return;
     try {
       const res = await fetch(`/api/patients?search=${patientSearch}`);
-      const data = await res.json();
+      const data: Patient[] = await res.json();
       setSearchedPatients(data);
     } catch (err) {
       setError('Failed to search for patients.');

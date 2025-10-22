@@ -8,7 +8,7 @@ interface SessionUser {
   role: Role;
 }
 
-export async function createAuditLog(session: { user: SessionUser } | null, action: string, entityType: string, entityId?: string, details?: any) {
+export async function createAuditLog(session: { user: SessionUser } | null, action: string, entityType: string, entityId?: string, details?: Record<string, unknown>) {
   await prisma.auditLog.create({
     data: {
       userId: session?.user?.id,

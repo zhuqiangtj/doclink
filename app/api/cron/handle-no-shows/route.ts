@@ -1,6 +1,6 @@
 import { PrismaClient } from '@prisma/client';
 import { NextResponse } from 'next/server';
-import { createAuditLog } from '../../../lib/audit'; // Import from shared utility
+import { createAuditLog } from '@/lib/audit'; // Import from shared utility
 
 const prisma = new PrismaClient();
 
