@@ -157,15 +157,15 @@ export default function AdminRoomsPage() {
   };
 
   // --- Render Logic ---
-  if (status === 'loading' || isLoading) return <div className="container mx-auto p-8 text-center">Loading...</div>;
-  if (session?.user.role !== 'ADMIN') return <div className="container mx-auto p-8 text-center text-red-600">{error}</div>;
+  if (status === 'loading' || isLoading) return <div className="container mx-auto p-8 text-center">加载中...</div>;
+  if (session?.user.role !== 'ADMIN') return <div className="container mx-auto p-8 text-center text-red-600">{error || '访问被拒绝：您必须是管理员才能查看此页面。'}</div>;
 
   return (
     <div className="container mx-auto p-4 sm:p-6 md:p-8">
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-bold">Room Management</h1>
+        <h1 className="text-3xl font-bold">诊室管理</h1>
         <button onClick={() => openModal('add')} className="py-2 px-4 bg-indigo-600 text-white rounded-md hover:bg-indigo-700">
-          Add Room
+          添加诊室
         </button>
       </div>
 
@@ -177,15 +177,15 @@ export default function AdminRoomsPage() {
           {rooms.length > 0 ? rooms.map((room) => (
             <li key={room.id} className="p-3 border rounded-md flex justify-between items-center">
               <div>
-                <p className="font-semibold">{room.name} ({room.bedCount} beds)</p>
-                <p className="text-sm text-gray-600">Owner: {room.doctor.name}</p>
+                <p className="font-semibold">{room.name} ({room.bedCount} 床位)</p>
+                <p className="text-sm text-gray-600">所属医生: {room.doctor.name}</p>
               </div>
               <div className="space-x-2">
-                <button onClick={() => openModal('edit', room)} className="text-sm text-blue-600 hover:underline">Edit</button>
-                <button onClick={() => handleDelete(room.id)} className="text-sm text-red-600 hover:underline">Delete</button>
+                <button onClick={() => openModal('edit', room)} className="text-sm text-blue-600 hover:underline">编辑</button>
+                <button onClick={() => handleDelete(room.id)} className="text-sm text-red-600 hover:underline">删除</button>
               </div>
             </li>
-          )) : <p className="text-gray-500">No rooms found.</p>}
+          )) : <p className="text-gray-500">未找到诊室。</p>}
         </ul>
       </div>
 
@@ -193,13 +193,13 @@ export default function AdminRoomsPage() {
       {isModalOpen && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white p-8 rounded-lg shadow-xl w-full max-w-md">
-            <h2 className="text-2xl font-bold mb-4 capitalize">{modalMode === 'add' ? 'Add Room' : 'Edit Room'}</h2>
+            <h2 className="text-2xl font-bold mb-4 capitalize">{modalMode === 'add' ? '添加诊室' : '编辑诊室'}</h2>
             <form onSubmit={handleSubmit} className="space-y-4">
-            <input type="text" value={name} onChange={e => setName(e.target.value)} placeholder="Room Name" className="block w-full min-h-10 py-2 px-4 rounded-md border-gray-300 text-gray-900" required />
-            <input type="number" value={bedCount} onChange={e => setBedCount(parseInt(e.target.value, 10))} placeholder="Bed Count" className="block w-full min-h-10 py-2 px-4 rounded-md border-gray-300 text-gray-900" min="1" required />
+            <input type="text" value={name} onChange={e => setName(e.target.value)} placeholder="诊室名称" className="block w-full min-h-10 py-2 px-4 rounded-md border-gray-300 text-gray-900" required />
+            <input type="number" value={bedCount} onChange={e => setBedCount(parseInt(e.target.value, 10))} placeholder="床位数量" className="block w-full min-h-10 py-2 px-4 rounded-md border-gray-300 text-gray-900" min="1" required />
             
             <div>
-              <label htmlFor="doctor-select" className="block text-sm font-medium">Assign Owner Doctor</label>
+              <label htmlFor="doctor-select" className="block text-sm font-medium">指定所属医生</label>
               <select
                 id="doctor-select"
                 value={selectedDoctorId}
@@ -207,7 +207,7 @@ export default function AdminRoomsPage() {
                 className="mt-1 block w-full min-h-10 py-2 px-4 rounded-md border-gray-300 shadow-sm text-gray-900"
                 required
               >
-                <option value="">-- Select a Doctor --</option>
+                <option value="">-- 选择医生 --</option>
                 {doctors.map(doctor => (
                   <option key={doctor.id} value={doctor.id}>{doctor.name}</option>
                 ))}
@@ -215,8 +215,8 @@ export default function AdminRoomsPage() {
             </div>
 
             <div className="flex justify-end gap-4">
-              <button type="button" onClick={closeModal} className="py-2 px-4 bg-gray-200 rounded-md">Cancel</button>
-              <button type="submit" className="py-2 px-4 bg-indigo-600 text-white rounded-md">Save</button>
+              <button type="button" onClick={closeModal} className="py-2 px-4 bg-gray-200 rounded-md">取消</button>
+              <button type="submit" className="py-2 px-4 bg-indigo-600 text-white rounded-md">保存</button>
             </div>
           </form>
         </div>

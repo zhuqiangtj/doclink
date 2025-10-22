@@ -102,7 +102,7 @@ export default function BookAppointmentPage() {
       const data: Patient[] = await res.json();
       setSearchedPatients(data);
     } catch (err) {
-      setError('Failed to search for patients.');
+      setError('搜索病人失败。');
     }
   };
 
@@ -112,7 +112,7 @@ export default function BookAppointmentPage() {
     setSuccess(null);
 
     if (!selectedPatient || !selectedScheduleId || !selectedTime || !doctorProfile) {
-      setError('Please select a patient, date, and time slot.');
+      setError('请选择病人、日期和时间段。');
       return;
     }
     
@@ -135,10 +135,10 @@ export default function BookAppointmentPage() {
 
       if (!response.ok) {
         const errData = await response.json();
-        throw new Error(errData.error || 'Booking failed.');
+        throw new Error(errData.error || '预约失败。');
       }
       
-      setSuccess(`Appointment successfully booked for ${selectedPatient.name} at ${selectedTime}.`);
+      setSuccess(`成功为${selectedPatient.name}于${selectedTime}预约。`);
       // Reset form
       setPatientSearch('');
       setSearchedPatients([]);
@@ -147,7 +147,7 @@ export default function BookAppointmentPage() {
       setSelectedTime('');
 
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'An unknown error occurred');
+      setError(err instanceof Error ? err.message : '发生未知错误');
     }
   };
 

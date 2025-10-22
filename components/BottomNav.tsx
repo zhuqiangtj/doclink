@@ -27,23 +27,23 @@ export default function BottomNav() {
   // Define navigation items based on user role
   if (role === 'PATIENT') {
     navItems = [
-      { href: '/', label: 'Home', Icon: FaHome },
-      { href: '/my-appointments', label: 'My Appointments', Icon: FaCalendarCheck },
-      { href: '/settings', label: 'Settings', Icon: FaCog },
+      { href: '/', label: '首页', Icon: FaHome },
+      { href: '/my-appointments', label: '我的预约', Icon: FaCalendarCheck },
+      { href: '/settings', label: '设置', Icon: FaCog },
     ];
   } else if (role === 'DOCTOR') {
     navItems = [
-      { href: '/doctor/schedule', label: 'Dashboard', Icon: FaTachometerAlt },
-      { href: '/doctor/book-appointment', label: 'Book for Patient', Icon: FaUserPlus },
-      { href: '/doctor/rooms', label: 'Rooms', Icon: FaHospital },
-      { href: '/settings', label: 'Settings', Icon: FaCog },
+      { href: '/doctor/schedule', label: '工作台', Icon: FaTachometerAlt },
+      { href: '/doctor/book-appointment', label: '为病人预约', Icon: FaUserPlus },
+      { href: '/doctor/rooms', label: '诊室', Icon: FaHospital },
+      { href: '/settings', label: '设置', Icon: FaCog },
     ];
   } else if (role === 'ADMIN') {
     navItems = [
-      { href: '/admin/dashboard', label: 'Dashboard', Icon: FaTachometerAlt },
-      { href: '/admin/users', label: 'Users', Icon: FaUsers },
-      { href: '/admin/audit-log', label: 'Audit Log', Icon: FaClipboardList },
-      { href: '/settings', label: 'Settings', Icon: FaCog },
+      { href: '/admin/dashboard', label: '仪表板', Icon: FaTachometerAlt },
+      { href: '/admin/users', label: '用户', Icon: FaUsers },
+      { href: '/admin/audit-log', label: '审计日志', Icon: FaClipboardList },
+      { href: '/settings', label: '设置', Icon: FaCog },
     ];
   }
 

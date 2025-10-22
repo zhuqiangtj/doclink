@@ -18,7 +18,7 @@ export default function AdminDashboardPage() {
   }, [status, session, router]);
 
   if (status === 'loading') {
-    return <div className="container mx-auto p-8 text-center">Loading...</div>;
+    return <div className="container mx-auto p-8 text-center">加载中...</div>;
   }
 
   if (status === 'authenticated' && session.user.role === 'ADMIN') {

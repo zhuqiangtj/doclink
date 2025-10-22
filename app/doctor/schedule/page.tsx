@@ -64,9 +64,9 @@ export default function DoctorDashboardPage() {
       setIsLoading(true);
       try {
         const userRes = await fetch(`/api/user/${session.user.id}`);
-        if (!userRes.ok) throw new Error('Failed to fetch doctor profile.');
+        if (!userRes.ok) throw new Error('获取医生资料失败。');
         const userData = await userRes.json();
-        if (!userData.doctorProfile) throw new Error('Doctor profile not found.');
+        if (!userData.doctorProfile) throw new Error('未找到医生资料。');
         setDoctorProfile(userData.doctorProfile);
         
         const doctorId = userData.doctorProfile.id;
@@ -74,12 +74,12 @@ export default function DoctorDashboardPage() {
           fetch(`/api/schedules?doctorId=${doctorId}`),
           fetch(`/api/appointments?doctorId=${doctorId}`)
         ]);
-        if (!schedulesRes.ok) throw new Error('Failed to fetch schedules.');
-        if (!appointmentsRes.ok) throw new Error('Failed to fetch appointments.');
+        if (!schedulesRes.ok) throw new Error('获取排班失败。');
+        if (!appointmentsRes.ok) throw new Error('获取预约失败。');
         setSchedules(await schedulesRes.json());
         setAppointments(await appointmentsRes.json());
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'An unknown error occurred');
+        setError(err instanceof Error ? err.message : '发生未知错误');
       } finally {
         setIsLoading(false);
       }
@@ -91,7 +91,7 @@ export default function DoctorDashboardPage() {
   const handleCreateSchedule = async (e: FormEvent) => {
     e.preventDefault();
     if (!scheduleDate || !scheduleRoomId || !doctorProfile) {
-      setError('Please select a date and a room.');
+      setError('请选择日期和诊室。');
       return;
     }
     setError(null);
@@ -117,32 +117,32 @@ export default function DoctorDashboardPage() {
           timeSlots,
         }),
       });
-      if (!response.ok) throw new Error('Failed to create schedule.');
+      if (!response.ok) throw new Error('创建排班失败。');
       
       const newSchedule = await response.json();
       setSchedules(prev => [...prev, { ...newSchedule, room }]);
-      setSuccess('Schedule created successfully!');
+      setSuccess('排班创建成功！');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'An unknown error occurred');
+      setError(err instanceof Error ? err.message : '发生未知错误');
     }
   };
 
   const handleCancelAppointment = async (appointmentId: string) => {
     setError(null);
     setSuccess(null);
-    if (window.confirm('Are you sure you want to cancel this appointment?')) {
+    if (window.confirm('您确定要取消此预约吗？')) {
       try {
         const response = await fetch(`/api/appointments?appointmentId=${appointmentId}`, {
           method: 'DELETE',
         });
         if (!response.ok) {
           const errData = await response.json();
-          throw new Error(errData.error || 'Failed to cancel appointment.');
+          throw new Error(errData.error || '取消预约失败。');
         }
         setAppointments(prev => prev.filter(apt => apt.id !== appointmentId));
-        setSuccess('Appointment cancelled successfully.');
+        setSuccess('预约取消成功。');
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'An unknown error occurred');
+        setError(err instanceof Error ? err.message : '发生未知错误');
       }
     }
   };
@@ -158,20 +158,20 @@ export default function DoctorDashboardPage() {
       });
       if (!response.ok) {
         const errData = await response.json();
-        throw new Error(errData.error || 'Action failed.');
+        throw new Error(errData.error || '操作失败。');
       }
       const updatedAppointment = await response.json();
       setAppointments(prev => prev.map(apt => apt.id === appointmentId ? updatedAppointment : apt));
-      setSuccess(`Check-in ${action.toLowerCase()}ed successfully.`);
+      setSuccess(`签到${action === 'CONFIRM' ? '确认' : '拒绝'}成功。`);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'An unknown error occurred');
+      setError(err instanceof Error ? err.message : '发生未知错误');
     }
   };
 
   const handleCompleteAppointment = async (appointmentId: string) => {
     const bedId = bedAssignments[appointmentId];
     if (!bedId || isNaN(parseInt(bedId))) {
-      setError('Please enter a valid bed number.');
+      setError('请输入有效的床位号。');
       return;
     }
     setError(null);
@@ -183,12 +183,12 @@ export default function DoctorDashboardPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ bedId: parseInt(bedId) }),
       });
-      if (!response.ok) throw new Error('Failed to complete appointment.');
+      if (!response.ok) throw new Error('完成就诊失败。');
       const updatedAppointment = await response.json();
       setAppointments(prev => prev.map(apt => apt.id === appointmentId ? updatedAppointment : apt));
-      setSuccess('Appointment marked as complete.');
+      setSuccess('预约已标记为完成。');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'An unknown error occurred');
+      setError(err instanceof Error ? err.message : '发生未知错误');
     }
   };
 

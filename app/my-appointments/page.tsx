@@ -62,11 +62,11 @@ export default function MyAppointmentsPage() {
       setIsLoading(true);
       try {
         const res = await fetch('/api/appointments');
-        if (!res.ok) throw new Error('Failed to fetch appointments.');
+        if (!res.ok) throw new Error('获取预约失败。');
         const data = await res.json();
         setAppointments(data);
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'An unknown error occurred');
+        setError(err instanceof Error ? err.message : '发生未知错误');
       } finally {
         setIsLoading(false);
       }
@@ -85,15 +85,15 @@ export default function MyAppointmentsPage() {
       });
       if (!response.ok) {
         const errData = await response.json();
-        throw new Error(errData.error || 'Check-in failed.');
+        throw new Error(errData.error || '签到失败。');
       }
-      setSuccess('Successfully checked in! The doctor has been notified.');
+      setSuccess('签到成功！医生已收到通知。');
       // Update the status locally
       setAppointments(prev => 
         prev.map(apt => apt.id === appointmentId ? { ...apt, status: 'CHECKED_IN' } : apt)
       );
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'An unknown error occurred');
+      setError(err instanceof Error ? err.message : '发生未知错误');
     }
   };
 

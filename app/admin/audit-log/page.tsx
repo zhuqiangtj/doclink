@@ -30,7 +30,7 @@ export default function AdminAuditLogPage() {
   useEffect(() => {
     if (status === 'unauthenticated') router.push('/auth/signin');
     if (status === 'authenticated' && session.user.role !== 'ADMIN') {
-      setError('Access Denied: You must be an admin to view this page.');
+      setError('访问被拒绝：您必须是管理员才能查看此页面。');
     }
   }, [status, session, router]);
 
@@ -42,11 +42,11 @@ export default function AdminAuditLogPage() {
       setIsLoading(true);
       try {
         const res = await fetch('/api/audit-log');
-        if (!res.ok) throw new Error('Failed to fetch audit logs.');
+        if (!res.ok) throw new Error('获取审计日志失败。');
         const data = await res.json();
         setLogs(data);
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'An unknown error occurred');
+        setError(err instanceof Error ? err.message : '发生未知错误');
       } finally {
         setIsLoading(false);
       }
@@ -54,30 +54,30 @@ export default function AdminAuditLogPage() {
     fetchLogs();
   }, [status, session]);
 
-  if (status === 'loading' || isLoading) return <div className="container mx-auto p-8 text-center">Loading...</div>;
+  if (status === 'loading' || isLoading) return <div className="container mx-auto p-8 text-center">加载中...</div>;
   if (session?.user.role !== 'ADMIN') return <div className="container mx-auto p-8 text-center text-red-600">{error}</div>;
 
   return (
     <div className="container mx-auto p-4 sm:p-6 md:p-8">
-      <h1 className="text-3xl font-bold mb-6">Audit Log</h1>
+      <h1 className="text-3xl font-bold mb-6">审计日志</h1>
       {error && <div className="p-3 mb-4 text-sm text-red-700 bg-red-100 rounded-md">{error}</div>}
 
       <div className="bg-white p-4 border rounded-lg shadow-md">
         <div className="space-y-4">
           {logs.length > 0 ? logs.map(log => (
             <div key={log.id} className="p-3 border rounded-md bg-gray-50 text-sm">
-              <p className="font-semibold">Action: {log.action} on {log.entityType} {log.entityId ? `(ID: ${log.entityId})` : ''}</p>
-              <p className="text-gray-600">By: {log.userEmail} ({log.userRole}) at {new Date(log.timestamp).toLocaleString()}</p>
+              <p className="font-semibold">操作: {log.action} 于 {log.entityType} {log.entityId ? `(ID: ${log.entityId})` : ''}</p>
+              <p className="text-gray-600">执行者: {log.userEmail} ({log.userRole}) 于 {new Date(log.timestamp).toLocaleString()}</p>
               {log.details && (
                 <details className="mt-1">
-                  <summary className="cursor-pointer text-xs text-gray-500">Details</summary>
+                  <summary className="cursor-pointer text-xs text-gray-500">详情</summary>
                   <pre className="bg-gray-100 p-2 rounded-md mt-1 overflow-x-auto text-xs">
                     {JSON.stringify(log.details, null, 2)}
                   </pre>
                 </details>
               )}
             </div>
-          )) : <p className="text-gray-500">No audit logs found.</p>}
+          )) : <p className="text-gray-500">未找到审计日志。</p>}
         </div>
       </div>
     </div>

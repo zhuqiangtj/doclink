@@ -26,17 +26,17 @@ export default function RegisterPage() {
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error || 'Something went wrong');
+        throw new Error(data.error || '发生错误');
       }
 
-      setSuccess('Account created successfully! You can now sign in.');
+      setSuccess('账户创建成功！您现在可以登录。');
       // Optional: redirect to sign-in page after a delay
       setTimeout(() => {
         router.push('/auth/signin');
       }, 2000);
 
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'An unknown error occurred');
+      setError(err instanceof Error ? err.message : '发生未知错误');
     }
   };
 

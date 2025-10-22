@@ -22,7 +22,7 @@ export default function SignInPage() {
       });
 
       if (result?.error) {
-        setError('Invalid username or password. Please try again.');
+        setError('用户名或密码无效，请重试。');
       } else if (result?.ok) {
         const session = await getSession(); // Get the updated session
         if (session?.user?.role === 'ADMIN') {
@@ -34,7 +34,7 @@ export default function SignInPage() {
         }
       }
     } catch (err) {
-      setError('An unexpected error occurred. Please try again later.');
+      setError('发生未知错误，请稍后重试。');
     }
   };
 

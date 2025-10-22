@@ -17,7 +17,7 @@ export async function GET() {
     let rooms;
     if (session.user.role === 'ADMIN') {
       rooms = await prisma.room.findMany({
-        include: { doctor: { select: { id: true, name: true } } }, // Include doctor info
+        include: { doctor: { include: { user: { select: { id: true, name: true } } } } }, // Corrected include
         orderBy: { name: 'asc' },
       });
     } else if (session.user.role === 'DOCTOR') {
@@ -28,7 +28,7 @@ export async function GET() {
 
       rooms = await prisma.room.findMany({
         where: { doctorId: doctorProfile.id },
-        include: { doctor: { select: { id: true, name: true } } }, // Include doctor info
+        include: { doctor: { include: { user: { select: { id: true, name: true } } } } }, // Corrected include
         orderBy: { name: 'asc' },
       });
     } else {
@@ -87,7 +87,7 @@ export async function POST(request: Request) {
         bedCount: Number(bedCount),
         doctorId: targetDoctorId,
       },
-      include: { doctor: { select: { id: true, name: true } } },
+      include: { doctor: { include: { user: { select: { id: true, name: true } } } } }, // Corrected include
     });
 
     await createAuditLog(session, 'CREATE_ROOM', 'Room', newRoom.id, { name, bedCount, doctorId: targetDoctorId });
@@ -154,7 +154,7 @@ export async function PUT(request: Request) {
     const updatedRoom = await prisma.room.update({
       where: { id: roomId },
       data: updateData,
-      include: { doctor: { select: { id: true, name: true } } },
+      include: { doctor: { include: { user: { select: { id: true, name: true } } } } }, // Corrected include
     });
 
     await createAuditLog(session, 'UPDATE_ROOM', 'Room', updatedRoom.id, { old: existingRoom, new: updatedRoom });

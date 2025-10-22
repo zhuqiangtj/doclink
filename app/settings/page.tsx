@@ -42,18 +42,18 @@ export default function SettingsPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username, name, phone, dateOfBirth, gender }),
       });
-      if (!response.ok) throw new Error('Failed to update profile.');
-      setSuccess('Profile updated successfully!');
+      if (!response.ok) throw new Error('更新个人资料失败。');
+      setSuccess('个人资料更新成功！');
       // Update session if needed
       await update();
-    } catch (err) { setError(err instanceof Error ? err.message : 'Update failed'); }
+    } catch (err) { setError(err instanceof Error ? err.message : '更新失败'); }
   };
 
   const handlePasswordSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setError(null);
     setSuccess(null);
-    if (newPassword !== confirmPassword) return setError('Passwords do not match.');
+    if (newPassword !== confirmPassword) return setError('新密码不匹配。');
     try {
       const response = await fetch('/api/account/change-password', {
         method: 'POST',
@@ -62,17 +62,17 @@ export default function SettingsPage() {
       });
       if (!response.ok) {
         const data = await response.json();
-        throw new Error(data.error || 'Update failed.');
+        throw new Error(data.error || '更新失败。');
       }
-      setSuccess('Password updated successfully!');
+      setSuccess('密码更新成功！');
       setCurrentPassword('');
       setNewPassword('');
       setConfirmPassword('');
-    } catch (err) { setError(err instanceof Error ? err.message : 'Update failed'); }
+    } catch (err) { setError(err instanceof Error ? err.message : '更新失败'); }
   };
 
-  if (status === 'loading') return <div className="container mx-auto p-8 text-center">Loading...</div>;
-  if (status === 'unauthenticated') return <div className="container mx-auto p-8 text-center">Access Denied.</div>;
+  if (status === 'loading') return <div className="container mx-auto p-8 text-center">加载中...</div>;
+  if (status === 'unauthenticated') return <div className="container mx-auto p-8 text-center">访问被拒绝。</div>;
 
   return (
     <div className="container mx-auto max-w-xl p-4">
