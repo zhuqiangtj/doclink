@@ -152,26 +152,26 @@ export default function BookAppointmentPage() {
   };
 
   // --- Render Logic ---
-  if (isLoading || status === 'loading') return <div className="container mx-auto p-8 text-center">Loading...</div>;
+  if (isLoading || status === 'loading') return <div className="container mx-auto p-8 text-center">加载中...</div>;
   if (error) return <div className="container mx-auto p-8 text-center text-red-600">{error}</div>;
 
   return (
     <div className="container mx-auto p-4 sm:p-6 md:p-8">
-      <h1 className="text-3xl font-bold mb-6">Book Appointment for a Patient</h1>
+      <h1 className="text-3xl font-bold mb-6">为病人预约</h1>
       <form onSubmit={handleSubmit} className="max-w-xl mx-auto bg-white p-8 rounded-lg shadow-md space-y-6">
         
         {/* Patient Selection */}
         <div>
-          <h2 className="text-xl font-semibold mb-2">1. Find Patient</h2>
+          <h2 className="text-xl font-semibold mb-2">1. 查找病人</h2>
           <div className="flex gap-2">
             <input
               type="text"
               value={patientSearch}
               onChange={(e) => setPatientSearch(e.target.value)}
-              placeholder="Search by username or name..."
+              placeholder="按用户名或姓名搜索..."
               className="flex-grow block w-full min-h-10 py-2 px-4 rounded-md border-gray-300 shadow-sm text-gray-900"
             />
-            <button type="button" onClick={handlePatientSearch} className="py-2 px-4 bg-blue-600 text-white rounded-md hover:bg-blue-700">Search</button>
+            <button type="button" onClick={handlePatientSearch} className="py-2 px-4 bg-blue-600 text-white rounded-md hover:bg-blue-700">搜索</button>
           </div>
           {searchedPatients.length > 0 && (
             <ul className="mt-2 border rounded-md max-h-40 overflow-y-auto">
@@ -182,23 +182,23 @@ export default function BookAppointmentPage() {
               ))}
             </ul>
           )}
-          {selectedPatient && <p className="mt-2 text-green-600 text-gray-900">Selected: {selectedPatient.name} ({selectedPatient.username})</p>}
+          {selectedPatient && <p className="mt-2 text-green-600 text-gray-900">已选择：{selectedPatient.name} ({selectedPatient.username})</p>}
         </div>
 
         {/* Schedule Selection */}
         <div>
-          <h2 className="text-xl font-semibold mb-2">2. Select Appointment Slot</h2>
+          <h2 className="text-xl font-semibold mb-2">2. 选择预约时段</h2>
           <div className="space-y-4">
             <div>
-              <label htmlFor="schedule" className="block text-sm font-medium">Date & Room</label>
+              <label htmlFor="schedule" className="block text-sm font-medium">日期与诊室</label>
               <select id="schedule" value={selectedScheduleId} onChange={e => { setSelectedScheduleId(e.target.value); setSelectedTime(''); }} className="mt-1 block w-full min-h-10 py-2 px-4 rounded-md border-gray-300 shadow-sm text-gray-900" required>
-                <option value="">-- Select a schedule --</option>
+                <option value="">-- 选择排班 --</option>
                 {schedules.map(s => <option key={s.id} value={s.id}>{s.date} ({s.roomName})</option>)}
               </select>
             </div>
             {selectedScheduleId && (
               <div>
-                <label className="block text-sm font-medium">Time Slot</label>
+                <label className="block text-sm font-medium">时间段</label>
                 <div className="grid grid-cols-4 gap-2 mt-1">
                   {schedules.find(s => s.id === selectedScheduleId)?.timeSlots.map(slot => (
                     <button
@@ -219,7 +219,7 @@ export default function BookAppointmentPage() {
 
         {/* Submission */}
         <button type="submit" className="w-full py-3 px-4 bg-green-600 text-white font-semibold rounded-md shadow-md hover:bg-green-700" disabled={!selectedPatient || !selectedTime}>
-          Confirm Booking
+          确认预约
         </button>
 
         {success && <p className="mt-4 text-green-700 text-center">{success}</p>}

@@ -99,12 +99,12 @@ export default function MyAppointmentsPage() {
 
   // --- Render Logic ---
   if (status === 'loading' || isLoading) {
-    return <div className="container mx-auto p-8 text-center">Loading appointments...</div>;
+    return <div className="container mx-auto p-8 text-center">正在加载预约...</div>;
   }
 
   return (
     <div className="container mx-auto p-4 sm:p-6 md:p-8">
-      <h1 className="text-3xl font-bold mb-6">My Appointments</h1>
+      <h1 className="text-3xl font-bold mb-6">我的预约</h1>
       {error && <div className="p-3 mb-4 text-sm text-red-700 bg-red-100 rounded-md">{error}</div>}
       {success && <div className="p-3 mb-4 text-sm text-green-700 bg-green-100 rounded-md">{success}</div>}
 
@@ -112,12 +112,12 @@ export default function MyAppointmentsPage() {
         {appointments.length > 0 ? appointments.map(apt => (
           <div key={apt.id} className="bg-white p-4 border rounded-lg shadow-sm flex justify-between items-center">
             <div>
-              <p className="font-bold text-lg">Dr. {apt.doctor.name}</p>
-              <p className="text-gray-700">Date: {new Date(apt.date).toLocaleDateString()}</p>
-              <p className="text-gray-600">Time: {apt.time} in {apt.room.name}</p>
-              <p className="text-sm font-medium uppercase mt-2">Status: <span className={`px-2 py-1 rounded-full text-xs ${statusColors[apt.status] || 'bg-gray-200'}`}>{apt.status.replace('_',' ')}</span></p>
+              <p className="font-bold text-lg">医生 {apt.doctor.name}</p>
+              <p className="text-gray-700">日期：{new Date(apt.date).toLocaleDateString()}</p>
+              <p className="text-gray-600">时间：{apt.time} 在 {apt.room.name}</p>
+              <p className="text-sm font-medium uppercase mt-2">状态：<span className={`px-2 py-1 rounded-full text-xs ${statusColors[apt.status] || 'bg-gray-200'}`}>{apt.status.replace('_',' ')}</span></p>
               {apt.status === 'COMPLETED' && apt.bedId > 0 && (
-                <p className="text-sm font-semibold text-green-700 mt-1">Finished at Bed #{apt.bedId}</p>
+                <p className="text-sm font-semibold text-green-700 mt-1">就诊完成，床位号：#{apt.bedId}</p>
               )}
             </div>
             <div>
@@ -126,16 +126,16 @@ export default function MyAppointmentsPage() {
                   onClick={() => handleCheckIn(apt.id)}
                   className="py-2 px-4 bg-blue-600 text-white rounded-md hover:bg-blue-700"
                 >
-                  Check-In
+                  签到
                 </button>
               )}
                {apt.status === 'CHECKED_IN' && (
-                <span className="text-sm text-gray-500">Waiting for confirmation...</span>
+                <span className="text-sm text-gray-500">等待医生确认...</span>
               )}
             </div>
           </div>
         )) : (
-          <p>You have no appointments.</p>
+          <p>您没有预约。</p>
         )}
       </div>
     </div>

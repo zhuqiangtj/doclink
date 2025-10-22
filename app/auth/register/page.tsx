@@ -43,11 +43,11 @@ export default function RegisterPage() {
   return (
     <div className="flex items-center justify-center min-h-screen bg-gray-100">
       <div className="w-full max-w-md p-8 space-y-6 bg-white rounded-lg shadow-md">
-        <h1 className="text-2xl font-bold text-center text-gray-900">Create an Account</h1>
+        <h1 className="text-2xl font-bold text-center text-gray-900">创建账户</h1>
         <form onSubmit={handleSubmit} className="space-y-6">
           <div>
             <label htmlFor="username" className="block text-sm font-medium text-gray-700">
-              Username
+              用户名
             </label>
             <input
               id="username"
@@ -62,7 +62,7 @@ export default function RegisterPage() {
           </div>
           <div>
             <label htmlFor="email" className="block text-sm font-medium text-gray-700">
-              Email Address
+              电子邮箱
             </label>
             <input
               id="email"
@@ -77,7 +77,7 @@ export default function RegisterPage() {
           </div>
           <div>
             <label htmlFor="password" className="block text-sm font-medium text-gray-700">
-              Password
+              密码
             </label>
             <input
               id="password"
@@ -105,7 +105,7 @@ export default function RegisterPage() {
               type="submit"
               className="w-full px-4 py-2 text-sm font-medium text-white bg-green-600 border border-transparent rounded-md shadow-sm hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
             >
-              Register
+              注册
             </button>
           </div>
         </form>
