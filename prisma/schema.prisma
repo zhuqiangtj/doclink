@@ -1,5 +1,5 @@
 // This is your Prisma schema file,
-// learn more about it in the docs: https://pris.lyd/prisma-schema
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
 
 generator client {
   provider = "prisma-client-js"
@@ -19,12 +19,16 @@ enum Role {
 
 model User {
   id            String        @id @default(cuid())
-  username      String?       @unique // New: for username-based login
-  email         String?       @unique
-  password      String?
+  username      String        @unique // Now required
+  name          String        // New: required for all users
+  phone         String?       // New: optional for all users
+  dateOfBirth   DateTime?     // New: optional for all users
+  gender        String?       // New: optional for all users
+  password      String        // Now required
   role          Role          @default(PATIENT)
   
-  // Optional: For OAuth providers
+  // Optional: For OAuth providers (email is now optional/non-unique)
+  email         String?       @unique // Keep unique for now, but not primary login
   emailVerified DateTime?
   image         String?
   accounts      Account[]
@@ -86,7 +90,7 @@ model Room {
 
 model Doctor {
   id           String        @id @default(cuid())
-  name         String
+  // name String is now on User model
   user         User          @relation(fields: [userId], references: [id])
   userId       String        @unique
   rooms        Room[]        // This will now be the "many" side of the one-to-many
@@ -125,8 +129,8 @@ model Appointment {
 
 model Patient {
   id               String        @id @default(cuid())
-  name             String
-  phone            String?       @unique
+  // name String is now on User model
+  // phone String? is now on User model
   credibilityScore Int           @default(15)
   isSuspended      Boolean       @default(false)
   user             User          @relation(fields: [userId], references: [id])
@@ -138,7 +142,7 @@ model AuditLog {
   id          String    @id @default(cuid())
   timestamp   DateTime  @default(now())
   userId      String?   // User who performed the action
-  userEmail   String?   // Email of the user who performed the action
+  userUsername String?  // New: Username of the user who performed the action
   userRole    Role?     // Role of the user who performed the action
   action      String    // e.g., "CREATE_USER", "UPDATE_APPOINTMENT_STATUS"
   entityType  String    // e.g., "User", "Appointment", "Room"

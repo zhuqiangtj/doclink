@@ -3,6 +3,8 @@
 :root {
   --background: #ffffff;
   --foreground: #171717;
+  --font-size-base: 16px;
+  --line-height-base: 1.5;
 }
 
 @theme inline {
@@ -23,4 +25,6 @@ body {
   background: var(--background);
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
+  font-size: var(--font-size-base);
+  line-height: var(--line-height-base);
 }

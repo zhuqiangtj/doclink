@@ -7,10 +7,10 @@ const prisma = new PrismaClient();
 
 export async function POST(request: Request) {
   try {
-    const { username, email, password } = await request.json();
+    const { username, name, phone, dateOfBirth, gender, password } = await request.json();
 
-    if (!username || !email || !password) {
-      return NextResponse.json({ error: 'Missing username, email, or password' }, { status: 400 });
+    if (!username || !name || !phone || !dateOfBirth || !gender || !password) {
+      return NextResponse.json({ error: 'Missing required fields for patient registration.' }, { status: 400 });
     }
 
     const existingUserByUsername = await prisma.user.findUnique({
@@ -20,26 +20,32 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Username already in use' }, { status: 409 });
     }
 
-    const existingUserByEmail = await prisma.user.findUnique({
-      where: { email },
-    });
-    if (existingUserByEmail) {
-      return NextResponse.json({ error: 'Email already in use' }, { status: 409 });
-    }
-
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    const user = await prisma.user.create({
-      data: {
-        username,
-        email,
-        password: hashedPassword,
-        role: Role.PATIENT, // Always register as a PATIENT
-      },
+    const user = await prisma.$transaction(async (tx) => {
+      const newUser = await tx.user.create({
+        data: {
+          username,
+          name,
+          phone,
+          dateOfBirth: new Date(dateOfBirth), // Convert to Date object
+          gender,
+          password: hashedPassword,
+          role: Role.PATIENT, // Always register as a PATIENT
+        },
+      });
+
+      await tx.patient.create({
+        data: {
+          userId: newUser.id,
+          // name and phone are now on the User model
+        },
+      });
+      return newUser;
     });
 
     // Log the registration action
-    await createAuditLog(null, 'REGISTER_PATIENT', 'User', user.id, { username: user.username, email: user.email, role: user.role });
+    await createAuditLog(null, 'REGISTER_PATIENT', 'User', user.id, { username: user.username, name: user.name, role: user.role });
 
     // Don't return the password hash in the response
     // eslint-disable-next-line @typescript-eslint/no-unused-vars

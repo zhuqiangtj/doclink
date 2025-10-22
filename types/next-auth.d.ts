@@ -11,13 +11,17 @@ declare module "next-auth" {
       /** The user's id. */
       id: string;
       /** The user's username. */
-      username?: string | null;
+      username: string;
+      /** The user's name. */
+      name: string;
+      /** The user's phone. */
+      phone?: string | null;
+      /** The user's date of birth. */
+      dateOfBirth?: Date | null;
+      /** The user's gender. */
+      gender?: string | null;
       /** The user's role. */
       role: Role;
-      /** The user's name. */
-      name?: string | null;
-       /** The user's phone. */
-      phone?: string | null;
     } & DefaultSession["user"];
   }
 
@@ -26,8 +30,12 @@ declare module "next-auth" {
    * or the second parameter of the `session` callback, when using a database.
    */
   interface User extends DefaultUser {
+    username: string;
+    name: string;
+    phone?: string | null;
+    dateOfBirth?: Date | null;
+    gender?: string | null;
     role: Role;
-    username?: string | null;
   }
 }
 
@@ -37,7 +45,15 @@ declare module "next-auth/jwt" {
     /** User ID */
     id: string;
     /** User Username */
-    username?: string | null;
+    username: string;
+    /** User Name */
+    name: string;
+    /** User Phone */
+    phone?: string | null;
+    /** User Date of Birth */
+    dateOfBirth?: Date | null;
+    /** User Gender */
+    gender?: string | null;
     /** User Role */
     role: Role;
   }

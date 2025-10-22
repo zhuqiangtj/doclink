@@ -4,7 +4,11 @@ const prisma = new PrismaClient();
 
 interface SessionUser {
   id: string;
-  email: string;
+  username: string; // New: for username-based login
+  name: string;     // New: for all users
+  phone?: string;   // New: optional for all users
+  dateOfBirth?: Date; // New: optional for all users
+  gender?: string;  // New: optional for all users
   role: Role;
 }
 
@@ -12,7 +16,7 @@ export async function createAuditLog(session: { user: SessionUser } | null, acti
   await prisma.auditLog.create({
     data: {
       userId: session?.user?.id,
-      userEmail: session?.user?.email,
+      userUsername: session?.user?.username, // Log username instead of email
       userRole: session?.user?.role,
       action,
       entityType,

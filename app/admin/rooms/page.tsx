@@ -195,33 +195,34 @@ export default function AdminRoomsPage() {
           <div className="bg-white p-8 rounded-lg shadow-xl w-full max-w-md">
             <h2 className="text-2xl font-bold mb-4 capitalize">{modalMode === 'add' ? 'Add Room' : 'Edit Room'}</h2>
             <form onSubmit={handleSubmit} className="space-y-4">
-              <input type="text" value={name} onChange={e => setName(e.target.value)} placeholder="Room Name" className="block w-full rounded-md border-gray-300" required />
-              <input type="number" value={bedCount} onChange={e => setBedCount(parseInt(e.target.value, 10))} placeholder="Bed Count" className="block w-full rounded-md border-gray-300" min="1" required />
-              
-              <div>
-                <label htmlFor="doctor-select" className="block text-sm font-medium">Assign Owner Doctor</label>
-                <select
-                  id="doctor-select"
-                  value={selectedDoctorId}
-                  onChange={e => setSelectedDoctorId(e.target.value)}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm"
-                  required
-                >
-                  <option value="">-- Select a Doctor --</option>
-                  {doctors.map(doctor => (
-                    <option key={doctor.id} value={doctor.id}>{doctor.name}</option>
-                  ))}
-                </select>
-              </div>
+            <input type="text" value={name} onChange={e => setName(e.target.value)} placeholder="Room Name" className="block w-full min-h-10 py-2 px-4 rounded-md border-gray-300 text-gray-900" required />
+            <input type="number" value={bedCount} onChange={e => setBedCount(parseInt(e.target.value, 10))} placeholder="Bed Count" className="block w-full min-h-10 py-2 px-4 rounded-md border-gray-300 text-gray-900" min="1" required />
+            
+            <div>
+              <label htmlFor="doctor-select" className="block text-sm font-medium">Assign Owner Doctor</label>
+              <select
+                id="doctor-select"
+                value={selectedDoctorId}
+                onChange={e => setSelectedDoctorId(e.target.value)}
+                className="mt-1 block w-full min-h-10 py-2 px-4 rounded-md border-gray-300 shadow-sm text-gray-900"
+                required
+              >
+                <option value="">-- Select a Doctor --</option>
+                {doctors.map(doctor => (
+                  <option key={doctor.id} value={doctor.id}>{doctor.name}</option>
+                ))}
+              </select>
+            </div>
 
-              <div className="flex justify-end gap-4">
-                <button type="button" onClick={closeModal} className="py-2 px-4 bg-gray-200 rounded-md">Cancel</button>
-                <button type="submit" className="py-2 px-4 bg-indigo-600 text-white rounded-md">Save</button>
-              </div>
-            </form>
-          </div>
+            <div className="flex justify-end gap-4">
+              <button type="button" onClick={closeModal} className="py-2 px-4 bg-gray-200 rounded-md">Cancel</button>
+              <button type="submit" className="py-2 px-4 bg-indigo-600 text-white rounded-md">Save</button>
+            </div>
+          </form>
         </div>
-      )}
-    </div>
-  );
+      </div>
+    )}
+  </div>
+);
 }
+              

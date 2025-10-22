@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, FormEvent } from 'react';
-import { signIn } from 'next-auth/react';
+import { signIn, getSession } from 'next-auth/react'; // Import getSession
 import { useRouter } from 'next/navigation';
 
 export default function SignInPage() {
@@ -24,8 +24,14 @@ export default function SignInPage() {
       if (result?.error) {
         setError('Invalid username or password. Please try again.');
       } else if (result?.ok) {
-        // Redirect to home page on successful sign-in
-        router.push('/');
+        const session = await getSession(); // Get the updated session
+        if (session?.user?.role === 'ADMIN') {
+          router.push('/admin/dashboard');
+        } else if (session?.user?.role === 'DOCTOR') {
+          router.push('/doctor/schedule');
+        } else {
+          router.push('/'); // Default for PATIENT or other roles
+        }
       }
     } catch (err) {
       setError('An unexpected error occurred. Please try again later.');
@@ -49,7 +55,7 @@ export default function SignInPage() {
               required
               value={username}
               onChange={(e) => setUsername(e.target.value)}
-              className="block w-full px-3 py-2 mt-1 placeholder-gray-400 border border-gray-300 rounded-md shadow-sm appearance-none focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+              className="block w-full min-h-10 py-2 px-4 mt-1 placeholder-gray-400 border border-gray-300 rounded-md shadow-sm appearance-none focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm text-gray-900"
             />
           </div>
           <div>
@@ -64,7 +70,7 @@ export default function SignInPage() {
               required
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="block w-full px-3 py-2 mt-1 placeholder-gray-400 border border-gray-300 rounded-md shadow-sm appearance-none focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+              className="block w-full min-h-10 py-2 px-4 mt-1 placeholder-gray-400 border border-gray-300 rounded-md shadow-sm appearance-none focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm text-gray-900"
             />
           </div>
           {error && (

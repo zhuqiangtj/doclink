@@ -7,9 +7,12 @@ import { useRouter } from 'next/navigation';
 // --- Interfaces ---
 interface Patient {
   id: string;
-  userId: string; // Add userId for correct booking
+  userId: string;
+  username: string;
   name: string;
-  email: string;
+  phone?: string;
+  dateOfBirth?: string;
+  gender?: string;
 }
 
 interface ScheduleTimeSlot {
@@ -165,21 +168,21 @@ export default function BookAppointmentPage() {
               type="text"
               value={patientSearch}
               onChange={(e) => setPatientSearch(e.target.value)}
-              placeholder="Search by name or email..."
-              className="flex-grow block w-full rounded-md border-gray-300 shadow-sm"
+              placeholder="Search by username or name..."
+              className="flex-grow block w-full min-h-10 py-2 px-4 rounded-md border-gray-300 shadow-sm text-gray-900"
             />
             <button type="button" onClick={handlePatientSearch} className="py-2 px-4 bg-blue-600 text-white rounded-md hover:bg-blue-700">Search</button>
           </div>
           {searchedPatients.length > 0 && (
             <ul className="mt-2 border rounded-md max-h-40 overflow-y-auto">
               {searchedPatients.map(p => (
-                <li key={p.id} onClick={() => { setSelectedPatient(p); setSearchedPatients([]); setPatientSearch(p.name); }} className="p-2 hover:bg-gray-100 cursor-pointer">
-                  {p.name} ({p.email})
+                <li key={p.id} onClick={() => { setSelectedPatient(p); setSearchedPatients([]); setPatientSearch(p.name); }} className="p-2 hover:bg-gray-100 cursor-pointer text-gray-900">
+                  {p.name} ({p.username})
                 </li>
               ))}
             </ul>
           )}
-          {selectedPatient && <p className="mt-2 text-green-600">Selected: {selectedPatient.name}</p>}
+          {selectedPatient && <p className="mt-2 text-green-600 text-gray-900">Selected: {selectedPatient.name} ({selectedPatient.username})</p>}
         </div>
 
         {/* Schedule Selection */}
@@ -188,7 +191,7 @@ export default function BookAppointmentPage() {
           <div className="space-y-4">
             <div>
               <label htmlFor="schedule" className="block text-sm font-medium">Date & Room</label>
-              <select id="schedule" value={selectedScheduleId} onChange={e => { setSelectedScheduleId(e.target.value); setSelectedTime(''); }} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm" required>
+              <select id="schedule" value={selectedScheduleId} onChange={e => { setSelectedScheduleId(e.target.value); setSelectedTime(''); }} className="mt-1 block w-full min-h-10 py-2 px-4 rounded-md border-gray-300 shadow-sm text-gray-900" required>
                 <option value="">-- Select a schedule --</option>
                 {schedules.map(s => <option key={s.id} value={s.id}>{s.date} ({s.roomName})</option>)}
               </select>

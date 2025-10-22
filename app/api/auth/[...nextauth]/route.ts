@@ -32,7 +32,15 @@ export const authOptions = {
 
         if (isValid) {
           // Return user object that will be encoded in the JWT
-          return { id: user.id, username: user.username, email: user.email, role: user.role };
+          return { 
+            id: user.id, 
+            username: user.username, 
+            name: user.name, 
+            phone: user.phone, 
+            dateOfBirth: user.dateOfBirth, 
+            gender: user.gender, 
+            role: user.role 
+          };
         } else {
           return null;
         }
@@ -45,18 +53,28 @@ export const authOptions = {
   callbacks: {
     async jwt({ token, user }) {
       // When the user signs in, the user object is passed to the JWT callback.
-      // We add the user's id and role to the token.
+      // We add the user's id, username, and role to the token.
       if (user) {
         token.id = user.id;
+        token.username = user.username;
+        token.name = user.name;
+        token.phone = user.phone;
+        token.dateOfBirth = user.dateOfBirth;
+        token.gender = user.gender;
         token.role = user.role;
       }
       return token;
     },
     async session({ session, token }) {
       // The session callback is called whenever a session is checked.
-      // We add the id and role from the token to the session object.
+      // We add the id, username, and role from the token to the session object.
       if (session.user) {
         session.user.id = token.id;
+        session.user.username = token.username;
+        session.user.name = token.name;
+        session.user.phone = token.phone;
+        session.user.dateOfBirth = token.dateOfBirth;
+        session.user.gender = token.gender;
         session.user.role = token.role;
       }
       return session;

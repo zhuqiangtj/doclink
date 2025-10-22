@@ -7,10 +7,14 @@ import { useRouter } from 'next/navigation';
 // --- Interfaces ---
 interface User {
   id: string;
-  email: string;
+  username: string;
+  name: string;
+  phone?: string;
+  dateOfBirth?: string;
+  gender?: string;
   role: 'PATIENT' | 'DOCTOR' | 'ADMIN';
-  patientProfile?: { id: string; name: string; credibilityScore: number; isSuspended: boolean; phone?: string };
-  doctorProfile?: { id: string; name: string; rooms?: { id: string; name: string }[] };
+  patientProfile?: { id: string; credibilityScore: number; isSuspended: boolean; };
+  doctorProfile?: { id: string; };
 }
 
 interface Room {
@@ -39,13 +43,15 @@ export default function AdminUsersPage() {
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
 
   // --- Form States ---
+  const [username, setUsername] = useState('');
   const [name, setName] = useState('');
-  const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
+  const [dateOfBirth, setDateOfBirth] = useState('');
+  const [gender, setGender] = useState('');
   const [password, setPassword] = useState('');
   const [role, setRole] = useState<'PATIENT' | 'DOCTOR' | 'ADMIN'>('PATIENT');
   const [credibilityScore, setCredibilityScore] = useState(15);
   const [isSuspended, setIsSuspended] = useState(false);
-  const [selectedRoomIds, setSelectedRoomIds] = useState<string[]>([]);
 
   // --- Effects ---
   // Auth check
@@ -65,7 +71,7 @@ export default function AdminUsersPage() {
       try {
         const [usersRes, roomsRes] = await Promise.all([
           fetch('/api/users'),
-          fetch('/api/rooms?all=true'), // Fetch all rooms for admin assignment
+          fetch('/api/rooms'), // Admin gets all rooms
         ]);
 
         if (!usersRes.ok) throw new Error('Failed to fetch users.');
@@ -87,12 +93,14 @@ export default function AdminUsersPage() {
   const openModal = (mode: 'add' | 'edit' | 'reset_password', user: User | null = null) => {
     setModalMode(mode);
     setSelectedUser(user);
-    setName(user?.patientProfile?.name || user?.doctorProfile?.name || '');
-    setEmail(user?.email || '');
+    setUsername(user?.username || '');
+    setName(user?.name || '');
+    setPhone(user?.phone || '');
+    setDateOfBirth(user?.dateOfBirth ? new Date(user.dateOfBirth).toISOString().split('T')[0] : '');
+    setGender(user?.gender || '');
     setRole(user?.role || 'PATIENT');
     setCredibilityScore(user?.patientProfile?.credibilityScore || 15);
     setIsSuspended(user?.patientProfile?.isSuspended || false);
-    setSelectedRoomIds(user?.doctorProfile?.rooms?.map(r => r.id) || []);
     setPassword(''); // Always clear password field
     setIsModalOpen(true);
   };
@@ -113,13 +121,13 @@ export default function AdminUsersPage() {
     const url = modalMode === 'add' ? '/api/users' : `/api/users?userId=${selectedUser?.id}`;
     const method = modalMode === 'add' ? 'POST' : 'PUT';
 
-    let body: Record<string, unknown> = {};
+    const body: Record<string, unknown> = {};
     if (modalMode === 'add') {
-      body = { name, email, password, role, roomIds: selectedRoomIds };
+      Object.assign(body, { username, name, phone, dateOfBirth, gender, password, role });
     } else if (modalMode === 'edit') {
-      body = { name, role, credibilityScore, isSuspended, roomIds: selectedRoomIds };
+      Object.assign(body, { username, name, phone, dateOfBirth, gender, role, credibilityScore, isSuspended });
     } else if (modalMode === 'reset_password') {
-      body = { password: '123456' }; // Default password for reset
+      Object.assign(body, { password: '123456' }); // Default password for reset
     }
 
     try {
@@ -160,14 +168,6 @@ export default function AdminUsersPage() {
     }
   };
 
-  const handleRoomSelection = (roomId: string) => {
-    setSelectedRoomIds(prev =>
-      prev.includes(roomId)
-        ? prev.filter(id => id !== roomId)
-        : [...prev, roomId]
-    );
-  };
-
   // --- Filtering Logic ---
   const filteredUsers = users.filter(user => {
     if (activeTab === 'all') return true;
@@ -205,9 +205,12 @@ export default function AdminUsersPage() {
           {filteredUsers.length > 0 ? filteredUsers.map((user) => (
             <li key={user.id} className="p-3 border rounded-md flex justify-between items-center">
               <div>
-                <p className="font-semibold">{user.email} <span className="text-sm text-gray-500">({user.role})</span></p>
-                {user.patientProfile && <p className="text-sm text-gray-600">Patient: {user.patientProfile.name} (Score: {user.patientProfile.credibilityScore}, Suspended: {user.patientProfile.isSuspended ? 'Yes' : 'No'})</p>}
-                {user.doctorProfile && <p className="text-sm text-gray-600">Doctor: {user.doctorProfile.name} (Rooms: {user.doctorProfile.rooms?.map(r => r.name).join(', ') || 'None'})</p>}
+                <p className="font-semibold">{user.username} <span className="text-sm text-gray-500">({user.role})</span></p>
+                <p className="text-sm text-gray-600">Name: {user.name}</p>
+                {user.phone && <p className="text-sm text-gray-600">Phone: {user.phone}</p>}
+                {user.dateOfBirth && <p className="text-sm text-gray-600">DOB: {new Date(user.dateOfBirth).toLocaleDateString()}</p>}
+                {user.gender && <p className="text-sm text-gray-600">Gender: {user.gender}</p>}
+                {user.patientProfile && <p className="text-sm text-gray-600">Patient (Score: {user.patientProfile.credibilityScore}, Suspended: {user.patientProfile.isSuspended ? 'Yes' : 'No'})</p>}
               </div>
               <div className="space-x-2">
                 <button onClick={() => openModal('edit', user)} className="text-sm text-blue-600 hover:underline">Edit</button>
@@ -225,21 +228,23 @@ export default function AdminUsersPage() {
           <div className="bg-white p-8 rounded-lg shadow-xl w-full max-w-md">
             <h2 className="text-2xl font-bold mb-4 capitalize">{modalMode.replace('_', ' ')} User</h2>
             <form onSubmit={handleSubmit} className="space-y-4">
+              <input type="text" value={username} onChange={e => setUsername(e.target.value)} placeholder="Username" className="block w-full min-h-10 py-2 px-4 rounded-md border-gray-300 text-gray-900" required />
+              <input type="text" value={name} onChange={e => setName(e.target.value)} placeholder="Name" className="block w-full min-h-10 py-2 px-4 rounded-md border-gray-300 text-gray-900" required />
+              <input type="text" value={phone} onChange={e => setPhone(e.target.value)} placeholder="Phone (Optional)" className="block w-full min-h-10 py-2 px-4 rounded-md border-gray-300 text-gray-900" />
+              <input type="date" value={dateOfBirth} onChange={e => setDateOfBirth(e.target.value)} placeholder="Date of Birth (Optional)" className="block w-full min-h-10 py-2 px-4 rounded-md border-gray-300 text-gray-900" />
+              <select value={gender} onChange={e => setGender(e.target.value)} className="block w-full min-h-10 py-2 px-4 rounded-md border-gray-300 text-gray-900">
+                <option value="">Select Gender (Optional)</option>
+                <option value="Male">Male</option>
+                <option value="Female">Female</option>
+                <option value="Other">Other</option>
+              </select>
+              <select value={role} onChange={e => setRole(e.target.value as 'PATIENT' | 'DOCTOR' | 'ADMIN')} className="block w-full min-h-10 py-2 px-4 rounded-md border-gray-300 text-gray-900">
+                <option value="PATIENT">Patient</option>
+                <option value="DOCTOR">Doctor</option>
+                <option value="ADMIN">Admin</option>
+              </select>
               {modalMode === 'add' && (
-                <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="Email" className="block w-full rounded-md border-gray-300" required />
-              )}
-              {(modalMode === 'add' || modalMode === 'edit') && (
-                <input type="text" value={name} onChange={e => setName(e.target.value)} placeholder="Name" className="block w-full rounded-md border-gray-300" required />
-              )}
-              {(modalMode === 'add' || modalMode === 'edit') && (
-                <select value={role} onChange={e => setRole(e.target.value as 'PATIENT' | 'DOCTOR' | 'ADMIN')} className="block w-full rounded-md border-gray-300">
-                  <option value="PATIENT">Patient</option>
-                  <option value="DOCTOR">Doctor</option>
-                  <option value="ADMIN">Admin</option>
-                </select>
-              )}
-              {modalMode === 'add' && (
-                <input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="Initial Password" className="block w-full rounded-md border-gray-300" required />
+                <input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="Initial Password" className="block w-full min-h-10 py-2 px-4 rounded-md border-gray-300 text-gray-900" required />
               )}
 
               {/* Patient Specific Fields */}
@@ -247,34 +252,13 @@ export default function AdminUsersPage() {
                 <>
                   <div>
                     <label className="block text-sm font-medium">Credibility Score</label>
-                    <input type="number" value={credibilityScore} onChange={e => setCredibilityScore(parseInt(e.target.value))} className="block w-full rounded-md border-gray-300" />
+                    <input type="number" value={credibilityScore} onChange={e => setCredibilityScore(parseInt(e.target.value))} className="block w-full min-h-10 py-2 px-4 rounded-md border-gray-300 text-gray-900" />
                   </div>
                   <div className="flex items-center">
                     <input type="checkbox" checked={isSuspended} onChange={e => setIsSuspended(e.target.checked)} id="isSuspended" className="h-4 w-4 text-indigo-600 border-gray-300 rounded" />
                     <label htmlFor="isSuspended" className="ml-2 block text-sm text-gray-900">Is Suspended</label>
                   </div>
                 </>
-              )}
-
-              {/* Doctor Specific Fields */}
-              {selectedUser?.role === 'DOCTOR' && modalMode === 'edit' && (
-                <div>
-                  <label className="block text-sm font-medium">Assigned Rooms</label>
-                  <div className="mt-2 space-y-2 p-2 border rounded-md max-h-40 overflow-y-auto">
-                    {allRooms.length > 0 ? allRooms.map(room => (
-                      <div key={room.id} className="flex items-center">
-                        <input
-                          id={`room-${room.id}`}
-                          type="checkbox"
-                          checked={selectedRoomIds.includes(room.id)}
-                          onChange={() => handleRoomSelection(room.id)}
-                          className="h-4 w-4 text-indigo-600 border-gray-300 rounded"
-                        />
-                        <label htmlFor={`room-${room.id}`} className="ml-2 block text-sm text-gray-900">{room.name}</label>
-                      </div>
-                    )) : <p className="text-sm text-gray-500">No rooms available.</p>}
-                  </div>
-                </div>
               )}
 
               <div className="flex justify-end gap-4">

@@ -6,7 +6,7 @@ import { authOptions } from '../auth/[...nextauth]/route';
 const prisma = new PrismaClient();
 
 // GET patients (for doctors to search)
-export async function GET(request: Request) {
+export async function GET() {
   const session = await getServerSession(authOptions);
   if (!session || session.user.role !== 'DOCTOR') {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
@@ -24,14 +24,16 @@ export async function GET(request: Request) {
       where: {
         OR: [
           {
-            name: {
-              contains: searchQuery,
-              mode: 'insensitive', // Case-insensitive search
+            user: {
+              username: {
+                contains: searchQuery,
+                mode: 'insensitive', // Case-insensitive search
+              },
             },
           },
           {
             user: {
-              email: {
+              name: {
                 contains: searchQuery,
                 mode: 'insensitive',
               },
@@ -41,11 +43,11 @@ export async function GET(request: Request) {
       },
       select: {
         id: true,
-        name: true,
         user: {
           select: {
             id: true, // User ID is needed for creating the appointment
-            email: true,
+            username: true,
+            name: true,
           },
         },
       },
@@ -56,8 +58,8 @@ export async function GET(request: Request) {
     const formattedPatients = patients.map(p => ({
       id: p.id, // This is the Patient ID
       userId: p.user.id, // This is the User ID
-      name: p.name,
-      email: p.user.email,
+      username: p.user.username,
+      name: p.user.name,
     }));
 
     return NextResponse.json(formattedPatients);

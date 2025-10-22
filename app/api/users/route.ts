@@ -17,11 +17,11 @@ export async function GET() {
   try {
     const users = await prisma.user.findMany({
       include: {
-        patientProfile: { select: { id: true, name: true, credibilityScore: true, isSuspended: true, phone: true } },
+        patientProfile: { select: { id: true, credibilityScore: true, isSuspended: true } },
         doctorProfile: { include: { rooms: { select: { id: true, name: true } } } },
       },
       orderBy: {
-        username: 'asc', // Order by username
+        username: 'asc',
       },
     });
 
@@ -40,23 +40,28 @@ export async function POST(request: Request) {
   }
 
   try {
-    const { name, username, email, password, role } = await request.json();
-    if (!name || !username || !email || !password || !role) {
+    const { name, username, phone, dateOfBirth, gender, password, role } = await request.json();
+    if (!name || !username || !password || !role) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
+    }
+
+    // Role-specific required fields
+    if (role === 'PATIENT' && (!phone || !dateOfBirth || !gender)) {
+      return NextResponse.json({ error: 'Patient registration requires phone, dateOfBirth, and gender.' }, { status: 400 });
+    }
+    if ((role === 'DOCTOR' || role === 'ADMIN') && !gender) {
+      return NextResponse.json({ error: 'Doctor/Admin registration requires gender.' }, { status: 400 });
     }
 
     if (!Object.values(Role).includes(role)) {
       return NextResponse.json({ error: 'Invalid role specified' }, { status: 400 });
     }
 
-    const existingUserByUsername = await prisma.user.findUnique({ where: { username } });
+    const existingUserByUsername = await prisma.user.findUnique({
+      where: { username },
+    });
     if (existingUserByUsername) {
       return NextResponse.json({ error: 'Username already in use' }, { status: 409 });
-    }
-
-    const existingUserByEmail = await prisma.user.findUnique({ where: { email } });
-    if (existingUserByEmail) {
-      return NextResponse.json({ error: 'Email already in use' }, { status: 409 });
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
@@ -65,7 +70,10 @@ export async function POST(request: Request) {
       const user = await tx.user.create({
         data: {
           username,
-          email,
+          name,
+          phone,
+          dateOfBirth: dateOfBirth ? new Date(dateOfBirth) : undefined,
+          gender,
           password: hashedPassword,
           role,
         },
@@ -74,16 +82,13 @@ export async function POST(request: Request) {
       if (role === 'PATIENT') {
         await tx.patient.create({
           data: {
-            name,
             userId: user.id,
           },
         });
       } else if (role === 'DOCTOR') {
         await tx.doctor.create({
           data: {
-            name,
             userId: user.id,
-            // Rooms are now assigned to doctors via the Room model, not here
           },
         });
       }
@@ -92,7 +97,7 @@ export async function POST(request: Request) {
       return user;
     });
 
-    await createAuditLog(session, 'ADMIN_CREATE_USER', 'User', newUser.id, { username: newUser.username, email: newUser.email, role: newUser.role });
+    await createAuditLog(session, 'ADMIN_CREATE_USER', 'User', newUser.id, { username: newUser.username, name: newUser.name, role: newUser.role });
     return NextResponse.json(newUser, { status: 201 });
   } catch (error) {
     console.error('Error creating user:', error);
@@ -114,7 +119,7 @@ export async function PUT(request: Request) {
   }
 
   try {
-    const { name, username, email, role, credibilityScore, isSuspended, password } = await request.json();
+    const { name, username, phone, dateOfBirth, gender, role, credibilityScore, isSuspended, password } = await request.json();
 
     const updatedUser = await prisma.$transaction(async (tx) => {
       const user = await tx.user.findUnique({ where: { id: userId } });
@@ -144,26 +149,20 @@ export async function PUT(request: Request) {
         await createAuditLog(session, 'ADMIN_UPDATE_USERNAME', 'User', userId, { oldUsername: user.username, newUsername: username });
       }
 
-      // Update email if provided and changed
-      if (email && email !== user.email) {
-        const existingUserWithEmail = await tx.user.findUnique({ where: { email } });
-        if (existingUserWithEmail && existingUserWithEmail.id !== userId) {
-          throw new Error('Email already in use.');
-        }
-        await tx.user.update({
-          where: { id: userId },
-          data: { email },
-        });
-        await createAuditLog(session, 'ADMIN_UPDATE_EMAIL', 'User', userId, { oldEmail: user.email, newEmail: email });
-      }
+      // Update User model fields
+      const userDataToUpdate: { name?: string; phone?: string; dateOfBirth?: Date; gender?: string; role?: Role } = {};
+      if (name) userDataToUpdate.name = name;
+      if (phone) userDataToUpdate.phone = phone;
+      if (dateOfBirth) userDataToUpdate.dateOfBirth = new Date(dateOfBirth);
+      if (gender) userDataToUpdate.gender = gender;
+      if (role && user.role !== role) userDataToUpdate.role = role;
 
-      // Update user role if changed
-      if (role && user.role !== role) {
+      if (Object.keys(userDataToUpdate).length > 0) {
         await tx.user.update({
           where: { id: userId },
-          data: { role },
+          data: userDataToUpdate,
         });
-        await createAuditLog(session, 'ADMIN_UPDATE_USER_ROLE', 'User', userId, { oldRole: user.role, newRole: role });
+        await createAuditLog(session, 'ADMIN_UPDATE_USER_DETAILS', 'User', userId, userDataToUpdate);
       }
 
       // Update patient profile if applicable
@@ -173,34 +172,24 @@ export async function PUT(request: Request) {
           await tx.patient.update({
             where: { userId },
             data: { 
-              name: name || patientProfile.name,
               credibilityScore: credibilityScore !== undefined ? credibilityScore : patientProfile.credibilityScore,
               isSuspended: isSuspended !== undefined ? isSuspended : patientProfile.isSuspended,
             },
           });
-          await createAuditLog(session, 'ADMIN_UPDATE_PATIENT_PROFILE', 'Patient', patientProfile.id, { userId, name, credibilityScore, isSuspended });
+          await createAuditLog(session, 'ADMIN_UPDATE_PATIENT_PROFILE', 'Patient', patientProfile.id, { userId, credibilityScore, isSuspended });
         }
       }
 
       // Update doctor profile if applicable
       if (user.role === 'DOCTOR') {
-        const doctorProfile = await tx.doctor.findUnique({ where: { userId } });
-        if (doctorProfile) {
-          await tx.doctor.update({
-            where: { userId },
-            data: {
-              name: name || doctorProfile.name,
-              // Rooms are now assigned to doctors via the Room model, not here
-            },
-          });
-          await createAuditLog(session, 'ADMIN_UPDATE_DOCTOR_PROFILE', 'Doctor', doctorProfile.id, { userId, name });
-        }
+        // No doctor-specific fields to update via this route currently
+        await createAuditLog(session, 'ADMIN_UPDATE_DOCTOR_PROFILE', 'Doctor', user.id, { userId, name });
       }
 
       const updatedUser = await tx.user.findUnique({
         where: { id: userId },
         include: {
-          patientProfile: { select: { id: true, name: true, credibilityScore: true, isSuspended: true, phone: true } },
+          patientProfile: { select: { id: true, credibilityScore: true, isSuspended: true } },
           doctorProfile: { include: { rooms: { select: { id: true, name: true } } } },
         },
       });
@@ -241,7 +230,7 @@ export async function DELETE(request: Request) {
       }
 
       await tx.user.delete({ where: { id: userId } });
-      await createAuditLog(session, 'ADMIN_DELETE_USER', 'User', userId, { email: user.email, role: user.role });
+      await createAuditLog(session, 'ADMIN_DELETE_USER', 'User', userId, { username: user.username, role: user.role });
     });
 
     return NextResponse.json({ message: 'User deleted successfully' }, { status: 200 });

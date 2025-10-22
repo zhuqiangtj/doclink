@@ -7,9 +7,11 @@ export default function SettingsPage() {
   const { data: session, status, update } = useSession();
 
   // Profile states
+  const [username, setUsername] = useState('');
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
-  const [username, setUsername] = useState(''); // New: username state
+  const [dateOfBirth, setDateOfBirth] = useState('');
+  const [gender, setGender] = useState('');
   
   // Password states
   const [currentPassword, setCurrentPassword] = useState('');
@@ -22,11 +24,11 @@ export default function SettingsPage() {
 
   useEffect(() => {
     if (status === 'authenticated') {
-      // @ts-expect-error: session.user might not have 'name' or 'phone' directly, as they are on profile objects
+      setUsername(session.user.username || '');
       setName(session.user.name || '');
-      // @ts-expect-error: session.user might not have 'name' or 'phone' directly, as they are on profile objects
       setPhone(session.user.phone || '');
-      setUsername(session.user.username || ''); // Initialize username
+      setDateOfBirth(session.user.dateOfBirth ? new Date(session.user.dateOfBirth).toISOString().split('T')[0] : '');
+      setGender(session.user.gender || '');
     }
   }, [status, session]);
 
@@ -38,7 +40,7 @@ export default function SettingsPage() {
       const response = await fetch('/api/account/profile', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, phone, username }), // Include username in body
+        body: JSON.stringify({ username, name, phone, dateOfBirth, gender }),
       });
       if (!response.ok) throw new Error('Failed to update profile.');
       setSuccess('Profile updated successfully!');
@@ -69,8 +71,8 @@ export default function SettingsPage() {
     } catch (err) { setError(err instanceof Error ? err.message : 'Update failed'); }
   };
 
-  if (status === 'loading') return <div>Loading...</div>;
-  if (status === 'unauthenticated') return <div>Access Denied.</div>;
+  if (status === 'loading') return <div className="container mx-auto p-8 text-center">Loading...</div>;
+  if (status === 'unauthenticated') return <div className="container mx-auto p-8 text-center">Access Denied.</div>;
 
   return (
     <div className="container mx-auto max-w-xl p-4">
@@ -84,11 +86,28 @@ export default function SettingsPage() {
         <form onSubmit={handleProfileSubmit} className="space-y-4">
           <div>
             <label className="block text-sm font-medium">Username</label>
-            <input type="text" value={username} onChange={e => setUsername(e.target.value)} className="mt-1 block w-full rounded-md border-gray-300" />
+            <input type="text" value={username} onChange={e => setUsername(e.target.value)} className="mt-1 block w-full min-h-10 py-2 px-4 rounded-md border-gray-300 text-gray-900" />
           </div>
           <div>
             <label className="block text-sm font-medium">Name</label>
-            <input type="text" value={name} onChange={e => setName(e.target.value)} className="mt-1 block w-full rounded-md border-gray-300" />
+            <input type="text" value={name} onChange={e => setName(e.target.value)} className="mt-1 block w-full min-h-10 py-2 px-4 rounded-md border-gray-300 text-gray-900" />
+          </div>
+          <div>
+            <label className="block text-sm font-medium">Phone</label>
+            <input type="text" value={phone} onChange={e => setPhone(e.target.value)} className="mt-1 block w-full min-h-10 py-2 px-4 rounded-md border-gray-300 text-gray-900" />
+          </div>
+          <div>
+            <label className="block text-sm font-medium">Date of Birth</label>
+            <input type="date" value={dateOfBirth} onChange={e => setDateOfBirth(e.target.value)} className="mt-1 block w-full min-h-10 py-2 px-4 rounded-md border-gray-300 text-gray-900" />
+          </div>
+          <div>
+            <label className="block text-sm font-medium">Gender</label>
+            <select value={gender} onChange={e => setGender(e.target.value)} className="mt-1 block w-full min-h-10 py-2 px-4 rounded-md border-gray-300 text-gray-900">
+              <option value="">Select Gender</option>
+              <option value="Male">Male</option>
+              <option value="Female">Female</option>
+              <option value="Other">Other</option>
+            </select>
           </div>
           <button type="submit" className="w-full py-2 px-4 bg-blue-600 text-white rounded-md">Save Profile</button>
         </form>
@@ -100,15 +119,15 @@ export default function SettingsPage() {
         <form onSubmit={handlePasswordSubmit} className="space-y-4">
            <div>
             <label className="block text-sm font-medium">Current Password</label>
-            <input type="password" value={currentPassword} onChange={e => setCurrentPassword(e.target.value)} className="mt-1 block w-full rounded-md border-gray-300" required />
+            <input type="password" value={currentPassword} onChange={e => setCurrentPassword(e.target.value)} className="mt-1 block w-full min-h-10 py-2 px-4 rounded-md border-gray-300 text-gray-900" required />
           </div>
           <div>
             <label className="block text-sm font-medium">New Password</label>
-            <input type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} className="mt-1 block w-full rounded-md border-gray-300" required />
+            <input type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} className="mt-1 block w-full min-h-10 py-2 px-4 rounded-md border-gray-300 text-gray-900" required />
           </div>
           <div>
             <label className="block text-sm font-medium">Confirm New Password</label>
-            <input type="password" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} className="mt-1 block w-full rounded-md border-gray-300" required />
+            <input type="password" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} className="mt-1 block w-full min-h-10 py-2 px-4 rounded-md border-gray-300 text-gray-900" required />
           </div>
           <button type="submit" className="w-full py-2 px-4 bg-indigo-600 text-white rounded-md">Update Password</button>
         </form>
