@@ -7,17 +7,23 @@ const prisma = new PrismaClient();
 
 export async function POST(request: Request) {
   try {
-    const { email, password } = await request.json();
+    const { username, email, password } = await request.json();
 
-    if (!email || !password) {
-      return NextResponse.json({ error: 'Missing email or password' }, { status: 400 });
+    if (!username || !email || !password) {
+      return NextResponse.json({ error: 'Missing username, email, or password' }, { status: 400 });
     }
 
-    const existingUser = await prisma.user.findUnique({
+    const existingUserByUsername = await prisma.user.findUnique({
+      where: { username },
+    });
+    if (existingUserByUsername) {
+      return NextResponse.json({ error: 'Username already in use' }, { status: 409 });
+    }
+
+    const existingUserByEmail = await prisma.user.findUnique({
       where: { email },
     });
-
-    if (existingUser) {
+    if (existingUserByEmail) {
       return NextResponse.json({ error: 'Email already in use' }, { status: 409 });
     }
 
@@ -25,6 +31,7 @@ export async function POST(request: Request) {
 
     const user = await prisma.user.create({
       data: {
+        username,
         email,
         password: hashedPassword,
         role: Role.PATIENT, // Always register as a PATIENT
@@ -32,7 +39,7 @@ export async function POST(request: Request) {
     });
 
     // Log the registration action
-    await createAuditLog(null, 'REGISTER_PATIENT', 'User', user.id, { email: user.email, role: user.role });
+    await createAuditLog(null, 'REGISTER_PATIENT', 'User', user.id, { username: user.username, email: user.email, role: user.role });
 
     // Don't return the password hash in the response
     // eslint-disable-next-line @typescript-eslint/no-unused-vars

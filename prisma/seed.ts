@@ -7,11 +7,12 @@ async function main() {
   console.log('Start seeding admin user...');
 
   const adminEmail = 'admin@doclink.com';
+  const adminUsername = 'admin'; // New: Admin username
   const adminPassword = 'admin123';
 
-  // Check if the admin user already exists
+  // Check if the admin user already exists by username
   const existingAdmin = await prisma.user.findUnique({
-    where: { email: adminEmail },
+    where: { username: adminUsername },
   });
 
   if (existingAdmin) {
@@ -25,13 +26,14 @@ async function main() {
   // Create the admin user
   const adminUser = await prisma.user.create({
     data: {
+      username: adminUsername, // New: Add username
       email: adminEmail,
       password: hashedPassword,
       role: Role.ADMIN,
     },
   });
 
-  console.log(`Created admin user with email: ${adminUser.email}`);
+  console.log(`Created admin user with username: ${adminUser.username}`);
   console.log('Seeding finished.');
 }
 

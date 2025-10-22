@@ -21,7 +21,7 @@ export async function GET() {
         doctorProfile: { include: { rooms: { select: { id: true, name: true } } } },
       },
       orderBy: {
-        email: 'asc',
+        username: 'asc', // Order by username
       },
     });
 
@@ -40,8 +40,8 @@ export async function POST(request: Request) {
   }
 
   try {
-    const { name, email, password, role, roomIds } = await request.json();
-    if (!name || !email || !password || !role) {
+    const { name, username, email, password, role } = await request.json();
+    if (!name || !username || !email || !password || !role) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
 
@@ -49,8 +49,13 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Invalid role specified' }, { status: 400 });
     }
 
-    const existingUser = await prisma.user.findUnique({ where: { email } });
-    if (existingUser) {
+    const existingUserByUsername = await prisma.user.findUnique({ where: { username } });
+    if (existingUserByUsername) {
+      return NextResponse.json({ error: 'Username already in use' }, { status: 409 });
+    }
+
+    const existingUserByEmail = await prisma.user.findUnique({ where: { email } });
+    if (existingUserByEmail) {
       return NextResponse.json({ error: 'Email already in use' }, { status: 409 });
     }
 
@@ -59,6 +64,7 @@ export async function POST(request: Request) {
     const newUser = await prisma.$transaction(async (tx) => {
       const user = await tx.user.create({
         data: {
+          username,
           email,
           password: hashedPassword,
           role,
@@ -77,7 +83,7 @@ export async function POST(request: Request) {
           data: {
             name,
             userId: user.id,
-            rooms: { connect: roomIds?.map((id: string) => ({ id })) || [] },
+            // Rooms are now assigned to doctors via the Room model, not here
           },
         });
       }
@@ -86,7 +92,7 @@ export async function POST(request: Request) {
       return user;
     });
 
-    await createAuditLog(session, 'ADMIN_CREATE_USER', 'User', newUser.id, { email: newUser.email, role: newUser.role });
+    await createAuditLog(session, 'ADMIN_CREATE_USER', 'User', newUser.id, { username: newUser.username, email: newUser.email, role: newUser.role });
     return NextResponse.json(newUser, { status: 201 });
   } catch (error) {
     console.error('Error creating user:', error);
@@ -108,7 +114,7 @@ export async function PUT(request: Request) {
   }
 
   try {
-    const { name, role, credibilityScore, isSuspended, roomIds, password } = await request.json();
+    const { name, username, email, role, credibilityScore, isSuspended, password } = await request.json();
 
     const updatedUser = await prisma.$transaction(async (tx) => {
       const user = await tx.user.findUnique({ where: { id: userId } });
@@ -123,6 +129,32 @@ export async function PUT(request: Request) {
         });
         await createAuditLog(session, 'ADMIN_RESET_PASSWORD', 'User', userId, { byAdmin: true });
         return { id: userId, message: 'Password reset successfully' };
+      }
+
+      // Update username if provided and changed
+      if (username && username !== user.username) {
+        const existingUserWithUsername = await tx.user.findUnique({ where: { username } });
+        if (existingUserWithUsername && existingUserWithUsername.id !== userId) {
+          throw new Error('Username already in use.');
+        }
+        await tx.user.update({
+          where: { id: userId },
+          data: { username },
+        });
+        await createAuditLog(session, 'ADMIN_UPDATE_USERNAME', 'User', userId, { oldUsername: user.username, newUsername: username });
+      }
+
+      // Update email if provided and changed
+      if (email && email !== user.email) {
+        const existingUserWithEmail = await tx.user.findUnique({ where: { email } });
+        if (existingUserWithEmail && existingUserWithEmail.id !== userId) {
+          throw new Error('Email already in use.');
+        }
+        await tx.user.update({
+          where: { id: userId },
+          data: { email },
+        });
+        await createAuditLog(session, 'ADMIN_UPDATE_EMAIL', 'User', userId, { oldEmail: user.email, newEmail: email });
       }
 
       // Update user role if changed
@@ -158,10 +190,10 @@ export async function PUT(request: Request) {
             where: { userId },
             data: {
               name: name || doctorProfile.name,
-              rooms: roomIds ? { set: roomIds.map((id: string) => ({ id })) } : undefined,
+              // Rooms are now assigned to doctors via the Room model, not here
             },
           });
-          await createAuditLog(session, 'ADMIN_UPDATE_DOCTOR_PROFILE', 'Doctor', doctorProfile.id, { userId, name, roomIds });
+          await createAuditLog(session, 'ADMIN_UPDATE_DOCTOR_PROFILE', 'Doctor', doctorProfile.id, { userId, name });
         }
       }
 

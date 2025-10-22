@@ -9,6 +9,7 @@ export default function SettingsPage() {
   // Profile states
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
+  const [username, setUsername] = useState(''); // New: username state
   
   // Password states
   const [currentPassword, setCurrentPassword] = useState('');
@@ -21,12 +22,11 @@ export default function SettingsPage() {
 
   useEffect(() => {
     if (status === 'authenticated') {
-      // Assuming name and phone are on the user's profile object
-      // This part will need adjustment based on the actual API response
       // @ts-expect-error: session.user might not have 'name' or 'phone' directly, as they are on profile objects
       setName(session.user.name || '');
       // @ts-expect-error: session.user might not have 'name' or 'phone' directly, as they are on profile objects
       setPhone(session.user.phone || '');
+      setUsername(session.user.username || ''); // Initialize username
     }
   }, [status, session]);
 
@@ -38,7 +38,7 @@ export default function SettingsPage() {
       const response = await fetch('/api/account/profile', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, phone }),
+        body: JSON.stringify({ name, phone, username }), // Include username in body
       });
       if (!response.ok) throw new Error('Failed to update profile.');
       setSuccess('Profile updated successfully!');
@@ -83,12 +83,12 @@ export default function SettingsPage() {
         <h2 className="text-xl font-semibold mb-4">My Profile</h2>
         <form onSubmit={handleProfileSubmit} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium">Name</label>
-            <input type="text" value={name} onChange={e => setName(e.target.value)} className="mt-1 block w-full rounded-md border-gray-300" />
+            <label className="block text-sm font-medium">Username</label>
+            <input type="text" value={username} onChange={e => setUsername(e.target.value)} className="mt-1 block w-full rounded-md border-gray-300" />
           </div>
           <div>
-            <label className="block text-sm font-medium">Phone</label>
-            <input type="text" value={phone} onChange={e => setPhone(e.target.value)} className="mt-1 block w-full rounded-md border-gray-300" />
+            <label className="block text-sm font-medium">Name</label>
+            <input type="text" value={name} onChange={e => setName(e.target.value)} className="mt-1 block w-full rounded-md border-gray-300" />
           </div>
           <button type="submit" className="w-full py-2 px-4 bg-blue-600 text-white rounded-md">Save Profile</button>
         </form>

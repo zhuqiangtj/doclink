@@ -13,12 +13,24 @@ export async function PUT(request: Request) {
   }
 
   try {
-    const { name, phone } = await request.json();
+    const { name, phone, username } = await request.json();
     const { id, role } = session.user;
 
     let updatedProfile;
     let entityType: string = 'User';
     let entityId: string = id;
+
+    // Update username if provided
+    if (username) {
+      const existingUserWithUsername = await prisma.user.findUnique({ where: { username } });
+      if (existingUserWithUsername && existingUserWithUsername.id !== id) {
+        return NextResponse.json({ error: 'Username already in use.' }, { status: 409 });
+      }
+      await prisma.user.update({
+        where: { id },
+        data: { username },
+      });
+    }
 
     if (role === 'DOCTOR') {
       updatedProfile = await prisma.doctor.update({
@@ -45,7 +57,7 @@ export async function PUT(request: Request) {
       return NextResponse.json({ error: 'Profile not found for this user.' }, { status: 404 });
     }
 
-    await createAuditLog(session, 'UPDATE_PROFILE', entityType, entityId, { name, phone });
+    await createAuditLog(session, 'UPDATE_PROFILE', entityType, entityId, { name, phone, username });
     return NextResponse.json(updatedProfile);
 
   } catch (error) {

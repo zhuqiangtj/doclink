@@ -12,16 +12,16 @@ export const authOptions = {
     CredentialsProvider({
       name: 'Credentials',
       credentials: {
-        email: { label: "Email", type: "text" },
+        username: { label: "Username", type: "text" },
         password: { label: "Password", type: "password" }
       },
       async authorize(credentials) {
-        if (!credentials?.email || !credentials.password) {
+        if (!credentials?.username || !credentials.password) {
           return null;
         }
 
         const user = await prisma.user.findUnique({
-          where: { email: credentials.email }
+          where: { username: credentials.username }
         });
 
         if (!user || !user.password) {
@@ -32,7 +32,7 @@ export const authOptions = {
 
         if (isValid) {
           // Return user object that will be encoded in the JWT
-          return { id: user.id, email: user.email, role: user.role };
+          return { id: user.id, username: user.username, email: user.email, role: user.role };
         } else {
           return null;
         }
