@@ -1,6 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useSession } from 'next-auth/react';
+import { useRouter } from 'next/navigation';
 
 // --- Interfaces ---
 interface Doctor {
@@ -17,9 +19,13 @@ interface Schedule {
 
 // --- Component ---
 export default function HomePage() {
+  const { data: session, status } = useSession();
+  const router = useRouter();
+
   // Data states
   const [doctors, setDoctors] = useState<Doctor[]>([]);
   const [schedules, setSchedules] = useState<Schedule[]>([]);
+  const [patientId, setPatientId] = useState<string | null>(null);
 
   // UI states
   const [selectedDoctorId, setSelectedDoctorId] = useState<string>('');
@@ -28,20 +34,44 @@ export default function HomePage() {
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string>('');
 
-  // Fetch doctors on initial load
+  // Redirect if not authenticated
   useEffect(() => {
-    const fetchDoctors = async () => {
+    if (status === 'unauthenticated') {
+      router.push('/auth/signin');
+    }
+  }, [status, router]);
+
+  // Fetch doctors and patient profile on initial load after session is verified
+  useEffect(() => {
+    if (status !== 'authenticated') return;
+
+    const fetchData = async () => {
       try {
+        // Fetch doctors
         const res = await fetch('/api/doctors');
         if (!res.ok) throw new Error("Could not fetch doctors.");
         const data = await res.json();
         setDoctors(data);
+
+        // Fetch patient profile for the logged-in user
+        // This is a simplified approach. In a real app, you might have a dedicated endpoint.
+        const userRes = await fetch(`/api/user/${session.user.id}`);
+        if (!userRes.ok) throw new Error("Could not fetch user profile.");
+        const userData = await userRes.json();
+        if (userData.patientProfile) {
+          setPatientId(userData.patientProfile.id);
+        } else {
+          // Handle case where a non-patient user (e.g., admin) is logged in
+          // Or a patient profile needs to be created.
+          setError("No patient profile found for this user.");
+        }
+
       } catch (err) {
         setError(err instanceof Error ? err.message : 'An unknown error occurred');
       }
     };
-    fetchDoctors();
-  }, []);
+    fetchData();
+  }, [status, session]);
 
   // Fetch schedules when a doctor is selected
   useEffect(() => {
@@ -71,31 +101,24 @@ export default function HomePage() {
   }, [selectedDoctorId]);
 
   const handleBooking = async () => {
-    if (!selectedSlot || !selectedDoctorId) {
-      setError("Please select a doctor and a time slot.");
+    if (!selectedSlot || !selectedDoctorId || !session?.user?.id || !patientId) {
+      setError("Please select a doctor, a time slot, and ensure you are logged in correctly.");
       return;
     }
     setError(null);
     setSuccessMessage('');
-
-    // --- SIMULATED USER DATA ---
-    // In a real app, these would come from the logged-in user's session
-    const MOCK_USER_ID = "user_placeholder_id";
-    const MOCK_PATIENT_ID = "patient_placeholder_id";
-    // We need to create these placeholder records in the DB for the foreign key constraint to pass
-    // This will be handled properly once authentication is added.
 
     try {
       const response = await fetch('/api/appointments', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          userId: MOCK_USER_ID,
-          patientId: MOCK_PATIENT_ID,
+          userId: session.user.id,
+          patientId: patientId,
           doctorId: selectedDoctorId,
           scheduleId: selectedSlot.scheduleId,
           time: selectedSlot.time,
-          roomId: selectedSlot.roomId, // This needs to be passed correctly
+          roomId: selectedSlot.roomId,
         }),
       });
 
@@ -115,6 +138,16 @@ export default function HomePage() {
       setError(err instanceof Error ? err.message : 'An unknown error occurred');
     }
   };
+
+  // Render loading state while session is being checked
+  if (status === 'loading') {
+    return <main className="container mx-auto p-8 text-center">Loading session...</main>;
+  }
+
+  // Render nothing or a redirect message if unauthenticated
+  if (status === 'unauthenticated') {
+    return <main className="container mx-auto p-8 text-center">Redirecting to sign in...</main>;
+  }
 
   return (
     <main className="container mx-auto p-4 sm:p-6 md:p-8">

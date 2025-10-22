@@ -6,70 +6,139 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  // directUrl = env("DIRECT_URL")
 }
 
+enum Role {
+  PATIENT
+  DOCTOR
+  ADMIN
+}
+
+model User {
+  id            String        @id @default(cuid())
+  email         String?       @unique
+  password      String?
+  role          Role          @default(PATIENT)
+  
+  // Optional: For OAuth providers
+  emailVerified DateTime?
+  image         String?
+  accounts      Account[]
+  sessions      Session[]
+
+  // Relations to specific profiles
+  doctorProfile Doctor?
+  patientProfile Patient?
+  appointments  Appointment[]
+}
+
+// Models for Auth.js adapter
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+
 model Room {
-  id        String   @id @default(cuid())
-  name      String
-  bedCount  Int
-  doctors   Doctor[] @relation("DoctorToRoom")
-  schedules Schedule[]
+  id           String        @id @default(cuid())
+  name         String
+  bedCount     Int
+  doctors      Doctor[]      @relation("DoctorToRoom")
+  schedules    Schedule[]
   appointments Appointment[]
 }
 
 model Doctor {
-  id          String   @id @default(cuid())
-  name        String
-  accountId   String   @unique
-  rooms       Room[]   @relation("DoctorToRoom")
-  schedules   Schedule[]
+  id           String        @id @default(cuid())
+  name         String
+  user         User          @relation(fields: [userId], references: [id])
+  userId       String        @unique
+  rooms        Room[]        @relation("DoctorToRoom")
+  schedules    Schedule[]
   appointments Appointment[]
 }
 
 model Schedule {
-  id        String   @id @default(cuid())
-  doctor    Doctor   @relation(fields: [doctorId], references: [id])
-  doctorId  String
-  date      String
-  timeSlots Json
-  room      Room     @relation(fields: [roomId], references: [id])
-  roomId    String
+  id           String        @id @default(cuid())
+  doctor       Doctor        @relation(fields: [doctorId], references: [id])
+  doctorId     String
+  date         String
+  timeSlots    Json
+  room         Room          @relation(fields: [roomId], references: [id])
+  roomId       String
   appointments Appointment[]
 }
 
 model Appointment {
-  id          String   @id @default(cuid())
-  user        User     @relation(fields: [userId], references: [id])
-  userId      String
-  patient     Patient  @relation(fields: [patientId], references: [id])
-  patientId   String
-  doctor      Doctor   @relation(fields: [doctorId], references: [id])
-  doctorId    String
-  schedule    Schedule @relation(fields: [scheduleId], references: [id])
-  scheduleId  String
-  time        String
-  room        Room     @relation(fields: [roomId], references: [id])
-  roomId      String
-  bedId       Int
-  status      String
-  createTime  DateTime @default(now())
-}
-
-model User {
-  id              String        @id @default(cuid())
-  phone           String        @unique
-  credibilityScore Int          @default(15)
-  isSuspended     Boolean       @default(false)
-  appointments    Appointment[]
-  patients        Patient[]
+  id         String   @id @default(cuid())
+  user       User     @relation(fields: [userId], references: [id])
+  userId     String
+  patient    Patient  @relation(fields: [patientId], references: [id])
+  patientId  String
+  doctor     Doctor   @relation(fields: [doctorId], references: [id])
+  doctorId   String
+  schedule   Schedule @relation(fields: [scheduleId], references: [id])
+  scheduleId String
+  time       String
+  room       Room     @relation(fields: [roomId], references: [id])
+  roomId     String
+  bedId      Int
+  status     String
+  createTime DateTime @default(now())
 }
 
 model Patient {
-  id            String        @id @default(cuid())
-  name          String
-  user          User          @relation(fields: [userId], references: [id])
-  userId        String
-  appointments  Appointment[]
+  id               String        @id @default(cuid())
+  name             String
+  phone            String?       @unique
+  credibilityScore Int           @default(15)
+  isSuspended      Boolean       @default(false)
+  user             User          @relation(fields: [userId], references: [id])
+  userId           String        @unique
+  appointments     Appointment[]
+}
+
+model AuditLog {
+  id          String    @id @default(cuid())
+  timestamp   DateTime  @default(now())
+  userId      String?   // User who performed the action
+  userEmail   String?   // Email of the user who performed the action
+  userRole    Role?     // Role of the user who performed the action
+  action      String    // e.g., "CREATE_USER", "UPDATE_APPOINTMENT_STATUS"
+  entityType  String    // e.g., "User", "Appointment", "Room"
+  entityId    String?   // ID of the entity that was affected
+  details     Json?     // Additional details about the action (e.g., old/new values)
 }
