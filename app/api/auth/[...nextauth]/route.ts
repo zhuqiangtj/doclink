@@ -52,18 +52,20 @@ export const authOptions = {
   },
   callbacks: {
     async jwt({ token, user }) {
-      console.log('JWT callback', { token, user });
-      // When the user signs in, the user object is passed to the JWT callback.
-      // We add the user's id, username, and role to the token.
+      // On initial sign-in, the user object is available. Persist the required data to the token.
       if (user) {
-        token.id = user.id;
-        token.username = user.username;
-        token.name = user.name;
-        token.phone = user.phone;
-        token.dateOfBirth = user.dateOfBirth;
-        token.gender = user.gender;
-        token.role = user.role;
+        return {
+          ...token,
+          id: user.id,
+          username: user.username,
+          name: user.name,
+          phone: user.phone,
+          dateOfBirth: user.dateOfBirth,
+          gender: user.gender,
+          role: user.role,
+        };
       }
+      // On subsequent requests, the token is available. Return it as is.
       return token;
     },
     async session({ session, token }) {
