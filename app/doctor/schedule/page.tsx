@@ -218,8 +218,11 @@ export default function DoctorDashboardPage() {
   const historyAppointments = appointments.filter(apt => !isToday(apt.date) || ['COMPLETED', 'CANCELLED', 'NO_SHOW'].includes(apt.status));
 
   // --- Render Logic ---
-  if (status === 'loading' || isLoading) return <div className="container mx-auto p-8 text-center">加载中...</div>;
-  if (!session || session.user.role !== 'DOCTOR' || !doctorProfile) {
+  if (status === 'loading' || isLoading || !doctorProfile) {
+    return <div className="container mx-auto p-8 text-center">正在加载医生数据...</div>;
+  }
+
+  if (!session || session.user.role !== 'DOCTOR') {
     return <div className="container mx-auto p-8 text-center"><h1 className="text-2xl font-bold text-red-600">访问被拒绝</h1><p className="mt-2">{error || '您必须以医生身份登录才能查看此页面。'}</p></div>;
   }
 
