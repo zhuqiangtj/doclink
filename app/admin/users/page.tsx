@@ -237,8 +237,13 @@ export default function AdminUsersPage() {
           <div className="bg-white p-10 rounded-2xl shadow-2xl w-full max-w-lg">
             <h2 className="text-3xl font-bold mb-6 capitalize">{modalMode === 'add' ? '添加用户' : modalMode === 'edit' ? '编辑用户' : '重置密码'}</h2>
             <form onSubmit={handleSubmit} className="space-y-6">
-              <input type="text" value={name} onChange={(e) => { setName(e.target.value); setIsUsernameManuallyEdited(false); }} placeholder="姓名" className="input-base text-lg" required />
-              <input type="text" value={username} onChange={(e) => { setUsername(e.target.value); setIsUsernameManuallyEdited(true); }} placeholder="用户名" className="input-base text-lg" required />
+              <input type="text" value={name} onChange={(e) => {
+                setName(e.target.value);
+                if (modalMode === 'add') {
+                  setIsUsernameManuallyEdited(false);
+                }
+              }} placeholder="姓名" className="input-base text-lg" required />
+              <input type="text" value={username} onChange={(e) => { setUsername(e.target.value); setIsUsernameManuallyEdited(true); }} placeholder="用户名" className={`input-base text-lg ${modalMode === 'edit' ? 'bg-gray-100' : ''}`} required disabled={modalMode === 'edit'} />
               <input type="text" value={phone} onChange={e => setPhone(e.target.value)} placeholder="电话（可选）" className="input-base text-lg" />
                             <DatePicker
                 selected={dateOfBirth ? new Date(dateOfBirth) : null}
