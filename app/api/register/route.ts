@@ -8,23 +8,17 @@ const prisma = new PrismaClient();
 
 export async function POST(request: Request) {
   try {
-    const { name, phone, gender, dateOfBirth, password } = await request.json();
+    const { name, phone, gender, dateOfBirth, username: initialUsername, password } = await request.json();
 
-    if (!name || !gender || !dateOfBirth || !password) {
+    if (!name || !initialUsername || !gender || !dateOfBirth || !password) {
       return NextResponse.json({ error: 'Missing required fields for patient registration.' }, { status: 400 });
     }
 
-    let username = pinyin(name, { style: pinyin.STYLE_NORMAL }).flat().join('');
-    let existingUser = await prisma.user.findUnique({
-      where: { username },
-    });
-
-    while (existingUser) {
-      const suffix = Math.floor(Math.random() * 1000);
-      username = `${username}${suffix}`;
-      existingUser = await prisma.user.findUnique({
-        where: { username },
-      });
+    let finalUsername = initialUsername;
+    let counter = 1;
+    while (await prisma.user.findUnique({ where: { username: finalUsername } })) {
+      finalUsername = `${initialUsername}${counter}`;
+      counter++;
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
@@ -32,10 +26,10 @@ export async function POST(request: Request) {
     const user = await prisma.$transaction(async (tx) => {
       const newUser = await tx.user.create({
         data: {
-          username,
+          username: finalUsername, // Use the guaranteed unique username
           name,
           phone,
-          dateOfBirth: new Date(dateOfBirth), // Convert to Date object
+          dateOfBirth: new Date(dateOfBirth),
           gender,
           password: hashedPassword,
           role: Role.PATIENT, // Always register as a PATIENT

@@ -12,16 +12,17 @@ export default function RegisterPage() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [isUsernameManuallyEdited, setIsUsernameManuallyEdited] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const router = useRouter();
 
   useEffect(() => {
-    if (name) {
+    if (name && !isUsernameManuallyEdited) {
       const pinyinName = pinyin(name, { style: pinyin.STYLE_NORMAL }).flat().join('');
       setUsername(pinyinName);
     }
-  }, [name]);
+  }, [name, isUsernameManuallyEdited]);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -73,7 +74,28 @@ export default function RegisterPage() {
               autoComplete="name"
               required
               value={name}
-              onChange={(e) => setName(e.target.value)}
+              onChange={(e) => {
+                setName(e.target.value);
+                setIsUsernameManuallyEdited(false);
+              }}
+              className="input-base mt-2"
+            />
+          </div>
+          <div>
+            <label htmlFor="username" className="block text-lg font-medium text-foreground">
+              用户名 (可修改)
+            </label>
+            <input
+              id="username"
+              name="username"
+              type="text"
+              autoComplete="username"
+              required
+              value={username}
+              onChange={(e) => {
+                setUsername(e.target.value);
+                setIsUsernameManuallyEdited(true);
+              }}
               className="input-base mt-2"
             />
           </div>
@@ -110,18 +132,17 @@ export default function RegisterPage() {
             />
           </div>
           <div>
-            <label htmlFor="username" className="block text-lg font-medium text-foreground">
-              用户名 (自动生成)
+            <label htmlFor="phone" className="block text-lg font-medium text-foreground">
+              电话（可选）
             </label>
             <input
-              id="username"
-              name="username"
+              id="phone"
+              name="phone"
               type="text"
-              autoComplete="username"
-              required
-              value={username}
-              disabled
-              className="input-base mt-2 bg-gray-100"
+              autoComplete="tel"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              className="input-base mt-2"
             />
           </div>
           <div>
@@ -134,6 +155,8 @@ export default function RegisterPage() {
               type="password"
               autoComplete="new-password"
               required
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
               className="input-base mt-2"
             />
           </div>
@@ -149,20 +172,6 @@ export default function RegisterPage() {
               required
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
-              className="input-base mt-2"
-            />
-          </div>
-          <div>
-            <label htmlFor="phone" className="block text-lg font-medium text-foreground">
-              电话（可选）
-            </label>
-            <input
-              id="phone"
-              name="phone"
-              type="text"
-              autoComplete="tel"
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
               className="input-base mt-2"
             />
           </div>

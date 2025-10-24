@@ -40,8 +40,8 @@ export async function POST(request: Request) {
   }
 
   try {
-    const { name, username, phone, dateOfBirth, gender, password, role } = await request.json();
-    if (!name || !username || !password || !role) {
+    const { name, username: initialUsername, phone, dateOfBirth, gender, password, role } = await request.json();
+    if (!name || !initialUsername || !password || !role) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
 
@@ -57,11 +57,11 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Invalid role specified' }, { status: 400 });
     }
 
-    const existingUserByUsername = await prisma.user.findUnique({
-      where: { username },
-    });
-    if (existingUserByUsername) {
-      return NextResponse.json({ error: 'Username already in use' }, { status: 409 });
+    let finalUsername = initialUsername;
+    let counter = 1;
+    while (await prisma.user.findUnique({ where: { username: finalUsername } })) {
+      finalUsername = `${initialUsername}${counter}`;
+      counter++;
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
@@ -69,7 +69,7 @@ export async function POST(request: Request) {
     const newUser = await prisma.$transaction(async (tx) => {
       const user = await tx.user.create({
         data: {
-          username,
+          username: finalUsername,
           name,
           phone,
           dateOfBirth: dateOfBirth ? new Date(dateOfBirth) : undefined,
@@ -125,7 +125,7 @@ export async function PUT(request: Request) {
       const user = await tx.user.findUnique({ where: { id: userId } });
       if (!user) throw new Error('User not found.');
 
-      // Update password if provided (for reset)
+      // Handle password reset separately as it returns early
       if (password) {
         const hashedPassword = await bcrypt.hash(password, 10);
         await tx.user.update({
@@ -133,68 +133,51 @@ export async function PUT(request: Request) {
           data: { password: hashedPassword },
         });
         await createAuditLog(session, 'ADMIN_RESET_PASSWORD', 'User', userId, { byAdmin: true });
-        return { id: userId, message: 'Password reset successfully' };
-      }
+        // Since we are in a transaction, we can't return a simple object.
+        // We will fetch and return the user at the end.
+      } else {
+        // Handle all other updates
+        const userDataToUpdate: { name?: string; phone?: string; dateOfBirth?: Date; gender?: string; role?: Role } = {};
+        if (name) userDataToUpdate.name = name;
+        if (phone) userDataToUpdate.phone = phone;
+        if (dateOfBirth) userDataToUpdate.dateOfBirth = new Date(dateOfBirth);
+        if (gender) userDataToUpdate.gender = gender;
+        if (role && user.role !== role) userDataToUpdate.role = role;
 
-      // Update username if provided and changed
-      if (username && username !== user.username) {
-        const existingUserWithUsername = await tx.user.findUnique({ where: { username } });
-        if (existingUserWithUsername && existingUserWithUsername.id !== userId) {
-          throw new Error('Username already in use.');
-        }
-        await tx.user.update({
-          where: { id: userId },
-          data: { username },
-        });
-        await createAuditLog(session, 'ADMIN_UPDATE_USERNAME', 'User', userId, { oldUsername: user.username, newUsername: username });
-      }
-
-      // Update User model fields
-      const userDataToUpdate: { name?: string; phone?: string; dateOfBirth?: Date; gender?: string; role?: Role } = {};
-      if (name) userDataToUpdate.name = name;
-      if (phone) userDataToUpdate.phone = phone;
-      if (dateOfBirth) userDataToUpdate.dateOfBirth = new Date(dateOfBirth);
-      if (gender) userDataToUpdate.gender = gender;
-      if (role && user.role !== role) userDataToUpdate.role = role;
-
-      if (Object.keys(userDataToUpdate).length > 0) {
-        await tx.user.update({
-          where: { id: userId },
-          data: userDataToUpdate,
-        });
-        await createAuditLog(session, 'ADMIN_UPDATE_USER_DETAILS', 'User', userId, userDataToUpdate);
-      }
-
-      // Update patient profile if applicable
-      if (user.role === 'PATIENT') {
-        const patientProfile = await tx.patient.findUnique({ where: { userId } });
-        if (patientProfile) {
-          await tx.patient.update({
-            where: { userId },
-            data: { 
-              credibilityScore: credibilityScore !== undefined ? credibilityScore : patientProfile.credibilityScore,
-              isSuspended: isSuspended !== undefined ? isSuspended : patientProfile.isSuspended,
-            },
+        if (Object.keys(userDataToUpdate).length > 0) {
+          await tx.user.update({
+            where: { id: userId },
+            data: userDataToUpdate,
           });
-          await createAuditLog(session, 'ADMIN_UPDATE_PATIENT_PROFILE', 'Patient', patientProfile.id, { userId, credibilityScore, isSuspended });
+          await createAuditLog(session, 'ADMIN_UPDATE_USER_DETAILS', 'User', userId, userDataToUpdate);
+        }
+
+        if (user.role === 'PATIENT') {
+          const patientProfile = await tx.patient.findUnique({ where: { userId } });
+          if (patientProfile) {
+            const patientDataToUpdate: { credibilityScore?: number; isSuspended?: boolean } = {};
+            if (credibilityScore !== undefined) patientDataToUpdate.credibilityScore = credibilityScore;
+            if (isSuspended !== undefined) patientDataToUpdate.isSuspended = isSuspended;
+
+            if (Object.keys(patientDataToUpdate).length > 0) {
+              await tx.patient.update({
+                where: { userId },
+                data: patientDataToUpdate,
+              });
+              await createAuditLog(session, 'ADMIN_UPDATE_PATIENT_PROFILE', 'Patient', patientProfile.id, patientDataToUpdate);
+            }
+          }
         }
       }
 
-      // Update doctor profile if applicable
-      if (user.role === 'DOCTOR') {
-        // No doctor-specific fields to update via this route currently
-        await createAuditLog(session, 'ADMIN_UPDATE_DOCTOR_PROFILE', 'Doctor', user.id, { userId, name });
-      }
-
-      const updatedUser = await tx.user.findUnique({
+      // Fetch the final state of the user at the end of the transaction
+      return tx.user.findUnique({
         where: { id: userId },
         include: {
           patientProfile: { select: { id: true, credibilityScore: true, isSuspended: true } },
-          doctorProfile: { include: { rooms: { select: { id: true, name: true } } } },
+          doctorProfile: { select: { id: true } },
         },
       });
-
-      return updatedUser;
     });
 
     return NextResponse.json(updatedUser);
