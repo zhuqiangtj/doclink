@@ -10,8 +10,6 @@ export async function GET(request: Request, { params }: { params: { id: string }
   const session = await getServerSession(authOptions);
   const { id } = params;
 
-  // Basic authorization: Ensure the logged-in user is requesting their own data
-  // Or that the user is an admin.
   if (!session || (session.user.id !== id && session.user.role !== 'ADMIN')) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
   }
@@ -19,31 +17,24 @@ export async function GET(request: Request, { params }: { params: { id: string }
   try {
     const user = await prisma.user.findUnique({
       where: { id },
-      select: {
-        id: true,
-        email: true,
-        role: true,
-        patientProfile: {
-          select: {
-            id: true,
-            name: true,
-            phone: true,
-          }
-        },
+      include: {
+        patientProfile: true, // Include full patient profile
         doctorProfile: {
-          select: {
-            id: true,
-            name: true,
-          }
-        }
-      }
+          include: {
+            rooms: true, // For doctors, include their rooms
+          },
+        },
+      },
     });
 
     if (!user) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
-    return NextResponse.json(user);
+    // Exclude password from the response
+    const { password, ...userWithoutPassword } = user;
+
+    return NextResponse.json(userWithoutPassword);
 
   } catch (error) {
     console.error(`Error fetching user ${id}:`, error);
