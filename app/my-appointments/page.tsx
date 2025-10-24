@@ -24,6 +24,15 @@ const statusColors: { [key: string]: string } = {
   CANCELLED: 'bg-purple-200 text-purple-800',
 };
 
+const statusTranslations: { [key: string]: string } = {
+  pending: '待处理',
+  CHECKED_IN: '已签到',
+  CONFIRMED: '已确认',
+  COMPLETED: '已完成',
+  NO_SHOW: '未到诊',
+  CANCELLED: '已取消',
+};
+
 // --- Helper Function ---
 const isToday = (dateString: string) => {
   const date = new Date(dateString);
@@ -33,6 +42,8 @@ const isToday = (dateString: string) => {
          date.getUTCMonth() === today.getUTCMonth() &&
          date.getUTCDate() === today.getUTCDate();
 };
+
+
 
 // --- Component ---
 export default function MyAppointmentsPage() {
@@ -97,47 +108,106 @@ export default function MyAppointmentsPage() {
     }
   };
 
+  const handleCancel = async (appointmentId: string) => {
+    setError(null);
+    setSuccess(null);
+    if (window.confirm('您确定要取消此预约吗？')) {
+      try {
+        const response = await fetch(`/api/appointments?appointmentId=${appointmentId}`, {
+          method: 'DELETE',
+        });
+        if (!response.ok) {
+          const errData = await response.json();
+          throw new Error(errData.error || '取消预约失败。');
+        }
+        setAppointments(prev => prev.filter(apt => apt.id !== appointmentId));
+        setSuccess('预约已成功取消。');
+      } catch (err) {
+        setError(err instanceof Error ? err.message : '发生未知错误');
+      }
+    }
+  };
+
+  // --- Filtering Logic ---
+  const upcomingAppointments = appointments.filter(apt => !['COMPLETED', 'CANCELLED', 'NO_SHOW'].includes(apt.status));
+  const pastAppointments = appointments.filter(apt => ['COMPLETED', 'CANCELLED', 'NO_SHOW'].includes(apt.status));
+
   // --- Render Logic ---
   if (status === 'loading' || isLoading) {
     return <div className="container mx-auto p-8 text-center">正在加载预约...</div>;
   }
 
   return (
-    <div className="container mx-auto p-4 sm:p-6 md:p-8">
-      <h1 className="text-3xl font-bold mb-6">我的预约</h1>
-      {error && <div className="p-3 mb-4 text-sm text-red-700 bg-red-100 rounded-md">{error}</div>}
-      {success && <div className="p-3 mb-4 text-sm text-green-700 bg-green-100 rounded-md">{success}</div>}
+    <div className="container mx-auto p-6 md:p-10">
+      <h1 className="text-4xl font-bold mb-8 text-foreground">我的预约</h1>
+      {error && <div className="p-4 mb-6 text-lg text-error bg-red-100 rounded-xl">{error}</div>}
+      {success && <div className="p-4 mb-6 text-lg text-white bg-success rounded-xl">{success}</div>}
 
-      <div className="space-y-4">
-        {appointments.length > 0 ? appointments.map(apt => (
-          <div key={apt.id} className="bg-white p-4 border rounded-lg shadow-sm flex justify-between items-center">
-            <div>
-              <p className="font-bold text-lg">医生 {apt.doctor.name}</p>
-              <p className="text-gray-700">日期：{new Date(apt.date).toLocaleDateString()}</p>
-              <p className="text-gray-600">时间：{apt.time} 在 {apt.room.name}</p>
-              <p className="text-sm font-medium uppercase mt-2">状态：<span className={`px-2 py-1 rounded-full text-xs ${statusColors[apt.status] || 'bg-gray-200'}`}>{apt.status.replace('_',' ')}</span></p>
-              {apt.status === 'COMPLETED' && apt.bedId > 0 && (
-                <p className="text-sm font-semibold text-green-700 mt-1">就诊完成，床位号：#{apt.bedId}</p>
-              )}
+      {appointments.length === 0 ? (
+        <div className="text-center py-20 bg-white rounded-2xl shadow-lg">
+          <p className="text-2xl text-gray-500">您还没有任何预约记录。</p>
+        </div>
+      ) : (
+        <div className="space-y-10">
+          {/* Upcoming Appointments */}
+          <section>
+            <h2 className="text-3xl font-bold mb-6">即将到来的预约</h2>
+            <div className="space-y-6">
+              {upcomingAppointments.length > 0 ? upcomingAppointments.map(apt => (
+                <div key={apt.id} className="bg-white p-6 rounded-2xl shadow-lg flex justify-between items-center">
+                  <div>
+                    <p className="font-bold text-xl">医生 {apt.doctor.name}</p>
+                    <p className="text-gray-700 text-lg mt-1">日期：{new Date(apt.date).toLocaleDateString()}</p>
+                    <p className="text-gray-600 text-lg">时间：{apt.time} 在 {apt.room.name}</p>
+                    <p className="text-base font-medium uppercase mt-4">状态：<span className={`px-3 py-1 rounded-full text-sm ${statusColors[apt.status] || 'bg-gray-200'}`}>{statusTranslations[apt.status] || apt.status}</span></p>
+                  </div>
+                  <div className="flex flex-col items-center space-y-4">
+                    {isToday(apt.date) && apt.status === 'pending' && (
+                      <button 
+                        onClick={() => handleCheckIn(apt.id)}
+                        className="btn btn-primary text-lg w-32"
+                      >
+                        签到
+                      </button>
+                    )}
+                    {apt.status === 'CHECKED_IN' && (
+                      <span className="text-lg text-gray-500">等待医生确认...</span>
+                    )}
+                    {new Date(apt.date) > new Date() && (apt.status === 'pending' || apt.status === 'CONFIRMED') && (
+                      <button 
+                        onClick={() => handleCancel(apt.id)}
+                        className="btn bg-error text-white text-lg w-32"
+                      >
+                        取消预约
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )) : <p className="text-lg text-gray-500">没有即将到来的预约。</p>}
             </div>
-            <div>
-              {isToday(apt.date) && apt.status === 'pending' && (
-                <button 
-                  onClick={() => handleCheckIn(apt.id)}
-                  className="py-2 px-4 bg-blue-600 text-white rounded-md hover:bg-blue-700"
-                >
-                  签到
-                </button>
-              )}
-               {apt.status === 'CHECKED_IN' && (
-                <span className="text-sm text-gray-500">等待医生确认...</span>
-              )}
+          </section>
+
+          {/* Past Appointments */}
+          <section>
+            <h2 className="text-3xl font-bold mb-6">历史预约</h2>
+            <div className="space-y-6">
+              {pastAppointments.length > 0 ? pastAppointments.map(apt => (
+                <div key={apt.id} className="bg-gray-100 p-6 rounded-2xl shadow-md flex justify-between items-center opacity-80">
+                  <div>
+                    <p className="font-bold text-xl">医生 {apt.doctor.name}</p>
+                    <p className="text-gray-700 text-lg mt-1">日期：{new Date(apt.date).toLocaleDateString()}</p>
+                    <p className="text-gray-600 text-lg">时间：{apt.time} 在 {apt.room.name}</p>
+                    <p className="text-base font-medium uppercase mt-4">状态：<span className={`px-3 py-1 rounded-full text-sm ${statusColors[apt.status] || 'bg-gray-200'}`}>{statusTranslations[apt.status] || apt.status}</span></p>
+                    {apt.status === 'COMPLETED' && apt.bedId > 0 && (
+                      <p className="text-base font-semibold text-success mt-2">就诊完成，床位号：#{apt.bedId}</p>
+                    )}
+                  </div>
+                </div>
+              )) : <p className="text-lg text-gray-500">没有历史预约记录。</p>}
             </div>
-          </div>
-        )) : (
-          <p>您没有预约。</p>
-        )}
-      </div>
+          </section>
+        </div>
+      )}
     </div>
   );
 }

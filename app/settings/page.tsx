@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, FormEvent } from 'react';
-import { useSession } from 'next-auth/react';
+import { useSession, signOut } from 'next-auth/react';
 
 export default function SettingsPage() {
   const { data: session, status, update } = useSession();
@@ -67,70 +67,82 @@ export default function SettingsPage() {
       setSuccess('密码更新成功！');
       setCurrentPassword('');
       setNewPassword('');
-      setConfirmPassword('');
     } catch (err) { setError(err instanceof Error ? err.message : '更新失败'); }
+  };
+
+  const handleLogout = async () => {
+    await signOut({ callbackUrl: '/auth/signin' });
   };
 
   if (status === 'loading') return <div className="container mx-auto p-8 text-center">加载中...</div>;
   if (status === 'unauthenticated') return <div className="container mx-auto p-8 text-center">访问被拒绝。</div>;
 
   return (
-    <div className="container mx-auto max-w-xl p-4">
-      <h1 className="text-3xl font-bold mb-6">设置</h1>
-      {error && <div className="p-3 mb-4 text-sm text-red-700 bg-red-100 rounded-md">{error}</div>}
-      {success && <div className="p-3 mb-4 text-sm text-green-700 bg-green-100 rounded-md">{success}</div>}
+    <div className="container mx-auto max-w-2xl p-6 md:p-10">
+      <h1 className="text-4xl font-bold mb-8 text-foreground">设置</h1>
+      {error && <div className="p-4 mb-6 text-lg text-error bg-red-100 rounded-xl">{error}</div>}
+      {success && <div className="p-4 mb-6 text-lg text-white bg-success rounded-xl">{success}</div>}
 
       {/* Profile Information */}
-      <div className="bg-white p-6 rounded-lg shadow-md mb-8">
-        <h2 className="text-xl font-semibold mb-4">我的资料</h2>
-        <form onSubmit={handleProfileSubmit} className="space-y-4">
+      <div className="bg-white p-8 rounded-2xl shadow-lg mb-10">
+        <h2 className="text-2xl font-semibold mb-6">我的资料</h2>
+        <form onSubmit={handleProfileSubmit} className="space-y-6">
           <div>
-            <label className="block text-sm font-medium">用户名</label>
-            <input type="text" value={username} onChange={e => setUsername(e.target.value)} className="mt-1 block w-full min-h-10 py-2 px-4 rounded-md border-gray-300 text-gray-900" />
+            <label className="block text-lg font-medium">用户名</label>
+            <input type="text" value={username} onChange={e => setUsername(e.target.value)} className="input-base mt-2" />
           </div>
           <div>
-            <label className="block text-sm font-medium">姓名</label>
-            <input type="text" value={name} onChange={e => setName(e.target.value)} className="mt-1 block w-full min-h-10 py-2 px-4 rounded-md border-gray-300 text-gray-900" />
+            <label className="block text-lg font-medium">姓名</label>
+            <input type="text" value={name} onChange={e => setName(e.target.value)} className="input-base mt-2" />
           </div>
           <div>
-            <label className="block text-sm font-medium">联系电话</label>
-            <input type="text" value={phone} onChange={e => setPhone(e.target.value)} className="mt-1 block w-full min-h-10 py-2 px-4 rounded-md border-gray-300 text-gray-900" />
+            <label className="block text-lg font-medium">联系电话</label>
+            <input type="text" value={phone} onChange={e => setPhone(e.target.value)} className="input-base mt-2" />
           </div>
           <div>
-            <label className="block text-sm font-medium">出生日期</label>
-            <input type="date" value={dateOfBirth} onChange={e => setDateOfBirth(e.target.value)} className="mt-1 block w-full min-h-10 py-2 px-4 rounded-md border-gray-300 text-gray-900" />
+            <label className="block text-lg font-medium">出生日期</label>
+            <input type="date" value={dateOfBirth} onChange={e => setDateOfBirth(e.target.value)} className="input-base mt-2" />
           </div>
           <div>
-            <label className="block text-sm font-medium">性别</label>
-            <select value={gender} onChange={e => setGender(e.target.value)} className="mt-1 block w-full min-h-10 py-2 px-4 rounded-md border-gray-300 text-gray-900">
+            <label className="block text-lg font-medium">性别</label>
+            <select value={gender} onChange={e => setGender(e.target.value)} className="input-base mt-2">
               <option value="">选择性别</option>
               <option value="Male">男</option>
               <option value="Female">女</option>
               <option value="Other">其他</option>
             </select>
           </div>
-          <button type="submit" className="w-full py-2 px-4 bg-blue-600 text-white rounded-md">保存资料</button>
+          <button type="submit" className="w-full btn btn-primary text-lg">保存资料</button>
         </form>
       </div>
 
       {/* Change Password */}
-      <div className="bg-white p-6 rounded-lg shadow-md">
-        <h2 className="text-xl font-semibold mb-4">修改密码</h2>
-        <form onSubmit={handlePasswordSubmit} className="space-y-4">
+      <div className="bg-white p-8 rounded-2xl shadow-lg mb-10">
+        <h2 className="text-2xl font-semibold mb-6">修改密码</h2>
+        <form onSubmit={handlePasswordSubmit} className="space-y-6">
            <div>
-            <label className="block text-sm font-medium">当前密码</label>
-            <input type="password" value={currentPassword} onChange={e => setCurrentPassword(e.target.value)} className="mt-1 block w-full min-h-10 py-2 px-4 rounded-md border-gray-300 text-gray-900" required />
+            <label className="block text-lg font-medium">当前密码</label>
+            <input type="password" value={currentPassword} onChange={e => setCurrentPassword(e.target.value)} className="input-base mt-2" required />
           </div>
           <div>
-            <label className="block text-sm font-medium">新密码</label>
-            <input type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} className="mt-1 block w-full min-h-10 py-2 px-4 rounded-md border-gray-300 text-gray-900" required />
+            <label className="block text-lg font-medium">新密码</label>
+            <input type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} className="input-base mt-2" required />
           </div>
           <div>
-            <label className="block text-sm font-medium">确认新密码</label>
-            <input type="password" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} className="mt-1 block w-full min-h-10 py-2 px-4 rounded-md border-gray-300 text-gray-900" required />
+            <label className="block text-lg font-medium">确认新密码</label>
+            <input type="password" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} className="input-base mt-2" required />
           </div>
-          <button type="submit" className="w-full py-2 px-4 bg-indigo-600 text-white rounded-md">更新密码</button>
+          <button type="submit" className="w-full btn btn-primary text-lg">更新密码</button>
         </form>
+      </div>
+
+      <div className="mt-8">
+        <button 
+          onClick={handleLogout} 
+          className="w-full btn bg-error text-white text-lg"
+        >
+          登出
+        </button>
       </div>
     </div>
   );

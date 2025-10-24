@@ -3,6 +3,7 @@
 import { useState, FormEvent } from 'react';
 import { signIn, getSession } from 'next-auth/react'; // Import getSession
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 
 export default function SignInPage() {
   const [username, setUsername] = useState('');
@@ -39,12 +40,12 @@ export default function SignInPage() {
   };
 
   return (
-    <div className="flex items-center justify-center min-h-screen bg-gray-100">
-      <div className="w-full max-w-md p-8 space-y-6 bg-white rounded-lg shadow-md">
-        <h1 className="text-2xl font-bold text-center text-gray-900">登录</h1>
-        <form onSubmit={handleSubmit} className="space-y-6">
+    <div className="flex items-center justify-center min-h-screen bg-background">
+      <div className="w-full max-w-md p-10 space-y-8 bg-white rounded-2xl shadow-xl">
+        <h1 className="text-3xl font-bold text-center text-foreground">登录</h1>
+        <form onSubmit={handleSubmit} className="space-y-8">
           <div>
-            <label htmlFor="username" className="block text-sm font-medium text-gray-700">
+            <label htmlFor="username" className="block text-lg font-medium text-foreground">
               用户名
             </label>
             <input
@@ -55,11 +56,11 @@ export default function SignInPage() {
               required
               value={username}
               onChange={(e) => setUsername(e.target.value)}
-              className="block w-full min-h-10 py-2 px-4 mt-1 placeholder-gray-400 border border-gray-300 rounded-md shadow-sm appearance-none focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm text-gray-900"
+              className="input-base mt-2"
             />
           </div>
           <div>
-            <label htmlFor="password" className="block text-sm font-medium text-gray-700">
+            <label htmlFor="password" className="block text-lg font-medium text-foreground">
               密码
             </label>
             <input
@@ -70,21 +71,26 @@ export default function SignInPage() {
               required
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="block w-full min-h-10 py-2 px-4 mt-1 placeholder-gray-400 border border-gray-300 rounded-md shadow-sm appearance-none focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm text-gray-900"
+              className="input-base mt-2"
             />
           </div>
           {error && (
-            <div className="p-3 text-sm text-red-700 bg-red-100 rounded-md">
+            <div className="p-4 text-sm text-error bg-red-100 rounded-lg">
               {error}
             </div>
           )}
           <div>
             <button
               type="submit"
-              className="w-full px-4 py-2 text-sm font-medium text-white bg-indigo-600 border border-transparent rounded-md shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+              className="w-full btn btn-primary text-lg"
             >
               登录
             </button>
+          </div>
+          <div className="text-base text-center">
+            <Link href="/auth/register" className="font-medium text-primary hover:underline">
+              没有账户？点击注册
+            </Link>
           </div>
         </form>
       </div>

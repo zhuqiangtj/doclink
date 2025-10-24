@@ -6,8 +6,8 @@ generator client {
 }
 
 datasource db {
-  provider  = "postgresql"
-  url       = env("DATABASE_URL")
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
   // directUrl = env("DIRECT_URL")
 }
 
@@ -18,26 +18,23 @@ enum Role {
 }
 
 model User {
-  id            String        @id @default(cuid())
-  username      String        @unique // Now required
-  name          String        // New: required for all users
-  phone         String?       // New: optional for all users
-  dateOfBirth   DateTime?     // New: optional for all users
-  gender        String?       // New: optional for all users
-  password      String        // Now required
-  role          Role          @default(PATIENT)
-  
-  // Optional: For OAuth providers (email is now optional/non-unique)
-  email         String?       @unique // Keep unique for now, but not primary login
-  emailVerified DateTime?
-  image         String?
-  accounts      Account[]
-  sessions      Session[]
+  id          String    @id @default(cuid())
+  username    String    @unique // Now required
+  name        String // New: required for all users
+  phone       String? // New: optional for all users
+  dateOfBirth DateTime? // New: optional for all users
+  gender      String? // New: optional for all users
+  password    String // Now required
+  role        Role      @default(PATIENT)
+
+  accounts Account[]
+  sessions Session[]
 
   // Relations to specific profiles
-  doctorProfile Doctor?
+  doctorProfile  Doctor?
   patientProfile Patient?
-  appointments  Appointment[]
+  appointments   Appointment[]
+  patientNotifications PatientNotification[]
 }
 
 // Models for Auth.js adapter
@@ -76,26 +73,26 @@ model VerificationToken {
   @@unique([identifier, token])
 }
 
-
 model Room {
   id           String        @id @default(cuid())
   name         String
   bedCount     Int
   // New: One-to-many relationship with Doctor
   doctor       Doctor        @relation(fields: [doctorId], references: [id])
-  doctorId     String        // Foreign key to Doctor
+  doctorId     String // Foreign key to Doctor
   schedules    Schedule[]
   appointments Appointment[]
 }
 
 model Doctor {
-  id           String        @id @default(cuid())
+  id            String         @id @default(cuid())
   // name String is now on User model
-  user         User          @relation(fields: [userId], references: [id])
-  userId       String        @unique
-  rooms        Room[]        // This will now be the "many" side of the one-to-many
-  schedules    Schedule[]
-  appointments Appointment[]
+  user          User           @relation(fields: [userId], references: [id])
+  userId        String         @unique
+  schedules     Schedule[]
+  appointments  Appointment[]
+  notifications Notification[]
+  Room          Room[]
 }
 
 model Schedule {
@@ -139,13 +136,42 @@ model Patient {
 }
 
 model AuditLog {
-  id          String    @id @default(cuid())
-  timestamp   DateTime  @default(now())
-  userId      String?   // User who performed the action
-  userUsername String?  // New: Username of the user who performed the action
-  userRole    Role?     // Role of the user who performed the action
-  action      String    // e.g., "CREATE_USER", "UPDATE_APPOINTMENT_STATUS"
-  entityType  String    // e.g., "User", "Appointment", "Room"
-  entityId    String?   // ID of the entity that was affected
-  details     Json?     // Additional details about the action (e.g., old/new values)
+  id           String   @id @default(cuid())
+  timestamp    DateTime @default(now())
+  userId       String? // User who performed the action
+  userName     String? // Name of the user who performed the action
+  userUsername String? // New: Username of the user who performed the action
+  userRole     Role? // Role of the user who performed the action
+  action       String // e.g., "CREATE_USER", "UPDATE_APPOINTMENT_STATUS"
+  entityType   String // e.g., "User", "Appointment", "Room"
+  entityId     String? // ID of the entity that was affected
+  details      Json? // Additional details about the action (e.g., old/new values)
+}
+
+model Notification {
+  id            String   @id @default(cuid())
+  createdAt     DateTime @default(now())
+  doctorId      String
+  doctor        Doctor   @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+  appointmentId String
+  patientName   String
+  message       String
+  type          String // e.g., 'APPOINTMENT_CREATED', 'APPOINTMENT_CANCELLED'
+  isRead        Boolean  @default(false)
+
+  @@index([doctorId])
+}
+
+model PatientNotification {
+  id            String    @id @default(cuid())
+  createdAt     DateTime  @default(now())
+  userId        String
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  appointmentId String
+  doctorName    String
+  message       String
+  type          String    // e.g., 'APPOINTMENT_CREATED_BY_DOCTOR', 'APPOINTMENT_CANCELLED_BY_DOCTOR'
+  isRead        Boolean   @default(false)
+
+  @@index([userId])
 }

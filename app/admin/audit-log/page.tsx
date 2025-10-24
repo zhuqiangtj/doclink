@@ -9,7 +9,8 @@ interface AuditLog {
   id: string;
   timestamp: string;
   userId?: string;
-  userEmail?: string;
+  userName?: string;
+  userUsername?: string;
   userRole?: string;
   action: string;
   entityType: string;
@@ -67,7 +68,7 @@ export default function AdminAuditLogPage() {
           {logs.length > 0 ? logs.map(log => (
             <div key={log.id} className="p-3 border rounded-md bg-gray-50 text-sm">
               <p className="font-semibold">操作: {log.action} 于 {log.entityType} {log.entityId ? `(ID: ${log.entityId})` : ''}</p>
-              <p className="text-gray-600">执行者: {log.userEmail} ({log.userRole}) 于 {new Date(log.timestamp).toLocaleString()}</p>
+              <p className="text-gray-600">执行者: {log.userName || log.userUsername} ({log.userRole}) 于 {new Date(log.timestamp).toLocaleString()}</p>
               {log.details && (
                 <details className="mt-1">
                   <summary className="cursor-pointer text-xs text-gray-500">详情</summary>

@@ -4,7 +4,7 @@ import { createAuditLog } from '@/lib/audit'; // Import from shared utility
 
 const prisma = new PrismaClient();
 
-export async function GET() {
+export async function GET(request: Request) {
   // --- Authorization ---
   const authHeader = request.headers.get('authorization');
   if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {

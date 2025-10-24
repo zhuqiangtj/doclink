@@ -13,18 +13,20 @@ interface TimeSlot {
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const doctorId = searchParams.get('doctorId');
+  const date = searchParams.get('date'); // New: get date from query
 
   if (!doctorId) {
     return NextResponse.json({ error: 'A doctorId is required to find schedules.' }, { status: 400 });
   }
 
   try {
+    const whereClause: { doctorId: string; date?: string } = { doctorId: doctorId };
+    if (date) {
+      whereClause.date = date;
+    }
+
     const schedules = await prisma.schedule.findMany({
-      where: {
-        doctorId: doctorId,
-        // Optional: Add a date filter to only show future schedules
-        // date: { gte: new Date().toISOString().split('T')[0] }
-      },
+      where: whereClause,
       select: {
         id: true,
         date: true,

@@ -54,7 +54,7 @@ export default function AdminRoomsPage() {
   useEffect(() => {
     if (status === 'unauthenticated') router.push('/auth/signin');
     if (status === 'authenticated' && session.user.role !== 'ADMIN') {
-      setError('Access Denied: You must be an admin to view this page.');
+      setError('访问被拒绝：您必须是管理员才能查看此页面。');
     }
   }, [status, session, router]);
 
@@ -70,8 +70,8 @@ export default function AdminRoomsPage() {
           fetch('/api/users?role=DOCTOR'), // Admin gets all doctors
         ]);
 
-        if (!roomsRes.ok) throw new Error('Failed to fetch rooms.');
-        if (!usersRes.ok) throw new Error('Failed to fetch doctors.');
+        if (!roomsRes.ok) throw new Error('获取诊室列表失败。');
+        if (!usersRes.ok) throw new Error('获取医生列表失败。');
 
         setRooms(await roomsRes.json());
         // Filter out only doctor profiles from users API response
@@ -79,7 +79,7 @@ export default function AdminRoomsPage() {
         setDoctors(doctorUsers.filter(user => user.role === 'DOCTOR' && user.doctorProfile).map(user => user.doctorProfile as Doctor));
 
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'An unknown error occurred');
+        setError(err instanceof Error ? err.message : '发生未知错误');
       } finally {
         setIsLoading(false);
       }
@@ -111,7 +111,7 @@ export default function AdminRoomsPage() {
     setSuccess(null);
 
     if (!selectedDoctorId) {
-      setError('Please select a doctor for the room.');
+      setError('请为诊室选择一位医生。');
       return;
     }
 
@@ -129,29 +129,29 @@ export default function AdminRoomsPage() {
 
       if (!response.ok) {
         const errData = await response.json();
-        throw new Error(errData.error || 'Operation failed.');
+        throw new Error(errData.error || '操作失败。');
       }
 
       // Refresh room list after operation
       const roomsRes = await fetch('/api/rooms');
       setRooms(await roomsRes.json());
       
-      setSuccess(`Room ${modalMode === 'add' ? 'added' : 'updated'} successfully!`);
+      setSuccess(`诊室 ${modalMode === 'add' ? '添加' : '更新'} 成功！`);
       closeModal();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'An unknown error occurred');
+      setError(err instanceof Error ? err.message : '发生未知错误');
     }
   };
 
   const handleDelete = async (roomId: string) => {
-    if (window.confirm('Are you sure you want to delete this room? This action cannot be undone.')) {
+    if (window.confirm('您确定要删除此诊室吗？此操作无法撤销。')) {
       try {
         const response = await fetch(`/api/rooms?roomId=${roomId}`, { method: 'DELETE' });
-        if (!response.ok) throw new Error('Failed to delete room.');
+        if (!response.ok) throw new Error('删除诊室失败。');
         setRooms(prev => prev.filter(r => r.id !== roomId));
-        setSuccess('Room deleted successfully!');
+        setSuccess('诊室删除成功！');
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'An unknown error occurred');
+        setError(err instanceof Error ? err.message : '发生未知错误');
       }
     }
   };
@@ -161,10 +161,10 @@ export default function AdminRoomsPage() {
   if (session?.user.role !== 'ADMIN') return <div className="container mx-auto p-8 text-center text-red-600">{error || '访问被拒绝：您必须是管理员才能查看此页面。'}</div>;
 
   return (
-    <div className="container mx-auto p-4 sm:p-6 md:p-8">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-bold">诊室管理</h1>
-        <button onClick={() => openModal('add')} className="py-2 px-4 bg-indigo-600 text-white rounded-md hover:bg-indigo-700">
+    <div className="container mx-auto p-6 md:p-10">
+      <div className="flex justify-between items-center mb-8">
+        <h1 className="text-4xl font-bold text-foreground">诊室管理</h1>
+        <button onClick={() => openModal('add')} className="btn btn-primary text-lg">
           添加诊室
         </button>
       </div>
@@ -172,39 +172,39 @@ export default function AdminRoomsPage() {
       {error && <div className="p-3 mb-4 text-sm text-red-700 bg-red-100 rounded-md">{error}</div>}
       {success && <div className="p-3 mb-4 text-sm text-green-700 bg-green-100 rounded-md">{success}</div>}
 
-      <div className="bg-white p-4 border rounded-lg shadow-md">
-        <ul className="space-y-3">
+      <div className="bg-white p-6 rounded-2xl shadow-lg">
+        <ul className="space-y-4">
           {rooms.length > 0 ? rooms.map((room) => (
-            <li key={room.id} className="p-3 border rounded-md flex justify-between items-center">
+            <li key={room.id} className="p-5 border rounded-xl shadow-sm flex justify-between items-center">
               <div>
-                <p className="font-semibold">{room.name} ({room.bedCount} 床位)</p>
-                <p className="text-sm text-gray-600">所属医生: {room.doctor.name}</p>
+                <p className="font-semibold text-xl">{room.name} ({room.bedCount} 床位)</p>
+                <p className="text-lg text-gray-600">所属医生: {room.doctor.name}</p>
               </div>
-              <div className="space-x-2">
-                <button onClick={() => openModal('edit', room)} className="text-sm text-blue-600 hover:underline">编辑</button>
-                <button onClick={() => handleDelete(room.id)} className="text-sm text-red-600 hover:underline">删除</button>
+              <div className="flex space-x-2">
+                <button onClick={() => openModal('edit', room)} className="btn btn-secondary text-base">编辑</button>
+                <button onClick={() => handleDelete(room.id)} className="btn bg-error text-white text-base">删除</button>
               </div>
             </li>
-          )) : <p className="text-gray-500">未找到诊室。</p>}
+          )) : <p className="text-center text-2xl text-gray-500 py-10">未找到诊室。</p>}
         </ul>
       </div>
 
       {/* Modal */}
       {isModalOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white p-8 rounded-lg shadow-xl w-full max-w-md">
-            <h2 className="text-2xl font-bold mb-4 capitalize">{modalMode === 'add' ? '添加诊室' : '编辑诊室'}</h2>
-            <form onSubmit={handleSubmit} className="space-y-4">
-            <input type="text" value={name} onChange={e => setName(e.target.value)} placeholder="诊室名称" className="block w-full min-h-10 py-2 px-4 rounded-md border-gray-300 text-gray-900" required />
-            <input type="number" value={bedCount} onChange={e => setBedCount(parseInt(e.target.value, 10))} placeholder="床位数量" className="block w-full min-h-10 py-2 px-4 rounded-md border-gray-300 text-gray-900" min="1" required />
+        <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4">
+          <div className="bg-white p-10 rounded-2xl shadow-2xl w-full max-w-lg">
+            <h2 className="text-3xl font-bold mb-6 capitalize">{modalMode === 'add' ? '添加诊室' : '编辑诊室'}</h2>
+            <form onSubmit={handleSubmit} className="space-y-6">
+            <input type="text" value={name} onChange={e => setName(e.target.value)} placeholder="诊室名称" className="input-base text-lg" required />
+            <input type="number" value={bedCount} onChange={e => setBedCount(parseInt(e.target.value, 10))} placeholder="床位数量" className="input-base text-lg" min="1" required />
             
             <div>
-              <label htmlFor="doctor-select" className="block text-sm font-medium">指定所属医生</label>
+              <label htmlFor="doctor-select" className="block text-lg font-medium">指定所属医生</label>
               <select
                 id="doctor-select"
                 value={selectedDoctorId}
                 onChange={e => setSelectedDoctorId(e.target.value)}
-                className="mt-1 block w-full min-h-10 py-2 px-4 rounded-md border-gray-300 shadow-sm text-gray-900"
+                className="input-base mt-2 text-lg"
                 required
               >
                 <option value="">-- 选择医生 --</option>
@@ -214,9 +214,9 @@ export default function AdminRoomsPage() {
               </select>
             </div>
 
-            <div className="flex justify-end gap-4">
-              <button type="button" onClick={closeModal} className="py-2 px-4 bg-gray-200 rounded-md">取消</button>
-              <button type="submit" className="py-2 px-4 bg-indigo-600 text-white rounded-md">保存</button>
+            <div className="flex justify-end gap-4 pt-4">
+              <button type="button" onClick={closeModal} className="btn bg-gray-200 text-gray-800 text-lg">取消</button>
+              <button type="submit" className="btn btn-primary text-lg">保存</button>
             </div>
           </form>
         </div>

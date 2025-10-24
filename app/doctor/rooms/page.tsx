@@ -41,7 +41,7 @@ export default function DoctorRoomsPage() {
   useEffect(() => {
     if (status === 'unauthenticated') router.push('/auth/signin');
     if (status === 'authenticated' && session.user.role !== 'DOCTOR') {
-      setError('Access Denied: You are not a doctor.');
+      setError('访问被拒绝：您不是医生。');
     }
     if (status === 'authenticated' && session.user.role === 'DOCTOR') {
       const fetchDoctorData = async () => {
@@ -119,31 +119,30 @@ export default function DoctorRoomsPage() {
       );
     }
   
-    return (
-      <div className="container mx-auto p-4 sm:p-6 md:p-8">
-        <h1 className="text-3xl font-bold mb-6">我的诊室 ({doctorProfile.name})</h1>
-        
-        {error && <div className="p-3 mb-4 text-sm text-red-700 bg-red-100 rounded-md">{error}</div>}
-        {success && <div className="p-3 mb-4 text-sm text-green-700 bg-green-100 rounded-md">{success}</div>}
-  
-        <div className="p-4 border rounded-lg shadow-md bg-white mb-6">
-          <h2 className="text-xl font-semibold mb-4">添加新诊室</h2>
-          <form onSubmit={handleAddRoom} className="space-y-3">
-            <input type="text" placeholder="诊室名称" value={newRoomName} onChange={e => setNewRoomName(e.target.value)} className="block w-full min-h-10 py-2 px-4 rounded-md border-gray-300 shadow-sm text-gray-900" required />
-            <input type="number" placeholder="床位数量" value={newRoomBedCount} onChange={e => setNewRoomBedCount(parseInt(e.target.value, 10))} className="block w-full min-h-10 py-2 px-4 rounded-md border-gray-300 shadow-sm text-gray-900" min="1" required />
-            <button type="submit" className="w-full py-2 px-4 bg-blue-600 text-white rounded-md hover:bg-blue-700">添加诊室</button>
+      return (
+        <div className="container mx-auto p-6 md:p-10">
+          <h1 className="text-4xl font-bold mb-8 text-foreground">我的诊室 ({doctorProfile.name})</h1>
+          
+          {error && <div className="p-4 mb-6 text-lg text-error bg-red-100 rounded-xl">{error}</div>}
+          {success && <div className="p-4 mb-6 text-lg text-white bg-success rounded-xl">{success}</div>}  
+        <div className="p-8 bg-white rounded-2xl shadow-lg mb-10">
+          <h2 className="text-2xl font-semibold mb-6">添加新诊室</h2>
+          <form onSubmit={handleAddRoom} className="space-y-6">
+            <input type="text" placeholder="诊室名称" value={newRoomName} onChange={e => setNewRoomName(e.target.value)} className="input-base text-lg" required />
+            <input type="number" placeholder="床位数量" value={newRoomBedCount} onChange={e => setNewRoomBedCount(parseInt(e.target.value, 10))} className="input-base text-lg" min="1" required />
+            <button type="submit" className="w-full btn btn-primary text-lg">添加诊室</button>
           </form>
         </div>
   
-        <div className="p-4 border rounded-lg shadow-md bg-white">
-          <h2 className="text-xl font-semibold mb-4">现有诊室</h2>
-          <div className="space-y-2">
+        <div className="p-8 bg-white rounded-2xl shadow-lg">
+          <h2 className="text-2xl font-semibold mb-6">现有诊室</h2>
+          <div className="space-y-4">
             {doctorProfile.rooms.length > 0 ? doctorProfile.rooms.map(room => (
-              <div key={room.id} className="flex items-center justify-between p-2 border rounded-md">
-                <span>{room.name} ({room.bedCount} 床位)</span>
-                <button onClick={() => handleDeleteRoom(room.id)} className="text-red-500 hover:text-red-700 text-sm">删除</button>
+              <div key={room.id} className="flex items-center justify-between p-5 border rounded-xl shadow-sm">
+                <span className="text-xl">{room.name} ({room.bedCount} 床位)</span>
+                <button onClick={() => handleDeleteRoom(room.id)} className="btn bg-error text-white text-base">删除</button>
               </div>
-            )) : <p className="text-gray-500">尚未添加诊室。</p>}
+            )) : <p className="text-center text-2xl text-gray-500 py-10">尚未添加诊室。</p>}
           </div>
         </div>
       </div>

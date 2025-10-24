@@ -55,7 +55,7 @@ export default function DoctorDashboardPage() {
   // --- Effects ---
   useEffect(() => {
     if (status === 'unauthenticated') router.push('/auth/signin');
-    if (status === 'authenticated' && session.user.role !== 'DOCTOR') setError('Access Denied');
+    if (status === 'authenticated' && session.user.role !== 'DOCTOR') setError('访问被拒绝');
   }, [status, session, router]);
 
   useEffect(() => {
@@ -204,45 +204,45 @@ export default function DoctorDashboardPage() {
   }
 
   return (
-    <div className="container mx-auto p-4 sm:p-6 md:p-8">
-      <h1 className="text-3xl font-bold mb-6">医生工作台 ({doctorProfile.name})</h1>
-      {error && <div className="p-3 mb-4 text-sm text-red-700 bg-red-100 rounded-md">{error}</div>}
-      {success && <div className="p-3 mb-4 text-sm text-green-700 bg-green-100 rounded-md">{success}</div>}
+    <div className="container mx-auto p-6 md:p-10">
+      <h1 className="text-4xl font-bold mb-8 text-foreground">医生工作台 ({doctorProfile.name})</h1>
+      {error && <div className="p-4 mb-6 text-lg text-error bg-red-100 rounded-xl">{error}</div>}
+      {success && <div className="p-4 mb-6 text-lg text-white bg-success rounded-xl">{success}</div>}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Column 1: Scheduling */}
-        <div className="lg:col-span-1 space-y-6">
-          <div className="p-4 border rounded-lg shadow-md bg-white">
-            <h2 className="text-xl font-semibold mb-4">创建新排班</h2>
-            <form onSubmit={handleCreateSchedule} className="grid grid-cols-1 gap-4 items-end">
+        <div className="lg:col-span-1 space-y-8">
+          <div className="p-8 bg-white rounded-2xl shadow-lg">
+            <h2 className="text-2xl font-semibold mb-6">创建新排班</h2>
+            <form onSubmit={handleCreateSchedule} className="space-y-6">
               <div>
-                <label htmlFor="date" className="block text-sm font-medium">日期</label>
-                <input type="date" id="date" value={scheduleDate} onChange={e => setScheduleDate(e.target.value)} className="mt-1 block w-full min-h-10 py-2 px-4 rounded-md border-gray-300 shadow-sm text-gray-900" required/>
+                <label htmlFor="date" className="block text-lg font-medium">日期</label>
+                <input type="date" id="date" value={scheduleDate} onChange={e => setScheduleDate(e.target.value)} className="input-base mt-2" required/>
               </div>
               <div>
-                <label htmlFor="room" className="block text-sm font-medium">诊室</label>
-                <select id="room" value={scheduleRoomId} onChange={e => setScheduleRoomId(e.target.value)} className="mt-1 block w-full min-h-10 py-2 px-4 rounded-md border-gray-300 shadow-sm text-gray-900" required>
+                <label htmlFor="room" className="block text-lg font-medium">诊室</label>
+                <select id="room" value={scheduleRoomId} onChange={e => setScheduleRoomId(e.target.value)} className="input-base mt-2" required>
                   <option value="">-- 选择诊室 --</option>
                   {doctorProfile.rooms.map(room => <option key={room.id} value={room.id}>{room.name}</option>)}
                 </select>
               </div>
-              <button type="submit" className="py-2 px-4 bg-indigo-600 text-white rounded-md hover:bg-indigo-700">创建排班</button>
+              <button type="submit" className="w-full btn btn-primary text-lg">创建排班</button>
             </form>
           </div>
 
           {/* Existing Schedules */}
-          <div className="p-4 border rounded-lg shadow-md bg-white">
-            <h2 className="text-xl font-semibold mb-4">我的排班</h2>
-            <div className="space-y-3 max-h-96 overflow-y-auto">
+          <div className="p-8 bg-white rounded-2xl shadow-lg">
+            <h2 className="text-2xl font-semibold mb-6">我的排班</h2>
+            <div className="space-y-4 max-h-96 overflow-y-auto">
               {schedules.map(sch => (
-                <div key={sch.id} className="p-3 border rounded-md bg-gray-50">
-                  <p className="font-semibold">{sch.date}</p>
-                  <p className="text-sm text-gray-600">诊室: {sch.room.name}</p>
-                  <details className="text-xs mt-1">
-                    <summary className="cursor-pointer">查看详情</summary>
-                    <ul className="pl-4 mt-1">
-                      {sch.timeSlots.map(ts => (
-                        <li key={ts.time}>{ts.time} - {ts.booked}/{ts.total} 床位</li>
+                <div key={sch.id} className="p-4 border rounded-xl bg-gray-50">
+                  <p className="font-semibold text-lg">{sch.date}</p>
+                  <p className="text-base text-gray-600">诊室: {sch.room.name}</p>
+                  <details className="text-base mt-2">
+                    <summary className="cursor-pointer text-primary">查看详情 ({ts.booked}/{ts.total} 床位)</summary>
+                    <ul className="pl-4 mt-2 space-y-1">
+                      {appointments.filter(apt => apt.scheduleId === sch.id && apt.time === ts.time).map(apt => (
+                        <li key={apt.id} className="text-gray-700">{apt.patient.name}</li>
                       ))}
                     </ul>
                   </details>
@@ -253,59 +253,59 @@ export default function DoctorDashboardPage() {
         </div>
 
         {/* Column 2 & 3: Appointment Management */}
-        <div className="lg:col-span-2 space-y-6">
-          <div className="p-4 border rounded-lg shadow-md bg-white">
-            <h2 className="text-xl font-semibold mb-4">预约</h2>
+        <div className="lg:col-span-2 space-y-8">
+          <div className="p-8 bg-white rounded-2xl shadow-lg">
+            <h2 className="text-2xl font-semibold mb-6">预约</h2>
             {/* Tabs */}
             <div className="border-b border-gray-200">
               <nav className="-mb-px flex space-x-8" aria-label="Tabs">
-                <button onClick={() => setActiveTab('pending')} className={`whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm ${activeTab === 'pending' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}>待处理</button>
-                <button onClick={() => setActiveTab('confirmed')} className={`whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm ${activeTab === 'confirmed' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}>今日已确认</button>
-                <button onClick={() => setActiveTab('history')} className={`whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm ${activeTab === 'history' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}>历史记录</button>
+                <button onClick={() => setActiveTab('pending')} className={`whitespace-nowrap pb-4 px-1 border-b-4 font-bold text-lg ${activeTab === 'pending' ? 'border-primary text-primary' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}>待处理</button>
+                <button onClick={() => setActiveTab('confirmed')} className={`whitespace-nowrap pb-4 px-1 border-b-4 font-bold text-lg ${activeTab === 'confirmed' ? 'border-primary text-primary' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}>今日已确认</button>
+                <button onClick={() => setActiveTab('history')} className={`whitespace-nowrap pb-4 px-1 border-b-4 font-bold text-lg ${activeTab === 'history' ? 'border-primary text-primary' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}>历史记录</button>
               </nav>
             </div>
 
             {/* Tab Panels */}
-            <div className="mt-4 space-y-3 max-h-96 overflow-y-auto">
+            <div className="mt-6 space-y-4 max-h-96 overflow-y-auto">
               {activeTab === 'pending' && pendingAppointments.map(apt => (
-                <div key={apt.id} className="p-3 border rounded-md bg-gray-50 text-sm">
+                <div key={apt.id} className="p-4 border rounded-xl bg-gray-50 text-base">
                   <div className="flex justify-between items-start">
                     <div>
-                      <p className="font-semibold">{apt.patient.name}</p>
+                      <p className="font-semibold text-lg">{apt.patient.name}</p>
                       <p className="text-gray-600">{new Date(apt.date).toLocaleDateString()} 于 {apt.time}</p>
                     </div>
-                    <span className={`px-2 py-1 rounded-full text-xs ${statusColors[apt.status] || 'bg-gray-200'}`}>{apt.status.replace('_',' ')}</span>
+                    <span className={`px-3 py-1 rounded-full text-sm ${statusColors[apt.status] || 'bg-gray-200'}`}>{apt.status.replace('_',' ')}</span>
                   </div>
-                  <div className="mt-2 pt-2 border-t flex items-center gap-2">
+                  <div className="mt-4 pt-4 border-t flex items-center gap-4">
                     {apt.status === 'CHECKED_IN' ? (
                       <>
-                        <button onClick={() => handleCheckinConfirmation(apt.id, 'CONFIRM')} className="text-xs py-1 px-2 bg-green-500 text-white rounded">确认</button>
-                        <button onClick={() => handleCheckinConfirmation(apt.id, 'DENY')} className="text-xs py-1 px-2 bg-red-500 text-white rounded">拒绝</button>
+                        <button onClick={() => handleCheckinConfirmation(apt.id, 'CONFIRM')} className="btn btn-primary text-base">确认</button>
+                        <button onClick={() => handleCheckinConfirmation(apt.id, 'DENY')} className="btn bg-error text-white text-base">拒绝</button>
                       </>
                     ) : apt.status === 'pending' ? (
-                      <button onClick={() => handleCancelAppointment(apt.id)} className="text-red-500 hover:text-red-700 text-xs">取消预约</button>
+                      <button onClick={() => handleCancelAppointment(apt.id)} className="btn bg-error text-white text-base">取消预约</button>
                     ) : null}
                   </div>
                 </div>
               ))}
               {activeTab === 'confirmed' && confirmedTodayAppointments.map(apt => (
-                <div key={apt.id} className="p-3 border rounded-md bg-gray-50 text-sm">
-                  <p className="font-semibold">{apt.patient.name} 于 {apt.time}</p>
-                  <div className="mt-2 flex gap-2 items-center">
-                    <input type="number" placeholder="床位号" value={bedAssignments[apt.id] || ''} onChange={e => setBedAssignments({...bedAssignments, [apt.id]: e.target.value})} className="w-20 min-h-10 py-2 px-4 p-1 border rounded-md text-gray-900" />
-                    <button onClick={() => handleCompleteAppointment(apt.id)} className="py-1 px-3 bg-green-600 text-white rounded-md text-xs">完成</button>
+                <div key={apt.id} className="p-4 border rounded-xl bg-gray-50 text-base">
+                  <p className="font-semibold text-lg">{apt.patient.name} 于 {apt.time}</p>
+                  <div className="mt-4 flex gap-4 items-center">
+                    <input type="number" placeholder="床位号" value={bedAssignments[apt.id] || ''} onChange={e => setBedAssignments({...bedAssignments, [apt.id]: e.target.value})} className="input-base w-28" />
+                    <button onClick={() => handleCompleteAppointment(apt.id)} className="btn btn-primary text-base">完成</button>
                   </div>
                 </div>
               ))}
               {activeTab === 'history' && historyAppointments.map(apt => (
-                <div key={apt.id} className="p-3 border rounded-md bg-gray-100 text-sm"> 
-                  <p>{new Date(apt.date).toLocaleDateString()} - {apt.patient.name} <span className={`px-2 py-1 rounded-full text-xs ${statusColors[apt.status]}`}>{apt.status.replace('_',' ')}</span></p>
-                  {apt.status === 'COMPLETED' && <p className="text-xs text-gray-600">就诊完成，床位号：#{apt.bedId}</p>}
-                  {apt.status === 'NO_SHOW' && <p className="text-xs text-red-600">爽约。</p>}
+                <div key={apt.id} className="p-4 border rounded-xl bg-gray-100 text-base"> 
+                  <p>{new Date(apt.date).toLocaleDateString()} - {apt.patient.name} <span className={`px-3 py-1 rounded-full text-sm ${statusColors[apt.status]}`}>{apt.status.replace('_',' ')}</span></p>
+                  {apt.status === 'COMPLETED' && <p className="text-base text-gray-600">就诊完成，床位号：#{apt.bedId}</p>}
+                  {apt.status === 'NO_SHOW' && <p className="text-base text-error">爽约。</p>}
                 </div>
               ))}
             </div>
-            <button onClick={() => router.push('/doctor/book-appointment')} className="w-full mt-4 py-2 px-4 bg-green-600 text-white rounded-md hover:bg-green-700">为病人预约</button>
+            <button onClick={() => router.push('/doctor/book-appointment')} className="w-full mt-6 btn btn-secondary text-lg">为病人预约</button>
           </div>
         </div>
       </div>

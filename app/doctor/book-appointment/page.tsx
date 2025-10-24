@@ -156,57 +156,63 @@ export default function BookAppointmentPage() {
   if (error) return <div className="container mx-auto p-8 text-center text-red-600">{error}</div>;
 
   return (
-    <div className="container mx-auto p-4 sm:p-6 md:p-8">
-      <h1 className="text-3xl font-bold mb-6">为病人预约</h1>
-      <form onSubmit={handleSubmit} className="max-w-xl mx-auto bg-white p-8 rounded-lg shadow-md space-y-6">
+    <div className="container mx-auto p-6 md:p-10">
+      <h1 className="text-4xl font-bold mb-8 text-foreground">为病人预约</h1>
+      <form onSubmit={handleSubmit} className="max-w-2xl mx-auto bg-white p-8 rounded-2xl shadow-lg space-y-8">
         
         {/* Patient Selection */}
         <div>
-          <h2 className="text-xl font-semibold mb-2">1. 查找病人</h2>
-          <div className="flex gap-2">
+          <h2 className="text-2xl font-semibold mb-4">1. 查找病人</h2>
+          <div className="flex gap-4">
             <input
               type="text"
               value={patientSearch}
               onChange={(e) => setPatientSearch(e.target.value)}
               placeholder="按用户名或姓名搜索..."
-              className="flex-grow block w-full min-h-10 py-2 px-4 rounded-md border-gray-300 shadow-sm text-gray-900"
+              className="input-base flex-grow text-lg"
             />
-            <button type="button" onClick={handlePatientSearch} className="py-2 px-4 bg-blue-600 text-white rounded-md hover:bg-blue-700">搜索</button>
+            <button type="button" onClick={handlePatientSearch} className="btn btn-primary text-lg">搜索</button>
           </div>
           {searchedPatients.length > 0 && (
-            <ul className="mt-2 border rounded-md max-h-40 overflow-y-auto">
+            <ul className="mt-4 border rounded-xl max-h-48 overflow-y-auto bg-gray-50">
               {searchedPatients.map(p => (
-                <li key={p.id} onClick={() => { setSelectedPatient(p); setSearchedPatients([]); setPatientSearch(p.name); }} className="p-2 hover:bg-gray-100 cursor-pointer text-gray-900">
+                <li key={p.id} onClick={() => { setSelectedPatient(p); setSearchedPatients([]); setPatientSearch(p.name); }} className="p-4 hover:bg-gray-100 cursor-pointer text-lg">
                   {p.name} ({p.username})
                 </li>
               ))}
             </ul>
           )}
-          {selectedPatient && <p className="mt-2 text-green-600 text-gray-900">已选择：{selectedPatient.name} ({selectedPatient.username})</p>}
+          {selectedPatient && <p className="mt-4 text-xl text-success">已选择：{selectedPatient.name} ({selectedPatient.username})</p>}
         </div>
 
         {/* Schedule Selection */}
         <div>
-          <h2 className="text-xl font-semibold mb-2">2. 选择预约时段</h2>
-          <div className="space-y-4">
+          <h2 className="text-2xl font-semibold mb-4">2. 选择预约时段</h2>
+          <div className="space-y-6">
             <div>
-              <label htmlFor="schedule" className="block text-sm font-medium">日期与诊室</label>
-              <select id="schedule" value={selectedScheduleId} onChange={e => { setSelectedScheduleId(e.target.value); setSelectedTime(''); }} className="mt-1 block w-full min-h-10 py-2 px-4 rounded-md border-gray-300 shadow-sm text-gray-900" required>
+              <label htmlFor="schedule" className="block text-lg font-medium">日期与诊室</label>
+              <select id="schedule" value={selectedScheduleId} onChange={e => { setSelectedScheduleId(e.target.value); setSelectedTime(''); }} className="input-base mt-2 text-lg" required>
                 <option value="">-- 选择排班 --</option>
                 {schedules.map(s => <option key={s.id} value={s.id}>{s.date} ({s.roomName})</option>)}
               </select>
             </div>
             {selectedScheduleId && (
               <div>
-                <label className="block text-sm font-medium">时间段</label>
-                <div className="grid grid-cols-4 gap-2 mt-1">
+                <label className="block text-lg font-medium">时间段</label>
+                <div className="grid grid-cols-3 sm:grid-cols-4 gap-3 mt-2">
                   {schedules.find(s => s.id === selectedScheduleId)?.timeSlots.map(slot => (
                     <button
                       type="button"
                       key={slot.time}
                       onClick={() => setSelectedTime(slot.time)}
                       disabled={slot.booked >= slot.total}
-                      className={`p-2 border rounded-md text-center text-sm ${selectedTime === slot.time ? 'bg-indigo-600 text-white' : 'bg-white'} ${slot.booked >= slot.total ? 'bg-gray-200 cursor-not-allowed' : 'hover:bg-gray-50'}`}
+                      className={`p-3 border rounded-lg text-center text-base transition-all duration-200 transform
+                        ${selectedTime === slot.time
+                          ? 'bg-primary text-white scale-105 shadow-lg'
+                          : 'bg-white text-foreground hover:bg-gray-100 hover:scale-105'
+                        }
+                        ${slot.booked >= slot.total ? 'bg-gray-200 text-gray-400 cursor-not-allowed' : ''}
+                      `}
                     >
                       {slot.time} ({slot.booked}/{slot.total})
                     </button>
@@ -218,12 +224,12 @@ export default function BookAppointmentPage() {
         </div>
 
         {/* Submission */}
-        <button type="submit" className="w-full py-3 px-4 bg-green-600 text-white font-semibold rounded-md shadow-md hover:bg-green-700" disabled={!selectedPatient || !selectedTime}>
+        <button type="submit" className="w-full btn btn-secondary text-xl" disabled={!selectedPatient || !selectedTime}>
           确认预约
         </button>
 
-        {success && <p className="mt-4 text-green-700 text-center">{success}</p>}
-        {error && <p className="mt-4 text-red-700 text-center">{error}</p>}
+        {success && <p className="mt-4 text-xl text-white bg-success p-4 rounded-xl text-center">{success}</p>}
+        {error && <p className="mt-4 text-xl text-error bg-red-100 p-4 rounded-xl text-center">{error}</p>}
       </form>
     </div>
   );

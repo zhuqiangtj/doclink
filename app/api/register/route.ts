@@ -1,23 +1,30 @@
 import { PrismaClient, Role } from '@prisma/client';
 import { NextResponse } from 'next/server';
 import bcrypt from 'bcrypt';
+import pinyin from 'pinyin';
 import { createAuditLog } from '@/lib/audit'; // Adjust path as needed
 
 const prisma = new PrismaClient();
 
 export async function POST(request: Request) {
   try {
-    const { username, name, phone, dateOfBirth, gender, password } = await request.json();
+    const { name, phone, gender, dateOfBirth, password } = await request.json();
 
-    if (!username || !name || !phone || !dateOfBirth || !gender || !password) {
+    if (!name || !gender || !dateOfBirth || !password) {
       return NextResponse.json({ error: 'Missing required fields for patient registration.' }, { status: 400 });
     }
 
-    const existingUserByUsername = await prisma.user.findUnique({
+    let username = pinyin(name, { style: pinyin.STYLE_NORMAL }).flat().join('');
+    let existingUser = await prisma.user.findUnique({
       where: { username },
     });
-    if (existingUserByUsername) {
-      return NextResponse.json({ error: 'Username already in use' }, { status: 409 });
+
+    while (existingUser) {
+      const suffix = Math.floor(Math.random() * 1000);
+      username = `${username}${suffix}`;
+      existingUser = await prisma.user.findUnique({
+        where: { username },
+      });
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
@@ -38,7 +45,6 @@ export async function POST(request: Request) {
       await tx.patient.create({
         data: {
           userId: newUser.id,
-          // name and phone are now on the User model
         },
       });
       return newUser;

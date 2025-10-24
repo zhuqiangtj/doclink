@@ -40,8 +40,8 @@ export async function GET() {
     const appointments = await prisma.appointment.findMany({
       where: whereClause,
       include: {
-        patient: { select: { name: true } },
-        doctor: { select: { name: true } },
+        patient: { include: { user: { select: { name: true } } } },
+        doctor: { include: { user: { select: { name: true } } } },
         room: { select: { name: true } },
         schedule: { select: { date: true } }, // Get date from schedule
       },
@@ -85,10 +85,7 @@ export async function POST(request: Request) {
     }
 
     const result = await prisma.$transaction(async (tx) => {
-      const schedule = await tx.schedule.findUnique({ where: { id: scheduleId } });
-      if (!schedule) throw new Error('Schedule not found.');
-
-      const timeSlots = schedule.timeSlots as unknown as TimeSlot[];
+      const timeSlots = schedule.timeSlots as TimeSlot[];
       const targetSlot = timeSlots.find(slot => slot.time === time);
       if (!targetSlot) throw new Error('Time slot not found in schedule.');
       if (targetSlot.booked >= targetSlot.total) throw new Error('This time slot is fully booked.');
@@ -104,6 +101,36 @@ export async function POST(request: Request) {
       const newAppointment = await tx.appointment.create({
         data: { userId, patientId, doctorId, scheduleId, time, roomId, bedId: 0, status: 'pending' }, // Set bedId to 0 initially
       });
+
+      // Create a notification for the doctor
+      const patientUser = await tx.user.findUnique({ where: { id: userId } });
+      if (patientUser) {
+        await tx.notification.create({
+          data: {
+            doctorId: doctorId,
+            appointmentId: newAppointment.id,
+            patientName: patientUser.name,
+            message: `${patientUser.name} 预约了您在 ${time} 的号。`,
+            type: 'APPOINTMENT_CREATED',
+          },
+        });
+      }
+
+      // Create a notification for the patient if the doctor is booking
+      if (session.user.role === 'DOCTOR') {
+        const doctorUser = await tx.user.findUnique({ where: { id: session.user.id } });
+        if (doctorUser) {
+          await tx.patientNotification.create({
+            data: {
+              userId: userId,
+              appointmentId: newAppointment.id,
+              doctorName: doctorUser.name,
+              message: `医生 ${doctorUser.name} 为您安排了在 ${time} 的预约。`,
+              type: 'APPOINTMENT_CREATED_BY_DOCTOR',
+            },
+          });
+        }
+      }
 
       return newAppointment;
     });
@@ -147,14 +174,39 @@ export async function DELETE(request: Request) {
         if (session.user.id !== appointment.userId) {
           throw new Error('Forbidden: You can only cancel your own appointments.');
         }
-      } else { // Admin case
-        // Admins are allowed, no specific check needed unless required
+
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const appointmentDate = new Date(appointment.date);
+        appointmentDate.setHours(0, 0, 0, 0);
+
+        let penalty = 0;
+        if (appointmentDate.getTime() === today.getTime()) {
+          // Cancelling on the same day
+          penalty = 5;
+        } else if (appointmentDate > today) {
+          // Cancelling before the appointment day
+          penalty = 1;
+        } else {
+          // Trying to cancel after the appointment day has passed
+          throw new Error('Forbidden: You cannot cancel an appointment that has already passed.');
+        }
+
+        const patientProfile = await tx.patient.findUnique({ where: { userId: session.user.id } });
+        if (patientProfile) {
+          await tx.patient.update({
+            where: { id: patientProfile.id },
+            data: { credibilityScore: { decrement: penalty } },
+          });
+        }
+      } else if (session.user.role !== 'ADMIN') { // Explicitly check for Admin
+        throw new Error('Forbidden: You do not have permission to cancel this appointment.');
       }
 
       const schedule = await tx.schedule.findUnique({ where: { id: appointment.scheduleId } });
       if (!schedule) throw new Error('Associated schedule not found.');
 
-      const timeSlots = schedule.timeSlots as unknown as TimeSlot[];
+      const timeSlots = schedule.timeSlots as TimeSlot[];
       const targetSlot = timeSlots.find(slot => slot.time === appointment.time);
       if (targetSlot && targetSlot.booked > 0) {
         targetSlot.booked -= 1;
@@ -166,6 +218,36 @@ export async function DELETE(request: Request) {
       }
 
       await tx.appointment.delete({ where: { id: appointmentId } });
+
+      // Create a notification for the doctor
+      const patientUser = await tx.user.findUnique({ where: { id: appointment.userId } });
+      if (patientUser) {
+        await tx.notification.create({
+          data: {
+            doctorId: appointment.doctorId,
+            appointmentId: appointment.id,
+            patientName: patientUser.name,
+            message: `${patientUser.name} 取消了 ${appointment.time} 的预约。`,
+            type: 'APPOINTMENT_CANCELLED',
+          },
+        });
+      }
+
+      // Create a notification for the patient if a doctor or admin cancels
+      if (session.user.role === 'DOCTOR' || session.user.role === 'ADMIN') {
+        const actor = await tx.user.findUnique({ where: { id: session.user.id } });
+        if (actor) {
+          await tx.patientNotification.create({
+            data: {
+              userId: appointment.userId,
+              appointmentId: appointment.id,
+              doctorName: actor.name, // The actor is the doctor or admin
+              message: `您的预约 (预约时间: ${appointment.time}) 已被 ${actor.name} 取消。`,
+              type: 'APPOINTMENT_CANCELLED_BY_DOCTOR',
+            },
+          });
+        }
+      }
 
       await createAuditLog(session, 'CANCEL_APPOINTMENT', 'Appointment', appointmentId, { doctorId: appointment.doctorId, patientId: appointment.patientId, status: appointment.status });
       return { success: true };

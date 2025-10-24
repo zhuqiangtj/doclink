@@ -196,6 +196,10 @@ export async function DELETE(request: Request) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
+    // Before deleting the room, delete all associated schedules and appointments
+    await prisma.appointment.deleteMany({ where: { roomId: roomId } });
+    await prisma.schedule.deleteMany({ where: { roomId: roomId } });
+
     await prisma.room.delete({
       where: { id: roomId },
     });

@@ -6,7 +6,6 @@ const prisma = new PrismaClient();
 async function main() {
   console.log('Start seeding admin user...');
 
-  const adminEmail = 'admin@doclink.com';
   const adminUsername = 'admin'; // New: Admin username
   const adminPassword = 'admin123';
 
@@ -29,7 +28,6 @@ async function main() {
     data: {
       username: adminUsername, // New: Add username
       name: 'Admin', // New: Add name
-      email: adminEmail,
       password: hashedPassword,
       role: Role.ADMIN,
     },

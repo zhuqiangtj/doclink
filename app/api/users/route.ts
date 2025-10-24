@@ -18,7 +18,7 @@ export async function GET() {
     const users = await prisma.user.findMany({
       include: {
         patientProfile: { select: { id: true, credibilityScore: true, isSuspended: true } },
-        doctorProfile: { include: { rooms: { select: { id: true, name: true } } } },
+        doctorProfile: { select: { id: true } },
       },
       orderBy: {
         username: 'asc',
@@ -219,17 +219,29 @@ export async function DELETE(request: Request) {
 
   try {
     await prisma.$transaction(async (tx) => {
-      const user = await tx.user.findUnique({ where: { id: userId } });
+      const user = await tx.user.findUnique({
+        where: { id: userId },
+        include: { doctorProfile: { select: { id: true } } },
+      });
       if (!user) throw new Error('User not found.');
 
-      // Delete associated profiles first
-      if (user.role === 'PATIENT') {
-        await tx.patient.delete({ where: { userId } });
-      } else if (user.role === 'DOCTOR') {
-        await tx.doctor.delete({ where: { userId } });
+      // Delete all related data before deleting the user
+      await tx.appointment.deleteMany({ where: { userId: userId } });
+      
+      if (user.doctorProfile) {
+        const doctorId = user.doctorProfile.id;
+        await tx.schedule.deleteMany({ where: { doctorId: doctorId } });
+        await tx.room.deleteMany({ where: { doctorId: doctorId } });
       }
 
+      await tx.doctor.deleteMany({ where: { userId: userId } });
+      await tx.patient.deleteMany({ where: { userId: userId } });
+      await tx.account.deleteMany({ where: { userId: userId } });
+      await tx.session.deleteMany({ where: { userId: userId } });
+
+      // Finally, delete the user
       await tx.user.delete({ where: { id: userId } });
+
       await createAuditLog(session, 'ADMIN_DELETE_USER', 'User', userId, { username: user.username, role: user.role });
     });
 

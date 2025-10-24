@@ -52,6 +52,7 @@ export const authOptions = {
   },
   callbacks: {
     async jwt({ token, user }) {
+      console.log('JWT callback', { token, user });
       // When the user signs in, the user object is passed to the JWT callback.
       // We add the user's id, username, and role to the token.
       if (user) {
@@ -66,6 +67,7 @@ export const authOptions = {
       return token;
     },
     async session({ session, token }) {
+      console.log('Session callback', { session, token });
       // The session callback is called whenever a session is checked.
       // We add the id, username, and role from the token to the session object.
       if (session.user) {

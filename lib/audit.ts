@@ -13,15 +13,22 @@ interface SessionUser {
 }
 
 export async function createAuditLog(session: { user: SessionUser } | null, action: string, entityType: string, entityId?: string, details?: Record<string, unknown>) {
-  await prisma.auditLog.create({
-    data: {
-      userId: session?.user?.id,
-      userUsername: session?.user?.username, // Log username instead of email
-      userRole: session?.user?.role,
-      action,
-      entityType,
-      entityId,
-      details: details ? JSON.stringify(details) : undefined,
-    },
-  });
+  console.log('Creating audit log with:', { session, action, entityType, entityId, details });
+  try {
+    await prisma.auditLog.create({
+      data: {
+        userId: session?.user?.id,
+        userName: session?.user?.name,
+        userUsername: session?.user?.username,
+        userRole: session?.user?.role,
+        action,
+        entityType,
+        entityId,
+        details: details ? JSON.stringify(details) : undefined,
+      },
+    });
+    console.log('Audit log created successfully.');
+  } catch (error) {
+    console.error('Failed to create audit log:', error);
+  }
 }
