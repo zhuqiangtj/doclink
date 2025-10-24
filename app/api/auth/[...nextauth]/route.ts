@@ -67,17 +67,15 @@ export const authOptions = {
       return token;
     },
     async session({ session, token }) {
-      console.log('Session callback', { session, token });
       // The session callback is called whenever a session is checked.
-      // We add the id, username, and role from the token to the session object.
-      if (session.user) {
-        session.user.id = token.id;
-        session.user.username = token.username;
-        session.user.name = token.name;
-        session.user.phone = token.phone;
-        session.user.dateOfBirth = token.dateOfBirth;
-        session.user.gender = token.gender;
-        session.user.role = token.role;
+      // We assign the user's id, username, role, and other details from the token to the session object.
+      if (token && session.user) {
+        session.user.id = token.id as string;
+        session.user.username = token.username as string;
+        session.user.role = token.role as 'PATIENT' | 'DOCTOR' | 'ADMIN';
+        session.user.phone = token.phone as string | undefined;
+        session.user.dateOfBirth = token.dateOfBirth as Date | undefined;
+        session.user.gender = token.gender as string | undefined;
       }
       return session;
     }

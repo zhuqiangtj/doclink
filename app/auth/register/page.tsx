@@ -13,6 +13,8 @@ export default function RegisterPage() {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [isUsernameManuallyEdited, setIsUsernameManuallyEdited] = useState(false);
+  const [usernameAvailability, setUsernameAvailability] = useState<{ status: 'idle' | 'checking' | 'available' | 'taken', message: string }>({ status: 'idle', message: '' });
+  const [debouncedUsername, setDebouncedUsername] = useState(username);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const router = useRouter();
@@ -23,6 +25,42 @@ export default function RegisterPage() {
       setUsername(pinyinName);
     }
   }, [name, isUsernameManuallyEdited]);
+
+  // Debounce effect for username
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedUsername(username);
+    }, 500);
+
+    return () => {
+      clearTimeout(handler);
+    };
+  }, [username]);
+
+  // Check username availability
+  useEffect(() => {
+    if (debouncedUsername.length < 3) {
+      setUsernameAvailability({ status: 'idle', message: '' });
+      return;
+    }
+
+    const checkUsername = async () => {
+      setUsernameAvailability({ status: 'checking', message: '' });
+      try {
+        const res = await fetch(`/api/users/availability?username=${debouncedUsername}`);
+        const data = await res.json();
+        if (data.available) {
+          setUsernameAvailability({ status: 'available', message: data.message });
+        } else {
+          setUsernameAvailability({ status: 'taken', message: data.message });
+        }
+      } catch (err) {
+        setUsernameAvailability({ status: 'taken', message: '无法检查用户名。' });
+      }
+    };
+
+    checkUsername();
+  }, [debouncedUsername]);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -98,6 +136,11 @@ export default function RegisterPage() {
               }}
               className="input-base mt-2"
             />
+            <div className="mt-2 text-sm h-5">
+              {usernameAvailability.status === 'checking' && <p className='text-gray-500'>正在检查...</p>}
+              {usernameAvailability.status === 'available' && <p className='text-green-500'>鉁 {usernameAvailability.message}</p>}
+              {usernameAvailability.status === 'taken' && <p className='text-error'>âŒ {usernameAvailability.message}</p>}
+            </div>
           </div>
           <div>
             <label htmlFor="gender" className="block text-lg font-medium text-foreground">
@@ -188,7 +231,8 @@ export default function RegisterPage() {
           <div>
             <button
               type="submit"
-              className="w-full btn btn-primary text-lg"
+              disabled={usernameAvailability.status !== 'available'}
+              className="w-full btn btn-primary text-lg disabled:bg-gray-400 disabled:cursor-not-allowed"
             >
               注册
             </button>
