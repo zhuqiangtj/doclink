@@ -29,7 +29,14 @@ const statusColors: { [key: string]: string } = {
   NO_SHOW: 'bg-red-200 text-red-800',
   CANCELLED: 'bg-purple-200 text-purple-800',
 };
-const isToday = (dateString: string) => new Date(dateString).toDateString() === new Date().toDateString();
+const statusTranslations: { [key: string]: string } = {
+  pending: '待处理',
+  CHECKED_IN: '已签到',
+  CONFIRMED: '已确认',
+  COMPLETED: '已完成',
+  NO_SHOW: '未到诊',
+  CANCELLED: '已取消',
+};
 
 // --- Component ---
 export default function DoctorDashboardPage() {
@@ -274,7 +281,7 @@ export default function DoctorDashboardPage() {
                       <p className="font-semibold text-lg">{apt.patient.name}</p>
                       <p className="text-gray-600">{new Date(apt.date).toLocaleDateString()} 于 {apt.time}</p>
                     </div>
-                    <span className={`px-3 py-1 rounded-full text-sm ${statusColors[apt.status] || 'bg-gray-200'}`}>{apt.status.replace('_',' ')}</span>
+                    <span className={`px-3 py-1 rounded-full text-sm ${statusColors[apt.status] || 'bg-gray-200'}`}>{statusTranslations[apt.status] || apt.status}</span>
                   </div>
                   <div className="mt-4 pt-4 border-t flex items-center gap-4">
                     {apt.status === 'CHECKED_IN' ? (
@@ -299,7 +306,7 @@ export default function DoctorDashboardPage() {
               ))}
               {activeTab === 'history' && historyAppointments.map(apt => (
                 <div key={apt.id} className="p-4 border rounded-xl bg-gray-100 text-base"> 
-                  <p>{new Date(apt.date).toLocaleDateString()} - {apt.patient.name} <span className={`px-3 py-1 rounded-full text-sm ${statusColors[apt.status]}`}>{apt.status.replace('_',' ')}</span></p>
+                  <p>{new Date(apt.date).toLocaleDateString()} - {apt.patient.name} <span className={`px-3 py-1 rounded-full text-sm ${statusColors[apt.status]}`}>{statusTranslations[apt.status] || apt.status}</span></p>
                   {apt.status === 'COMPLETED' && <p className="text-base text-gray-600">就诊完成，床位号：#{apt.bedId}</p>}
                   {apt.status === 'NO_SHOW' && <p className="text-base text-error">爽约。</p>}
                 </div>

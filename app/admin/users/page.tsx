@@ -25,6 +25,24 @@ interface Room {
   name: string;
 }
 
+const genderMap: { [key: string]: string } = {
+  Male: '男',
+  Female: '女',
+  Other: '其他',
+};
+
+const calculateAge = (dateOfBirth?: string) => {
+  if (!dateOfBirth) return '';
+  const birthDate = new Date(dateOfBirth);
+  const today = new Date();
+  let age = today.getFullYear() - birthDate.getFullYear();
+  const m = today.getMonth() - birthDate.getMonth();
+  if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
+    age--;
+  }
+  return age;
+};
+
 // --- Component ---
 export default function AdminUsersPage() {
   const { data: session, status } = useSession();
@@ -103,7 +121,11 @@ export default function AdminUsersPage() {
     setPhone(user?.phone || '');
     setDateOfBirth(user?.dateOfBirth ? new Date(user.dateOfBirth).toISOString().split('T')[0] : '');
     setGender(user?.gender || '');
-    setRole(user?.role || 'PATIENT');
+    let defaultRole: 'PATIENT' | 'DOCTOR' | 'ADMIN' = 'PATIENT';
+    if (activeTab === 'doctors') defaultRole = 'DOCTOR';
+    if (activeTab === 'patients') defaultRole = 'PATIENT';
+    if (activeTab === 'admins') defaultRole = 'ADMIN';
+    setRole(user?.role || defaultRole);
     setCredibilityScore(user?.patientProfile?.credibilityScore || 15);
     setIsSuspended(user?.patientProfile?.isSuspended || false);
     setPassword(''); // Always clear password field
@@ -217,8 +239,8 @@ export default function AdminUsersPage() {
                 <p className="font-semibold text-xl">{user.username} <span className="text-base text-gray-500">({user.role})</span></p>
                 <p className="text-lg text-gray-600">姓名: {user.name}</p>
                 {user.phone && <p className="text-lg text-gray-600">电话: {user.phone}</p>}
-                {user.dateOfBirth && <p className="text-lg text-gray-600">出生日期: {new Date(user.dateOfBirth).toLocaleDateString()}</p>}
-                {user.gender && <p className="text-lg text-gray-600">性别: {user.gender}</p>}
+                {user.dateOfBirth && <p className="text-lg text-gray-600">年龄: {calculateAge(user.dateOfBirth)}</p>}
+                {user.gender && <p className="text-lg text-gray-600">性别: {genderMap[user.gender] || user.gender}</p>}
                 {user.patientProfile && <p className="text-lg text-gray-600">患者 (信誉分: {user.patientProfile.credibilityScore}, 是否暂停: {user.patientProfile.isSuspended ? '是' : '否'})</p>}
               </div>
               <div className="flex flex-col space-y-2">
@@ -248,7 +270,7 @@ export default function AdminUsersPage() {
                             <DatePicker
                 selected={dateOfBirth ? new Date(dateOfBirth) : null}
                 onChange={(date: Date) => setDateOfBirth(date.toISOString().split('T')[0])}
-                placeholderText="出生日期（可选）"
+                placeholderText="选择出生日期（可选）"
                 className="input-base text-lg"
                 dateFormat="yyyy-MM-dd"
                 showYearDropdown

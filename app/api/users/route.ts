@@ -18,7 +18,7 @@ export async function GET() {
     const users = await prisma.user.findMany({
       include: {
         patientProfile: { select: { id: true, credibilityScore: true, isSuspended: true } },
-        doctorProfile: { select: { id: true } },
+        doctorProfile: { include: { Room: true } },
       },
       orderBy: {
         username: 'asc',
@@ -175,7 +175,7 @@ export async function PUT(request: Request) {
         where: { id: userId },
         include: {
           patientProfile: { select: { id: true, credibilityScore: true, isSuspended: true } },
-          doctorProfile: { select: { id: true } },
+          doctorProfile: { include: { Room: true } },
         },
       });
     });
