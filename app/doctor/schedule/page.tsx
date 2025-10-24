@@ -38,6 +38,15 @@ const statusTranslations: { [key: string]: string } = {
   CANCELLED: '已取消',
 };
 
+// --- Helpers ---
+const isToday = (dateString: string) => {
+  const date = new Date(dateString);
+  const today = new Date();
+  return date.getFullYear() === today.getFullYear() &&
+         date.getMonth() === today.getMonth() &&
+         date.getDate() === today.getDate();
+};
+
 // --- Component ---
 export default function DoctorDashboardPage() {
   const { data: session, status } = useSession();
@@ -83,8 +92,12 @@ export default function DoctorDashboardPage() {
         ]);
         if (!schedulesRes.ok) throw new Error('获取排班失败。');
         if (!appointmentsRes.ok) throw new Error('获取预约失败。');
-        setSchedules(await schedulesRes.json());
-        setAppointments(await appointmentsRes.json());
+        
+        const schedulesData = await schedulesRes.json();
+        const appointmentsData = await appointmentsRes.json();
+
+        setSchedules(Array.isArray(schedulesData) ? schedulesData : []);
+        setAppointments(Array.isArray(appointmentsData) ? appointmentsData : []);
       } catch (err) {
         setError(err instanceof Error ? err.message : '发生未知错误');
       } finally {
@@ -245,14 +258,16 @@ export default function DoctorDashboardPage() {
                 <div key={sch.id} className="p-4 border rounded-xl bg-gray-50">
                   <p className="font-semibold text-lg">{sch.date}</p>
                   <p className="text-base text-gray-600">诊室: {sch.room.name}</p>
-                  <details className="text-base mt-2">
-                    <summary className="cursor-pointer text-primary">查看详情 ({ts.booked}/{ts.total} 床位)</summary>
-                    <ul className="pl-4 mt-2 space-y-1">
-                      {appointments.filter(apt => apt.scheduleId === sch.id && apt.time === ts.time).map(apt => (
-                        <li key={apt.id} className="text-gray-700">{apt.patient.name}</li>
-                      ))}
-                    </ul>
-                  </details>
+                  {sch.timeSlots.map(ts => (
+                    <details key={ts.time} className="text-base mt-2">
+                      <summary className="cursor-pointer text-primary">{ts.time} ({ts.booked}/{ts.total} 床位)</summary>
+                      <ul className="pl-4 mt-2 space-y-1">
+                        {appointments.filter(apt => apt.date === sch.date && apt.time === ts.time).map(apt => (
+                          <li key={apt.id} className="text-gray-700">{apt.patient.name}</li>
+                        ))}
+                      </ul>
+                    </details>
+                  ))}
                 </div>
               ))}
             </div>
