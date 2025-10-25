@@ -69,7 +69,8 @@ export default function DoctorAppointmentsPage() {
     }
   }, [status]);
 
-  const pendingAppointments = appointments.filter(apt => isToday(apt.date) && ['pending', 'CHECKED_IN'].includes(apt.status));
+  const checkedInAppointments = appointments.filter(apt => apt.status === 'CHECKED_IN');
+  const pendingAppointments = appointments.filter(apt => isToday(apt.date) && apt.status === 'pending');
   const confirmedTodayAppointments = appointments.filter(apt => isToday(apt.date) && apt.status === 'CONFIRMED');
   const historyAppointments = appointments.filter(apt => !isToday(apt.date) || ['COMPLETED', 'CANCELLED', 'NO_SHOW'].includes(apt.status));
 
@@ -120,6 +121,28 @@ export default function DoctorAppointmentsPage() {
     <div className="container mx-auto p-6 md:p-10">
       <h1 className="text-4xl font-bold mb-8 text-foreground">预约管理</h1>
       {error && <div className="p-4 mb-6 text-lg text-error bg-red-100 rounded-xl">{error}</div>}
+
+      {/* Checked-in patients awaiting confirmation */}
+      {checkedInAppointments.length > 0 && (
+        <div className="mb-10 p-8 bg-yellow-100 border-2 border-yellow-400 rounded-2xl shadow-lg">
+          <h2 className="text-3xl font-bold mb-6 text-yellow-800">待确认签到 ({checkedInAppointments.length})</h2>
+          <div className="space-y-6">
+            {checkedInAppointments.map(apt => (
+              <div key={apt.id} className="p-5 bg-white rounded-xl shadow-md flex justify-between items-center">
+                <div>
+                  <p className="font-semibold text-2xl text-gray-800">{apt.patient.name}</p>
+                  <p className="text-lg text-gray-600">预约时间: {apt.time}</p>
+                </div>
+                <div className="flex gap-4">
+                  <button onClick={() => handleCheckinConfirmation(apt.id, 'CONFIRM')} className="btn btn-success text-white text-lg">确认接诊</button>
+                  <button onClick={() => handleCheckinConfirmation(apt.id, 'DENY')} className="btn bg-gray-300 text-gray-800 text-lg">拒绝</button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       <div className="p-8 bg-white rounded-2xl shadow-lg">
         <div className="border-b border-gray-200">
           <nav className="-mb-px flex space-x-8" aria-label="Tabs">

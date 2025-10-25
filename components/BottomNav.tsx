@@ -32,9 +32,8 @@ export default function BottomNav() {
       const fetchUnreadCount = async () => {
         try {
           const res = await fetch('/api/notifications');
-          const notifications: Notification[] = await res.json();
-          const count = notifications.filter(n => !n.isRead).length;
-          setUnreadCount(count);
+          const data = await res.json();
+          setUnreadCount(data.unreadCheckInCount || 0);
         } catch (error) {
           console.error('Failed to fetch doctor notification count:', error);
         }

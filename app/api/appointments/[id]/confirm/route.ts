@@ -46,27 +46,39 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
       let auditAction: string;
 
       if (action === 'CONFIRM') {
+        // Find the next available bed ID
+        const appointmentsInRoom = await tx.appointment.findMany({
+          where: { 
+            roomId: appointment.roomId,
+            status: 'CONFIRMED', // Only consider confirmed appointments for bed occupation
+            schedule: { date: appointment.schedule.date },
+          },
+          select: { bedId: true },
+        });
+        const occupiedBeds = new Set(appointmentsInRoom.map(a => a.bedId));
+        const room = await tx.room.findUnique({ where: { id: appointment.roomId } });
+        let assignedBedId = 0;
+        for (let i = 1; i <= (room?.bedCount || 0); i++) {
+          if (!occupiedBeds.has(i)) {
+            assignedBedId = i;
+            break;
+          }
+        }
+        if (assignedBedId === 0) {
+          throw new Error('No available beds in this room.');
+        }
+
         newStatus = 'CONFIRMED';
         auditAction = 'DOCTOR_CONFIRM_CHECK_IN';
-        // Award credibility score
+        // Award credibility score and assign bed
         await tx.patient.update({
           where: { id: appointment.patientId },
           data: { credibilityScore: { increment: 1 } },
         });
-      } else { // DENY
-        newStatus = 'pending'; // Revert status to allow re-check-in
-        auditAction = 'DOCTOR_DENY_CHECK_IN';
-      }
-
-      const result = await tx.appointment.update({
-        where: { id: appointmentId },
-        data: { status: newStatus },
-        include: {
-            patient: { select: { name: true } },
-            room: { select: { name: true } },
-            schedule: { select: { date: true } },
-        }
-      });
+        await tx.appointment.update({
+          where: { id: appointmentId },
+          data: { status: newStatus, bedId: assignedBedId },
+        });
 
       await createAuditLog(session, auditAction, 'Appointment', appointmentId, { oldStatus: appointment.status, newStatus, patientId: appointment.patientId });
       return result;

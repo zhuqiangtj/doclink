@@ -27,7 +27,15 @@ export async function GET() {
       take: 50, // Limit to the last 50 notifications
     });
 
-    return NextResponse.json(notifications);
+    const unreadCheckInCount = await prisma.notification.count({
+      where: {
+        doctorId: doctorProfile.id,
+        type: 'APPOINTMENT_CHECKED_IN', // Assuming this is the type for check-ins
+        isRead: false,
+      },
+    });
+
+    return NextResponse.json({ notifications, unreadCheckInCount });
 
   } catch (error) {
     console.error('Error fetching notifications:', error);
