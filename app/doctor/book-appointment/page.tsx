@@ -67,11 +67,14 @@ export default function BookAppointmentPage() {
   // Auth check and initial data load
   useEffect(() => {
     if (status === 'unauthenticated') router.push('/auth/signin');
-    if (status === 'authenticated' && session.user.role !== 'DOCTOR') {
+    if (status !== 'authenticated' || !session?.user?.id) return;
+
+    if (session.user.role !== 'DOCTOR') {
       setError('Access Denied.');
+      return;
     }
-    if (status === 'authenticated' && session.user.role === 'DOCTOR') {
-      const fetchData = async () => {
+
+    const fetchData = async () => {
         setIsLoading(true);
         try {
           const userRes = await fetch(`/api/user/${session.user.id}`);

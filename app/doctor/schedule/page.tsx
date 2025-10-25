@@ -55,6 +55,8 @@ export default function DoctorDashboardPage() {
   // --- Data States ---
   const [doctorProfile, setDoctorProfile] = useState<DoctorProfile | null>(null);
   const [schedules, setSchedules] = useState<Schedule[]>([]);
+  const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [bedAssignments, setBedAssignments] = useState<{ [key: string]: string }>({});
 
   // --- Form States ---
   const [scheduleDate, setScheduleDate] = useState(new Date().toISOString().split('T')[0]);
@@ -72,7 +74,7 @@ export default function DoctorDashboardPage() {
   }, [status, session, router]);
 
   useEffect(() => {
-    if (status !== 'authenticated' || session.user.role !== 'DOCTOR') return;
+    if (status !== 'authenticated' || !session?.user?.id) return;
     const fetchDoctorData = async () => {
       setIsLoading(true);
       try {
@@ -86,9 +88,14 @@ export default function DoctorDashboardPage() {
         }
         
         const doctorId = userData.doctorProfile.id;
-        const schedulesRes = await fetch(`/api/schedules?doctorId=${doctorId}`);
+        const [schedulesRes, appointmentsRes] = await Promise.all([
+          fetch(`/api/schedules?doctorId=${doctorId}`),
+          fetch(`/api/appointments?doctorId=${doctorId}`)
+        ]);
         if (!schedulesRes.ok) throw new Error('获取排班失败。');
+        if (!appointmentsRes.ok) throw new Error('获取预约失败。');
         setSchedules(await schedulesRes.json());
+        setAppointments(await appointmentsRes.json());
       } catch (err) {
         setError(err instanceof Error ? err.message : '发生未知错误');
       } finally {
@@ -263,7 +270,60 @@ export default function DoctorDashboardPage() {
             </div>
           </div>
         </div>
-      </div>
-    </div>
-  );
-}
+
+        {/* Column 2 & 3: Appointment Management */}
+        <div className="lg:col-span-1 space-y-8">
+          <div className="p-8 bg-white rounded-2xl shadow-lg">
+            <h2 className="text-2xl font-semibold mb-6">预约管理</h2>
+            {/* Tabs */}
+            <div className="border-b border-gray-200">
+              <nav className="-mb-px flex space-x-8" aria-label="Tabs">
+                <button onClick={() => setActiveTab('pending')} className={`whitespace-nowrap pb-4 px-1 border-b-4 font-bold text-lg ${activeTab === 'pending' ? 'border-primary text-primary' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}>待处理</button>
+                <button onClick={() => setActiveTab('confirmed')} className={`whitespace-nowrap pb-4 px-1 border-b-4 font-bold text-lg ${activeTab === 'confirmed' ? 'border-primary text-primary' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}>今日已确认</button>
+                <button onClick={() => setActiveTab('history')} className={`whitespace-nowrap pb-4 px-1 border-b-4 font-bold text-lg ${activeTab === 'history' ? 'border-primary text-primary' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}>历史记录</button>
+              </nav>
+            </div>
+
+            {/* Tab Panels */}
+            <div className="mt-6 space-y-4 max-h-96 overflow-y-auto">
+              {activeTab === 'pending' && pendingAppointments.map(apt => (
+                <div key={apt.id} className="p-4 border rounded-xl bg-gray-50 text-base">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <p className="font-semibold text-lg">{apt.patient.name}</p>
+                      <p className="text-gray-600">{new Date(apt.date).toLocaleDateString()} 于 {apt.time}</p>
+                    </div>
+                    <span className={`px-3 py-1 rounded-full text-sm ${statusColors[apt.status] || 'bg-gray-200'}`}>{statusTranslations[apt.status] || apt.status}</span>
+                  </div>
+                  <div className="mt-4 pt-4 border-t flex items-center gap-4">
+                    {apt.status === 'CHECKED_IN' ? (
+                      <>
+                        <button onClick={() => handleCheckinConfirmation(apt.id, 'CONFIRM')} className="btn btn-primary text-base">确认</button>
+                        <button onClick={() => handleCheckinConfirmation(apt.id, 'DENY')} className="btn bg-error text-white text-base">拒绝</button>
+                      </>
+                    ) : apt.status === 'pending' ? (
+                      <button onClick={() => handleCancelAppointment(apt.id)} className="btn bg-error text-white text-base">取消预约</button>
+                    ) : null}
+                  </div>
+                </div>
+              ))}
+              {activeTab === 'confirmed' && confirmedTodayAppointments.map(apt => (
+                <div key={apt.id} className="p-4 border rounded-xl bg-gray-50 text-base">
+                  <p className="font-semibold text-lg">{apt.patient.name} 于 {apt.time}</p>
+                  <div className="mt-4 flex gap-4 items-center">
+                    <input type="number" placeholder="床位号" value={bedAssignments[apt.id] || ''} onChange={e => setBedAssignments({...bedAssignments, [apt.id]: e.target.value})} className="input-base w-28" />
+                    <button onClick={() => handleCompleteAppointment(apt.id)} className="btn btn-primary text-base">完成</button>
+                  </div>
+                </div>
+              ))}
+              {activeTab === 'history' && historyAppointments.map(apt => (
+                <div key={apt.id} className="p-4 border rounded-xl bg-gray-100 text-base"> 
+                  <p>{new Date(apt.date).toLocaleDateString()} - {apt.patient.name} <span className={`px-3 py-1 rounded-full text-sm ${statusColors[apt.status]}`}>{statusTranslations[apt.status] || apt.status}</span></p>
+                  {apt.status === 'COMPLETED' && <p className="text-base text-gray-600">就诊完成，床位号：#{apt.bedId}</p>}
+                  {apt.status === 'NO_SHOW' && <p className="text-base text-error">爽约。</p>}
+                </div>
+              ))}
+            </div>
+            <button onClick={() => router.push('/doctor/book-appointment')} className="w-full mt-6 btn btn-secondary text-lg">为病人预约</button>
+          </div>
+        </div>

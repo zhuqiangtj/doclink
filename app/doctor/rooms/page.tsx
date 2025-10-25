@@ -128,8 +128,14 @@ export default function DoctorRoomsPage() {
         <div className="p-8 bg-white rounded-2xl shadow-lg mb-10">
           <h2 className="text-2xl font-semibold mb-6">添加新诊室</h2>
           <form onSubmit={handleAddRoom} className="space-y-6">
-            <input type="text" placeholder="诊室名称" value={newRoomName} onChange={e => setNewRoomName(e.target.value)} className="input-base text-lg" required />
-            <input type="number" placeholder="床位数量" value={newRoomBedCount} onChange={e => setNewRoomBedCount(parseInt(e.target.value, 10))} className="input-base text-lg" min="1" required />
+            <div>
+              <label htmlFor="roomName" className="block text-lg font-medium text-foreground">诊室名称</label>
+              <input id="roomName" type="text" placeholder="例如：一号诊室" value={newRoomName} onChange={e => setNewRoomName(e.target.value)} className="input-base mt-2 text-lg" required />
+            </div>
+            <div>
+              <label htmlFor="bedCount" className="block text-lg font-medium text-foreground">床位数量</label>
+              <input id="bedCount" type="number" placeholder="例如：5" value={newRoomBedCount} onChange={e => setNewRoomBedCount(parseInt(e.target.value, 10))} className="input-base mt-2 text-lg" min="1" required />
+            </div>
             <button type="submit" className="w-full btn btn-primary text-lg">添加诊室</button>
           </form>
         </div>
