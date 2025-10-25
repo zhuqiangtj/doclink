@@ -16,7 +16,7 @@ interface Room {
 interface DoctorProfile {
   id: string;
   name: string;
-  rooms: Room[];
+  Room: Room[];
 }
 
 // --- Component ---
@@ -82,7 +82,7 @@ export default function DoctorRoomsPage() {
                 if (!response.ok) throw new Error('添加诊室失败。');
                 
                 const newRoom = await response.json();
-                setDoctorProfile(prev => prev ? { ...prev, rooms: [...prev.rooms, newRoom] } : null);
+                setDoctorProfile(prev => prev ? { ...prev, Room: [...prev.Room, newRoom] } : null);
                 setNewRoomName('');
                 setNewRoomBedCount(1);
                 setSuccess('诊室添加成功！');
@@ -101,7 +101,7 @@ export default function DoctorRoomsPage() {
                   const response = await fetch(`/api/rooms?roomId=${roomId}`, { method: 'DELETE' });
                   if (!response.ok) throw new Error('删除诊室失败。');
                   
-                  setDoctorProfile(prev => prev ? { ...prev, rooms: prev.rooms.filter(r => r.id !== roomId) } : null);
+                  setDoctorProfile(prev => prev ? { ...prev, Room: prev.Room.filter(r => r.id !== roomId) } : null);
                   setSuccess('诊室删除成功！');
                 } catch (err) {
                   setError(err instanceof Error ? err.message : '发生未知错误');
@@ -137,7 +137,7 @@ export default function DoctorRoomsPage() {
         <div className="p-8 bg-white rounded-2xl shadow-lg">
           <h2 className="text-2xl font-semibold mb-6">现有诊室</h2>
           <div className="space-y-4">
-            {doctorProfile.rooms.length > 0 ? doctorProfile.rooms.map(room => (
+            {doctorProfile.Room && doctorProfile.Room.length > 0 ? doctorProfile.Room.map(room => (
               <div key={room.id} className="flex items-center justify-between p-5 border rounded-xl shadow-sm">
                 <span className="text-xl">{room.name} ({room.bedCount} 床位)</span>
                 <button onClick={() => handleDeleteRoom(room.id)} className="btn bg-error text-white text-base">删除</button>
