@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 
 // --- Interfaces ---
 interface Room { id: string; name: string; bedCount: number; }
-interface DoctorProfile { id: string; name: string; rooms: Room[]; }
+interface DoctorProfile { id: string; name: string; Room: Room[]; }
 interface Appointment {
   id: string;
   date: string;
@@ -84,6 +84,9 @@ export default function DoctorDashboardPage() {
         const userData = await userRes.json();
         if (!userData.doctorProfile) throw new Error('未找到医生资料。');
         setDoctorProfile(userData.doctorProfile);
+        if (userData.doctorProfile.Room.length > 0) {
+          setScheduleRoomId(userData.doctorProfile.Room[0].id);
+        }
         
         const doctorId = userData.doctorProfile.id;
         const [schedulesRes, appointmentsRes] = await Promise.all([
@@ -117,8 +120,7 @@ export default function DoctorDashboardPage() {
     setError(null);
     setSuccess(null);
 
-    const room = doctorProfile.rooms.find(r => r.id === scheduleRoomId);
-    if (!room) return;
+    const room = doctorProfile.Room.find(r => r.id === scheduleRoomId);
 
     const timeSlots: TimeSlot[] = DEFAULT_TIMES.map(time => ({
       time,
@@ -246,7 +248,7 @@ export default function DoctorDashboardPage() {
                 <label htmlFor="room" className="block text-lg font-medium">诊室</label>
                 <select id="room" value={scheduleRoomId} onChange={e => setScheduleRoomId(e.target.value)} className="input-base mt-2" required>
                   <option value="">-- 选择诊室 --</option>
-                  {doctorProfile.rooms.map(room => <option key={room.id} value={room.id}>{room.name}</option>)}
+                  {doctorProfile.Room.map(room => <option key={room.id} value={room.id}>{room.name}</option>)}
                 </select>
               </div>
               <button type="submit" className="w-full btn btn-primary text-lg">创建排班</button>
