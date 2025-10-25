@@ -13,28 +13,38 @@ interface TimeSlot {
 }
 
 // GET appointments (for doctors or patients)
-export async function GET() {
+export async function GET(request: Request) {
   const session = await getServerSession(authOptions);
   if (!session) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
   }
 
+  const { searchParams } = new URL(request.url);
+  const status = searchParams.get('status');
+  const date = searchParams.get('date');
+
   try {
-    const whereClause: { doctorId?: string; patientId?: string } = {};
+    const whereClause: { doctorId?: string; patientId?: string; status?: string; schedule?: { date: string } } = {};
 
     if (session.user.role === 'DOCTOR') {
       const userProfile = await prisma.user.findUnique({ where: { id: session.user.id }, include: { doctorProfile: true } });
       if (!userProfile?.doctorProfile) return NextResponse.json({ error: 'Doctor profile not found' }, { status: 404 });
-      
-      // Doctors can only get appointments for themselves
       whereClause.doctorId = userProfile.doctorProfile.id;
 
     } else if (session.user.role === 'PATIENT') {
        const userProfile = await prisma.user.findUnique({ where: { id: session.user.id }, include: { patientProfile: true } });
        if (!userProfile?.patientProfile) return NextResponse.json({ error: 'Patient profile not found' }, { status: 404 });
-      
-      // Patients can only get appointments for themselves
       whereClause.patientId = userProfile.patientProfile.id;
+    }
+
+    if (status) {
+      whereClause.status = status;
+    }
+
+    if (date === 'today') {
+      const today = new Date();
+      const todayString = today.toISOString().split('T')[0];
+      whereClause.schedule = { date: todayString };
     }
     
     const appointments = await prisma.appointment.findMany({

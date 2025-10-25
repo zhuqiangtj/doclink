@@ -58,6 +58,20 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
           where: { id: appointment.patientId },
           data: { credibilityScore: { increment: 1 } },
         });
+
+        // Create a notification for the patient
+        const doctorUser = await tx.user.findUnique({ where: { id: session.user.id } });
+        if (doctorUser) {
+          await tx.patientNotification.create({
+            data: {
+              userId: appointment.userId,
+              appointmentId: appointment.id,
+              doctorName: doctorUser.name,
+              message: `您的预约已确认，床位号为: ${bedId}`,
+              type: 'APPOINTMENT_CONFIRMED_BY_DOCTOR',
+            },
+          });
+        }
       } else { // DENY
         dataToUpdate.status = 'pending'; // Revert status to allow re-check-in
         auditAction = 'DOCTOR_DENY_CHECK_IN';
