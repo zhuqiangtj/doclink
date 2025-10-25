@@ -13,10 +13,14 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
   }
 
   const appointmentId = params.id;
-  const { action } = await request.json(); // action: 'CONFIRM' | 'DENY'
+  const { action, bedId } = await request.json(); // action: 'CONFIRM' | 'DENY', bedId?: number
 
   if (!['CONFIRM', 'DENY'].includes(action)) {
     return NextResponse.json({ error: 'Invalid action' }, { status: 400 });
+  }
+
+  if (action === 'CONFIRM' && (bedId === undefined || bedId <= 0)) {
+    return NextResponse.json({ error: 'Valid Bed ID is required for confirmation.' }, { status: 400 });
   }
 
   try {
@@ -42,61 +46,34 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
         throw new Error('This appointment has not been checked in by the patient.');
       }
 
-      let newStatus: string;
       let auditAction: string;
+      const dataToUpdate: { status: string; bedId?: number } = { status: '' };
 
       if (action === 'CONFIRM') {
-        // Find the next available bed ID
-        const appointmentsInRoom = await tx.appointment.findMany({
-          where: { 
-            roomId: appointment.roomId,
-            status: 'CONFIRMED', // Only consider confirmed appointments for bed occupation
-            schedule: { date: appointment.schedule.date },
-          },
-          select: { bedId: true },
-        });
-        const occupiedBeds = new Set(appointmentsInRoom.map(a => a.bedId));
-        const room = await tx.room.findUnique({ where: { id: appointment.roomId } });
-        let assignedBedId = 0;
-        for (let i = 1; i <= (room?.bedCount || 0); i++) {
-          if (!occupiedBeds.has(i)) {
-            assignedBedId = i;
-            break;
-          }
-        }
-        if (assignedBedId === 0) {
-          throw new Error('No available beds in this room.');
-        }
-
-        newStatus = 'CONFIRMED';
+        dataToUpdate.status = 'CONFIRMED';
+        dataToUpdate.bedId = bedId;
         auditAction = 'DOCTOR_CONFIRM_CHECK_IN';
-        // Award credibility score and assign bed
+        // Award credibility score
         await tx.patient.update({
           where: { id: appointment.patientId },
           data: { credibilityScore: { increment: 1 } },
         });
-        await tx.appointment.update({
-          where: { id: appointmentId },
-          data: { status: newStatus, bedId: assignedBedId },
-        });
       } else { // DENY
-        newStatus = 'pending'; // Revert status to allow re-check-in
+        dataToUpdate.status = 'pending'; // Revert status to allow re-check-in
         auditAction = 'DOCTOR_DENY_CHECK_IN';
-        await tx.appointment.update({
-          where: { id: appointmentId },
-          data: { status: newStatus },
-        });
       }
 
-      const result = await tx.appointment.findUnique({
+      const result = await tx.appointment.update({
         where: { id: appointmentId },
+        data: dataToUpdate,
         include: {
             patient: { select: { name: true } },
             room: { select: { name: true } },
             schedule: { select: { date: true } },
         }
       });
-      await createAuditLog(session, auditAction, 'Appointment', appointmentId, { oldStatus: appointment.status, newStatus, patientId: appointment.patientId });
+
+      await createAuditLog(session, auditAction, 'Appointment', appointmentId, { oldStatus: appointment.status, newStatus: dataToUpdate.status, patientId: appointment.patientId, assignedBed: bedId });
       return result;
     });
     
