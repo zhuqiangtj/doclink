@@ -19,11 +19,12 @@ export async function GET(request: Request, { params }: { params: { id: string }
       where: { id },
       include: {
         patientProfile: true, // Include full patient profile
-                  doctorProfile: {
-                    include: {
-                      Room: true, // For doctors, include their rooms
-                    },
-                  },      },
+        doctorProfile: {
+          include: {
+            Room: true, // For doctors, include their rooms
+          },
+        },
+      },
     });
 
     if (!user) {
