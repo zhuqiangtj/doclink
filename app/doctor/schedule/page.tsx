@@ -91,6 +91,8 @@ export default function DoctorDashboardPage() {
         setSchedules(await schedulesRes.json());
       } catch (err) {
         setError(err instanceof Error ? err.message : '发生未知错误');
+      } finally {
+        setIsLoading(false);
       }
     };
     fetchDoctorData();
