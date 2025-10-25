@@ -15,6 +15,7 @@ interface Appointment {
   patient: { name: string };
   status: string;
   bedId: number;
+  scheduleId: string;
 }
 interface Schedule { id: string; date: string; room: Room; timeSlots: TimeSlot[]; }
 interface TimeSlot { time: string; total: number; booked: number; }
@@ -66,6 +67,7 @@ export default function DoctorDashboardPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState('pending');
 
   // --- Effects ---
   useEffect(() => {
@@ -75,6 +77,7 @@ export default function DoctorDashboardPage() {
 
   useEffect(() => {
     if (status !== 'authenticated' || !session?.user?.id) return;
+
     const fetchDoctorData = async () => {
       setIsLoading(true);
       try {
@@ -116,6 +119,7 @@ export default function DoctorDashboardPage() {
     setSuccess(null);
 
     const room = doctorProfile.Room.find(r => r.id === scheduleRoomId);
+    if (!room) return;
 
     const timeSlots: TimeSlot[] = DEFAULT_TIMES.map(time => ({
       time,
@@ -210,6 +214,9 @@ export default function DoctorDashboardPage() {
   };
 
   // --- Filtering Logic ---
+  const pendingAppointments = appointments.filter(apt => isToday(apt.date) && ['pending', 'CHECKED_IN'].includes(apt.status));
+  const confirmedTodayAppointments = appointments.filter(apt => isToday(apt.date) && apt.status === 'CONFIRMED');
+  const historyAppointments = appointments.filter(apt => !isToday(apt.date) || ['COMPLETED', 'CANCELLED', 'NO_SHOW'].includes(apt.status));
 
   // --- Render Logic ---
   if (status === 'loading' || isLoading || !doctorProfile) {
@@ -259,7 +266,7 @@ export default function DoctorDashboardPage() {
                     <details key={ts.time} className="text-base mt-2">
                       <summary className="cursor-pointer text-primary">{ts.time} ({ts.booked}/{ts.total} 床位)</summary>
                       <ul className="pl-4 mt-2 space-y-1">
-                        {appointments.filter(apt => apt.date === sch.date && apt.time === ts.time).map(apt => (
+                        {appointments.filter(apt => apt.scheduleId === sch.id && apt.time === ts.time).map(apt => (
                           <li key={apt.id} className="text-gray-700">{apt.patient.name}</li>
                         ))}
                       </ul>
@@ -327,3 +334,7 @@ export default function DoctorDashboardPage() {
             <button onClick={() => router.push('/doctor/book-appointment')} className="w-full mt-6 btn btn-secondary text-lg">为病人预约</button>
           </div>
         </div>
+      </div>
+    </div>
+  );
+}

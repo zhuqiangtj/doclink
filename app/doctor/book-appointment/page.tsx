@@ -94,7 +94,6 @@ export default function BookAppointmentPage() {
         }
       };
       fetchData();
-    }
   }, [status, session, router]);
 
   // --- Handlers ---
