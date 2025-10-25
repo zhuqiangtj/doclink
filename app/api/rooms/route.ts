@@ -52,7 +52,7 @@ export async function POST(request: Request) {
   try {
     const { name, bedCount, doctorId: requestDoctorId } = await request.json();
 
-    if (!name || bedCount === undefined || bedCount < 1) {
+    if (!name || !bedCount || bedCount < 1) {
       return NextResponse.json({ error: 'Missing required fields or invalid bedCount' }, { status: 400 });
     }
 
