@@ -79,7 +79,23 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
           where: { id: appointmentId },
           data: { status: newStatus, bedId: assignedBedId },
         });
+      } else { // DENY
+        newStatus = 'pending'; // Revert status to allow re-check-in
+        auditAction = 'DOCTOR_DENY_CHECK_IN';
+        await tx.appointment.update({
+          where: { id: appointmentId },
+          data: { status: newStatus },
+        });
+      }
 
+      const result = await tx.appointment.findUnique({
+        where: { id: appointmentId },
+        include: {
+            patient: { select: { name: true } },
+            room: { select: { name: true } },
+            schedule: { select: { date: true } },
+        }
+      });
       await createAuditLog(session, auditAction, 'Appointment', appointmentId, { oldStatus: appointment.status, newStatus, patientId: appointment.patientId });
       return result;
     });
