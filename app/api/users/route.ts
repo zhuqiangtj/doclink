@@ -119,7 +119,7 @@ export async function PUT(request: Request) {
   }
 
   try {
-    const { name, username, phone, dateOfBirth, gender, role, credibilityScore, isSuspended, password } = await request.json();
+    const { name, phone, dateOfBirth, gender, role, credibilityScore, isSuspended, password } = await request.json();
 
     const updatedUser = await prisma.$transaction(async (tx) => {
       const user = await tx.user.findUnique({ where: { id: userId } });

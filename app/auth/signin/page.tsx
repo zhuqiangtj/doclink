@@ -34,7 +34,7 @@ export default function SignInPage() {
           router.push('/'); // Default for PATIENT or other roles
         }
       }
-    } catch (err) {
+    } catch (error) {
       setError('发生未知错误，请稍后重试。');
     }
   };

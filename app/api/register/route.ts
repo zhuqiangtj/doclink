@@ -1,7 +1,6 @@
 import { PrismaClient, Role } from '@prisma/client';
 import { NextResponse } from 'next/server';
 import bcrypt from 'bcrypt';
-import pinyin from 'pinyin';
 import { createAuditLog } from '@/lib/audit'; // Adjust path as needed
 
 const prisma = new PrismaClient();

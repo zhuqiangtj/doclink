@@ -8,18 +8,6 @@ import 'react-datepicker/dist/react-datepicker.css';
 import pinyin from 'pinyin';
 
 // --- Interfaces ---
-interface User {
-  id: string;
-  username: string;
-  name: string;
-  phone?: string;
-  dateOfBirth?: string;
-  gender?: string;
-  role: 'PATIENT' | 'DOCTOR' | 'ADMIN';
-  patientProfile?: { id: string; credibilityScore: number; isSuspended: boolean; };
-  doctorProfile?: { id: string; };
-}
-
 interface Room {
   id: string;
   name: string;

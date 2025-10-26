@@ -32,7 +32,7 @@ export async function GET(request: Request, { params }: { params: { id: string }
     }
 
     // Exclude password from the response
-    const { password, ...userWithoutPassword } = user;
+    const { ...userWithoutPassword } = user;
 
     return NextResponse.json(userWithoutPassword);
 

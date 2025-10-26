@@ -1,4 +1,4 @@
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient, Prisma } from '@prisma/client';
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '../auth/[...nextauth]/route';
@@ -79,5 +79,55 @@ export async function POST(request: Request) {
   } catch (error) {
     console.error('Error creating schedule:', error);
     return NextResponse.json({ error: 'Failed to create schedule' }, { status: 500 });
+  }
+}
+
+// PUT (update) a schedule
+export async function PUT(request: Request) {
+  const session = await getServerSession(authOptions);
+  if (!session || session.user.role !== 'DOCTOR') {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
+  }
+
+  try {
+    const { scheduleId, time, newBedCount, deleteTime } = await request.json();
+
+    if (!scheduleId) {
+      return NextResponse.json({ error: 'Schedule ID is required' }, { status: 400 });
+    }
+
+    const schedule = await prisma.schedule.findUnique({ where: { id: scheduleId } });
+    if (!schedule) {
+      return NextResponse.json({ error: 'Schedule not found' }, { status: 404 });
+    }
+
+    // Authorization: ensure doctor owns the schedule
+    const doctorProfile = await prisma.doctor.findUnique({ where: { userId: session.user.id } });
+    if (schedule.doctorId !== doctorProfile?.id) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+
+    let timeSlots = schedule.timeSlots as TimeSlot[];
+
+    if (deleteTime && time) {
+      timeSlots = timeSlots.filter(slot => slot.time !== time);
+    } else if (newBedCount !== undefined && time) {
+      const targetSlot = timeSlots.find(slot => slot.time === time);
+      if (targetSlot) {
+        targetSlot.total = newBedCount;
+      }
+    }
+
+    const updatedSchedule = await prisma.schedule.update({
+      where: { id: scheduleId },
+      data: { timeSlots: timeSlots as Prisma.JsonArray },
+    });
+
+    await createAuditLog(session, 'UPDATE_SCHEDULE', 'Schedule', scheduleId, { scheduleId, time, newBedCount, deleteTime });
+    return NextResponse.json(updatedSchedule);
+
+  } catch (error) {
+    console.error('Error updating schedule:', error);
+    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
   }
 }

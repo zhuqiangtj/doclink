@@ -103,7 +103,7 @@ export default function BookAppointmentPage() {
       const res = await fetch(`/api/patients?search=${patientSearch}`);
       const data: Patient[] = await res.json();
       setSearchedPatients(data);
-    } catch (err) {
+    } catch (error) {
       setError('搜索病人失败。');
     }
   };

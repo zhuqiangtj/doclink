@@ -91,8 +91,8 @@ export default function RegisterPage() {
         router.push('/auth/signin');
       }, 2000);
 
-    } catch (err) {
-      setError(err instanceof Error ? err.message : '发生未知错误');
+    } catch (error) {
+      setError(error instanceof Error ? error.message : '发生未知错误');
     }
   };
 

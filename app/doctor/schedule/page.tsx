@@ -3,6 +3,8 @@
 import { useState, useEffect, FormEvent } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
+import DatePicker from 'react-datepicker';
+import 'react-datepicker/dist/react-datepicker.css';
 
 // --- Interfaces ---
 interface Room { id: string; name: string; bedCount: number; }
@@ -30,13 +32,19 @@ export default function DoctorSchedulePage() {
   const [appointments, setAppointments] = useState<Appointment[]>([]);
 
   // --- Form States ---
-  const [scheduleDate, setScheduleDate] = useState(new Date().toISOString().split('T')[0]);
-  const [scheduleRoomId, setScheduleRoomId] = useState('');
+
 
   // --- UI States ---
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [highlightedDates, setHighlightedDates] = useState<Date[]>([]);
+
+  // --- Modal States ---
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [selectedDate, setSelectedDate] = useState<Date | null>(null);
+  const [schedulesForSelectedDate, setSchedulesForSelectedDate] = useState<Schedule[]>([]);
+  const [isEditing, setIsEditing] = useState(false);
 
   // --- Effects ---
   useEffect(() => {
@@ -45,37 +53,9 @@ export default function DoctorSchedulePage() {
   }, [status, session, router]);
 
   useEffect(() => {
-    if (status !== 'authenticated' || !session?.user?.id) return;
-
-    const fetchDoctorData = async () => {
-      setIsLoading(true);
-      try {
-        const userRes = await fetch(`/api/user/${session.user.id}`);
-        if (!userRes.ok) throw new Error('获取医生资料失败。');
-        const userData = await userRes.json();
-        if (!userData.doctorProfile) throw new Error('未找到医生资料。');
-        setDoctorProfile(userData.doctorProfile);
-        if (userData.doctorProfile.Room.length > 0) {
-          setScheduleRoomId(userData.doctorProfile.Room[0].id);
-        }
-        
-        const doctorId = userData.doctorProfile.id;
-        const [schedulesRes, appointmentsRes] = await Promise.all([
-          fetch(`/api/schedules?doctorId=${doctorId}`),
-          fetch(`/api/appointments?doctorId=${doctorId}`)
-        ]);
-        if (!schedulesRes.ok) throw new Error('获取排班失败。');
-        if (!appointmentsRes.ok) throw new Error('获取预约失败。');
-        setSchedules(await schedulesRes.json());
-        setAppointments(await appointmentsRes.json());
-      } catch (err) {
-        setError(err instanceof Error ? err.message : '发生未知错误');
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    fetchDoctorData();
-  }, [status, session]);
+    const dates = schedules.map(s => new Date(s.date));
+    setHighlightedDates(dates);
+  }, [schedules]);
 
   // --- Handlers ---
   const handleCreateSchedule = async (e: FormEvent) => {
@@ -117,6 +97,14 @@ export default function DoctorSchedulePage() {
     }
   };
 
+  const handleDateClick = (date: Date) => {
+    setSelectedDate(date);
+    const existingSchedules = schedules.filter(s => new Date(s.date).toDateString() === date.toDateString());
+    setSchedulesForSelectedDate(existingSchedules);
+    setIsEditing(existingSchedules.length > 0);
+    setIsModalOpen(true);
+  };
+
   // --- Render Logic ---
   if (status === 'loading' || isLoading || !doctorProfile) {
     return <div className="container mx-auto p-8 text-center">正在加载医生数据...</div>;
@@ -128,39 +116,44 @@ export default function DoctorSchedulePage() {
 
   return (
     <div className="container mx-auto p-6 md:p-10">
-      <h1 className="text-4xl font-bold mb-8 text-foreground">排班管理 ({doctorProfile.name})</h1>
+      <h1 className="text-4xl font-bold mb-8 text-foreground">排班日历 ({doctorProfile.name})</h1>
       {error && <div className="p-4 mb-6 text-lg text-error bg-red-100 rounded-xl">{error}</div>}
       {success && <div className="p-4 mb-6 text-lg text-white bg-success rounded-xl">{success}</div>}
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        <div className="lg:col-span-1 space-y-8">
-          <div className="p-8 bg-white rounded-2xl shadow-lg">
-            <h2 className="text-2xl font-semibold mb-6">创建新排班</h2>
-            <form onSubmit={handleCreateSchedule} className="space-y-6">
-              <div>
-                <label htmlFor="date" className="block text-lg font-medium">日期</label>
-                <input type="date" id="date" value={scheduleDate} onChange={e => setScheduleDate(e.target.value)} className="input-base mt-2" required/>
-              </div>
-              <div>
-                <label htmlFor="room" className="block text-lg font-medium">诊室</label>
-                <select id="room" value={scheduleRoomId} onChange={e => setScheduleRoomId(e.target.value)} className="input-base mt-2" required>
-                  <option value="">-- 选择诊室 --</option>
-                  {doctorProfile.Room.map(room => <option key={room.id} value={room.id}>{room.name}</option>)}
-                </select>
-              </div>
-              <button type="submit" className="w-full btn btn-primary text-lg">创建排班</button>
-            </form>
-          </div>
-        </div>
+      <div className="bg-white p-8 rounded-2xl shadow-lg">
+        <DatePicker
+          selected={selectedDate}
+          onChange={handleDateClick}
+          inline
+          highlightDates={highlightedDates}
+          className="w-full"
+        />
+      </div>
 
-        <div className="lg:col-span-1 space-y-8">
-          <div className="p-8 bg-white rounded-2xl shadow-lg">
-            <h2 className="text-2xl font-semibold mb-6">我的排班</h2>
+      {isModalOpen && selectedDate && (
+        <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4">
+          <div className="bg-white p-10 rounded-2xl shadow-2xl w-full max-w-2xl">
+            <h2 className="text-3xl font-bold mb-6">{isEditing ? '编辑' : '创建'} {selectedDate.toLocaleDateString()} 的排班</h2>
+            
+            {/* Form for creating a new schedule */}
+            {!isEditing && (
+              <form onSubmit={handleCreateSchedule} className="space-y-6 mb-8">
+                <div>
+                  <label htmlFor="room" className="block text-lg font-medium">选择诊室</label>
+                  <select id="room" value={scheduleRoomId} onChange={e => setScheduleRoomId(e.target.value)} className="input-base mt-2" required>
+                    <option value="">-- 选择一个诊室 --</option>
+                    {doctorProfile.Room.map(room => <option key={room.id} value={room.id}>{room.name}</option>)}
+                  </select>
+                </div>
+                <button type="submit" className="btn btn-primary text-lg">创建</button>
+              </form>
+            )}
+
+            {/* List of schedules for the selected date */}
             <div className="space-y-4 max-h-96 overflow-y-auto">
-              {schedules.map(sch => (
+              {schedulesForSelectedDate.map(sch => (
                 <div key={sch.id} className="p-4 border rounded-xl bg-gray-50">
-                  <p className="font-semibold text-lg">{sch.date}</p>
-                  <p className="text-base text-gray-600">诊室: {sch.room.name}</p>
+                  <p className="font-semibold text-lg">诊室: {sch.room.name}</p>
                   {sch.timeSlots.map(ts => (
                     <details key={ts.time} className="text-base mt-2">
                       <summary className="cursor-pointer text-primary">{ts.time} ({ts.booked}/{ts.total} 床位)</summary>
@@ -174,9 +167,13 @@ export default function DoctorSchedulePage() {
                 </div>
               ))}
             </div>
+
+            <div className="flex justify-end gap-4 mt-8">
+              <button type="button" onClick={() => setIsModalOpen(false)} className="btn bg-gray-200 text-gray-800 text-lg">关闭</button>
+            </div>
           </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }
