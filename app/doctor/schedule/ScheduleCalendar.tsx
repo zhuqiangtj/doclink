@@ -145,7 +145,9 @@ export default function ScheduleCalendar({ initialScheduledDates, rooms, doctorP
           selected={null}
           onChange={handleDateClick}
           inline
-          highlightDates={highlightedDates}
+          dayClassName={date => 
+            highlightedDates.find(d => d.getTime() === date.getTime()) ? 'scheduled-date' : undefined
+          }
           className="w-full"
         />
       </div>
