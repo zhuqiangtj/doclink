@@ -26,15 +26,17 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: 'Doctor profile not found' }, { status: 404 });
     }
 
-    const startDate = new Date(`${month}-01`);
-    const endDate = new Date(startDate.getFullYear(), startDate.getMonth() + 1, 1);
+    const startDate = `${month}-01`;
+    const nextMonth = new Date(`${month}-01T00:00:00.000Z`).getMonth() + 1;
+    const year = new Date(`${month}-01T00:00:00.000Z`).getFullYear();
+    const endDate = new Date(year, nextMonth, 1).toISOString().split('T')[0];
 
     const schedules = await prisma.schedule.findMany({
       where: {
         doctorId: doctorProfile.id,
         date: {
-          gte: startDate.toISOString().split('T')[0],
-          lt: endDate.toISOString().split('T')[0],
+          gte: startDate,
+          lt: endDate,
         },
       },
       select: {

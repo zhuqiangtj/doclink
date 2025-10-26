@@ -18,13 +18,17 @@ interface Schedule {
 
 const DEFAULT_TIMES = ["08:00", "09:00", "10:00", "11:00", "14:00", "15:00", "16:00"];
 
+// --- Helper to convert YYYY-MM-DD string to a Date object at UTC midnight ---
+const dateStringToUtcDate = (dateString: string) => {
+  return new Date(dateString + 'T00:00:00.000Z');
+};
+
 // --- Component ---
 export default function ScheduleCalendar({ initialScheduledDates, rooms, doctorProfile }: { initialScheduledDates: string[], rooms: Room[], doctorProfile: DoctorProfile }) {
   const [highlightedDates, setHighlightedDates] = useState<Date[]>([]);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isLoadingDetails, setIsLoadingDetails] = useState(false);
-  const [isEditing, setIsEditing] = useState(false);
   
   const [schedulesForSelectedDate, setSchedulesForSelectedDate] = useState<Schedule[]>([]);
   const [selectedRoomId, setSelectedRoomId] = useState<string>(rooms.length > 0 ? rooms[0].id : '');
@@ -32,7 +36,7 @@ export default function ScheduleCalendar({ initialScheduledDates, rooms, doctorP
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    setHighlightedDates(initialScheduledDates.map(d => new Date(d + 'T00:00:00.000Z')));
+    setHighlightedDates(initialScheduledDates.map(dateStringToUtcDate));
   }, [initialScheduledDates]);
 
   const handleDateClick = async (date: Date) => {
@@ -51,10 +55,8 @@ export default function ScheduleCalendar({ initialScheduledDates, rooms, doctorP
       if (data.length > 0) {
         setTimeSlots(data[0].timeSlots);
         setSelectedRoomId(data[0].room.id);
-        setIsEditing(true);
       } else {
         setTimeSlots([]);
-        setIsEditing(false);
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : '获取数据时发生错误');
@@ -69,7 +71,6 @@ export default function ScheduleCalendar({ initialScheduledDates, rooms, doctorP
 
     const defaultTimeSlots = DEFAULT_TIMES.map(time => ({ time, total: room.bedCount, booked: 0 }));
     setTimeSlots(defaultTimeSlots);
-    setIsEditing(true); // Switch to editing mode, but it's still a new schedule
     setSchedulesForSelectedDate([{ id: 'new', date: selectedDate!.toISOString().split('T')[0], room, timeSlots: defaultTimeSlots }]);
   };
 
@@ -96,7 +97,7 @@ export default function ScheduleCalendar({ initialScheduledDates, rooms, doctorP
   const handleSaveSchedule = async () => {
     setError(null);
     const scheduleToSave = schedulesForSelectedDate[0];
-    const isNew = scheduleToSave.id === 'new';
+    const isNew = !scheduleToSave || scheduleToSave.id === 'new';
 
     const url = isNew ? '/api/schedules' : `/api/schedules?scheduleId=${scheduleToSave.id}`;
     const method = isNew ? 'POST' : 'PUT';
@@ -120,7 +121,6 @@ export default function ScheduleCalendar({ initialScheduledDates, rooms, doctorP
         throw new Error(errData.error || '保存失败');
       }
 
-      // Update UI
       if (isNew) {
         setHighlightedDates(prev => [...prev, selectedDate!]);
       }
