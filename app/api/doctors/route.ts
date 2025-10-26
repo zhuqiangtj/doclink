@@ -6,19 +6,21 @@ import bcrypt from 'bcrypt';
 
 const prisma = new PrismaClient();
 
-// GET all doctors
+// GET all doctors (for any authenticated user)
 export async function GET() {
   const session = await getServerSession(authOptions);
-  if (!session || session.user.role !== 'ADMIN') {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
+  if (!session) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
   try {
-    const doctors = await prisma.doctor.findMany({
-      include: {
-        user: {
-          select: { email: true },
-        },
+    const doctors = await prisma.user.findMany({
+      where: {
+        role: 'DOCTOR',
+      },
+      select: {
+        id: true,
+        name: true,
       },
       orderBy: {
         name: 'asc',
