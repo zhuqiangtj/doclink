@@ -18,9 +18,17 @@ interface Schedule {
 
 const DEFAULT_TIMES = ["08:00", "09:00", "10:00", "11:00", "14:00", "15:00", "16:00"];
 
-// --- Helper to convert YYYY-MM-DD string to a Date object at UTC midnight ---
-const dateStringToUtcDate = (dateString: string) => {
-  return new Date(dateString + 'T00:00:00.000Z');
+// --- Timezone-Safe Helper Functions ---
+const toYYYYMMDD = (date: Date): string => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+const fromYYYYMMDD = (dateString: string): Date => {
+  const parts = dateString.split('-').map(part => parseInt(part, 10));
+  return new Date(parts[0], parts[1] - 1, parts[2]);
 };
 
 // --- Component ---
@@ -36,7 +44,7 @@ export default function ScheduleCalendar({ initialScheduledDates, rooms, doctorP
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    setHighlightedDates(initialScheduledDates.map(dateStringToUtcDate));
+    setHighlightedDates(initialScheduledDates.map(fromYYYYMMDD));
   }, [initialScheduledDates]);
 
   const handleDateClick = async (date: Date) => {
@@ -46,7 +54,7 @@ export default function ScheduleCalendar({ initialScheduledDates, rooms, doctorP
     setError(null);
 
     try {
-      const dateString = date.toISOString().split('T')[0];
+      const dateString = toYYYYMMDD(date);
       const res = await fetch(`/api/schedules/details?date=${dateString}`);
       if (!res.ok) throw new Error('获取排班详情失败。');
       const data: Schedule[] = await res.json();
@@ -71,7 +79,7 @@ export default function ScheduleCalendar({ initialScheduledDates, rooms, doctorP
 
     const defaultTimeSlots = DEFAULT_TIMES.map(time => ({ time, total: room.bedCount, booked: 0 }));
     setTimeSlots(defaultTimeSlots);
-    setSchedulesForSelectedDate([{ id: 'new', date: selectedDate!.toISOString().split('T')[0], room, timeSlots: defaultTimeSlots }]);
+    setSchedulesForSelectedDate([{ id: 'new', date: toYYYYMMDD(selectedDate!), room, timeSlots: defaultTimeSlots }]);
   };
 
   const handleTimeSlotChange = (index: number, field: keyof TimeSlot, value: string | number) => {
@@ -104,7 +112,7 @@ export default function ScheduleCalendar({ initialScheduledDates, rooms, doctorP
 
     const body = {
       doctorId: doctorProfile.id,
-      date: selectedDate!.toISOString().split('T')[0],
+      date: toYYYYMMDD(selectedDate!),
       roomId: selectedRoomId,
       timeSlots,
     };
