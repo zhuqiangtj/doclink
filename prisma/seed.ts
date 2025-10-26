@@ -4,37 +4,49 @@ import bcrypt from 'bcrypt';
 const prisma = new PrismaClient();
 
 async function main() {
-  console.log('Start seeding admin user...');
+  console.log('DATABASE_URL in use:', process.env.DATABASE_URL);
+  const adminUsername = 'admin';
+  console.log(`Seeding database... Attempting to create/update user: ${adminUsername}`);
 
-  const adminUsername = 'admin'; // New: Admin username
-  const adminPassword = 'admin123';
-
-  // Check if the admin user already exists by username
-  const existingAdmin = await prisma.user.findUnique({
-    where: { username: adminUsername },
-  });
-
-  if (existingAdmin) {
-    console.log('Admin user already exists.');
-    return;
+  // 1. Delete the admin user if it exists to ensure a clean slate
+  try {
+    const existingAdmin = await prisma.user.findUnique({ where: { username: adminUsername } });
+    if (existingAdmin) {
+      console.log(`Found existing admin user. Deleting it first...`);
+      // Prisma does not cascade deletes automatically on non-native fields.
+      // We don't expect the admin to have appointments, but this is good practice.
+      await prisma.appointment.deleteMany({ where: { userId: existingAdmin.id } });
+      await prisma.patient.deleteMany({ where: { userId: existingAdmin.id } });
+      await prisma.doctor.deleteMany({ where: { userId: existingAdmin.id } });
+      await prisma.user.delete({ where: { username: adminUsername } });
+      console.log(`User ${adminUsername} deleted.`);
+    }
+  } catch (error) {
+    console.error(`Error during deletion phase (might be safe to ignore if user did not exist):`, error);
   }
 
-  // Hash the password
-  const hashedPassword = await bcrypt.hash(adminPassword, 10);
-  console.log(`Generated password hash for admin: ${hashedPassword}`);
+  // 2. Create the new admin user with specified details
+  try {
+    const adminPassword = 'admin123';
+    const hashedPassword = await bcrypt.hash(adminPassword, 10);
+    
+    const adminUser = await prisma.user.create({
+      data: {
+        username: adminUsername,
+        name: 'Admin',
+        gender: 'Male',
+        dateOfBirth: new Date('1976-08-14T00:00:00.000Z'), // Use ISO format for consistency
+        password: hashedPassword,
+        role: Role.ADMIN,
+      },
+    });
 
-  // Create the admin user
-  const adminUser = await prisma.user.create({
-    data: {
-      username: adminUsername, // New: Add username
-      name: 'Admin', // New: Add name
-      password: hashedPassword,
-      role: Role.ADMIN,
-    },
-  });
+    console.log(`Successfully created new admin user: ${adminUser.username}`);
 
-  console.log(`Created admin user with username: ${adminUser.username}`);
-  console.log('Seeding finished.');
+  } catch (e) {
+    console.error('Error creating new admin user:', e);
+    process.exit(1);
+  }
 }
 
 main()

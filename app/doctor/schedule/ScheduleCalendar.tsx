@@ -140,7 +140,7 @@ export default function ScheduleCalendar({ initialScheduledDates, rooms, doctorP
 
   return (
     <>
-      <div className="bg-white p-8 rounded-2xl shadow-lg">
+      <div className="bg-white p-8 rounded-2xl shadow-lg flex justify-center">
         <DatePicker
           selected={null}
           onChange={handleDateClick}
