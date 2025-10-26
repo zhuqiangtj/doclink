@@ -36,16 +36,6 @@ export async function GET() {
       whereClause.patientId = userProfile.patientProfile.id;
     }
 
-    if (status) {
-      whereClause.status = status;
-    }
-
-    if (date === 'today') {
-      const today = new Date();
-      const todayString = today.toISOString().split('T')[0];
-      whereClause.schedule = { date: todayString };
-    }
-    
     const appointments = await prisma.appointment.findMany({
       where: whereClause,
       include: {

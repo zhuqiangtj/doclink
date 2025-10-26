@@ -1,18 +1,18 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import localFont from "next/font/local";
 import "./globals.css";
 import Providers from "./providers";
-import BottomNav from "@/components/BottomNav"; // Assuming @ is configured for components
+import BottomNav from "@/components/BottomNav";
 import SessionLogger from "@/components/SessionLogger";
 
-const geistSans = Geist({
+const geistSans = localFont({
+  src: '../public/fonts/Geist-Variable.woff2',
   variable: "--font-geist-sans",
-  subsets: ["latin"],
 });
 
-const geistMono = Geist_Mono({
+const geistMono = localFont({
+  src: '../public/fonts/GeistMono-Variable.woff2',
   variable: "--font-geist-mono",
-  subsets: ["latin"],
 });
 
 export const metadata: Metadata = {
