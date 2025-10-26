@@ -16,7 +16,9 @@ export const authOptions = {
         password: { label: "Password", type: "password" }
       },
       async authorize(credentials) {
+        console.log('[AUTH] Authorize attempt for username:', credentials?.username);
         if (!credentials?.username || !credentials.password) {
+          console.error('[AUTH] Missing credentials');
           return null;
         }
 
@@ -25,23 +27,17 @@ export const authOptions = {
         });
 
         if (!user || !user.password) {
+          console.error(`[AUTH] User not found or no password for: ${credentials.username}`);
           return null;
         }
 
         const isValid = await bcrypt.compare(credentials.password, user.password);
 
         if (isValid) {
-          // Return user object that will be encoded in the JWT
-          return { 
-            id: user.id, 
-            username: user.username, 
-            name: user.name, 
-            phone: user.phone, 
-            dateOfBirth: user.dateOfBirth, 
-            gender: user.gender, 
-            role: user.role 
-          };
+          console.log(`[AUTH] Success for: ${user.username}, Role: ${user.role}`);
+          return user;
         } else {
+          console.error(`[AUTH] Invalid password for: ${credentials.username}`);
           return null;
         }
       }
@@ -52,25 +48,21 @@ export const authOptions = {
   },
   callbacks: {
     async jwt({ token, user }) {
-      // On initial sign-in, the user object is available. Persist the required data to the token.
+      // On initial sign-in, user object is available.
       if (user) {
-        return {
-          ...token,
-          id: user.id,
-          username: user.username,
-          name: user.name,
-          phone: user.phone,
-          dateOfBirth: user.dateOfBirth,
-          gender: user.gender,
-          role: user.role,
-        };
+        console.log(`[AUTH] JWT: Initial sign-in for user ${user.username}`);
+        token.id = user.id;
+        token.username = user.username;
+        token.name = user.name;
+        token.phone = user.phone;
+        token.dateOfBirth = user.dateOfBirth;
+        token.gender = user.gender;
+        token.role = user.role;
       }
-      // On subsequent requests, the token is available. Return it as is.
       return token;
     },
     async session({ session, token }) {
-      // The session callback is called whenever a session is checked.
-      // We assign the user's id, username, role, and other details from the token to the session object.
+      // The session object is what the client-side receives.
       if (token && session.user) {
         session.user.id = token.id as string;
         session.user.username = token.username as string;
@@ -79,6 +71,7 @@ export const authOptions = {
         session.user.dateOfBirth = token.dateOfBirth as Date | undefined;
         session.user.gender = token.gender as string | undefined;
       }
+      // console.log('[AUTH] Session created:', session);
       return session;
     }
   },

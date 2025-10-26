@@ -10,8 +10,11 @@ const prisma = new PrismaClient();
 export async function GET() {
   const session = await getServerSession(authOptions);
   if (!session) {
+    console.error('[API_DOCTORS] Unauthorized attempt to fetch doctors list.');
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
+
+  console.log(`[API_DOCTORS] User ${session.user.username} (${session.user.role}) is fetching doctors list.`);
 
   try {
     const doctors = await prisma.user.findMany({

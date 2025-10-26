@@ -11,8 +11,11 @@ export async function GET(request: Request, { params }: { params: { id: string }
   const { id } = params;
 
   if (!session || (session.user.id !== id && session.user.role !== 'ADMIN')) {
+    console.error(`[API_USER] Unauthorized attempt to access user ${id} by session:`, session);
     return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
   }
+
+  console.log(`[API_USER] Fetching profile for user ID: ${id} by ${session.user.role}`);
 
   try {
     const user = await prisma.user.findUnique({
@@ -28,12 +31,14 @@ export async function GET(request: Request, { params }: { params: { id: string }
     });
 
     if (!user) {
+      console.error(`[API_USER] User not found for ID: ${id}`);
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
     // Exclude password from the response
-    const { ...userWithoutPassword } = user;
+    const { password, ...userWithoutPassword } = user;
 
+    console.log(`[API_USER] Successfully fetched profile for user: ${user.username}`);
     return NextResponse.json(userWithoutPassword);
 
   } catch (error) {

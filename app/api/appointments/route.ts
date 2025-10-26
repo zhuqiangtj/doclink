@@ -13,15 +13,14 @@ interface TimeSlot {
 }
 
 // GET appointments (for doctors or patients)
-export async function GET(request: Request) {
+export async function GET() {
   const session = await getServerSession(authOptions);
   if (!session) {
+    console.error('[API_APPOINTMENTS] Unauthorized attempt to fetch appointments.');
     return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
   }
 
-  const { searchParams } = new URL(request.url);
-  const status = searchParams.get('status');
-  const date = searchParams.get('date');
+  console.log(`[API_APPOINTMENTS] User ${session.user.username} (${session.user.role}) is fetching appointments.`);
 
   try {
     const whereClause: { doctorId?: string; patientId?: string; status?: string; schedule?: { date: string } } = {};

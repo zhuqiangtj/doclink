@@ -11,8 +11,11 @@ export async function GET() {
   const session = await getServerSession(authOptions);
 
   if (!session || session.user.role !== 'DOCTOR') {
+    console.error(`[API_SCHEDULES] Unauthorized attempt to fetch schedules. Session:`, session);
     return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
   }
+
+  console.log(`[API_SCHEDULES] Doctor ${session.user.username} is fetching their schedules.`);
 
   try {
     const userProfile = await prisma.user.findUnique({

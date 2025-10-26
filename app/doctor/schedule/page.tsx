@@ -92,10 +92,11 @@ export default function DoctorSchedulePage() {
       const newSchedule = await response.json();
       setSchedules(prev => [...prev, { ...newSchedule, room }]);
       setSuccess('排班创建成功！');
-    } catch (err) {
-      setError(err instanceof Error ? err.message : '发生未知错误');
-    }
-  };
+          } catch (err) {
+            setError(err instanceof Error ? err.message : '发生未知错误');
+          } finally {
+            setIsLoading(false);
+          }  };
 
   const handleDateClick = (date: Date) => {
     setSelectedDate(date);
