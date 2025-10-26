@@ -32,7 +32,7 @@ export default function ScheduleCalendar({ initialScheduledDates, rooms, doctorP
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    setHighlightedDates(initialScheduledDates.map(d => new Date(d)));
+    setHighlightedDates(initialScheduledDates.map(d => new Date(d + 'T00:00:00.000Z')));
   }, [initialScheduledDates]);
 
   const handleDateClick = async (date: Date) => {
