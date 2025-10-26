@@ -26,10 +26,10 @@ export default function ScheduleCalendar({ initialScheduledDates, rooms, doctorP
   const [isLoadingDetails, setIsLoadingDetails] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   
-  // State for the modal form
   const [schedulesForSelectedDate, setSchedulesForSelectedDate] = useState<Schedule[]>([]);
-  const [selectedRoomId, setSelectedRoomId] = useState<string>('');
+  const [selectedRoomId, setSelectedRoomId] = useState<string>(rooms.length > 0 ? rooms[0].id : '');
   const [timeSlots, setTimeSlots] = useState<Partial<TimeSlot>[]>([]);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     setHighlightedDates(initialScheduledDates.map(d => new Date(d)));
@@ -39,20 +39,28 @@ export default function ScheduleCalendar({ initialScheduledDates, rooms, doctorP
     setSelectedDate(date);
     setIsModalOpen(true);
     setIsLoadingDetails(true);
+    setError(null);
 
-    // In a real app, you'd fetch this. For now, we simulate.
-    const existingSchedules = []; // Placeholder
-    setSchedulesForSelectedDate(existingSchedules);
-    setIsEditing(existingSchedules.length > 0);
-    
-    if (existingSchedules.length > 0) {
-      setTimeSlots(existingSchedules[0].timeSlots);
-    } else {
-      setTimeSlots([]);
-      setSelectedRoomId(rooms.length > 0 ? rooms[0].id : '');
+    try {
+      const dateString = date.toISOString().split('T')[0];
+      const res = await fetch(`/api/schedules/details?date=${dateString}`);
+      if (!res.ok) throw new Error('获取排班详情失败。');
+      const data: Schedule[] = await res.json();
+      
+      setSchedulesForSelectedDate(data);
+      if (data.length > 0) {
+        setTimeSlots(data[0].timeSlots);
+        setSelectedRoomId(data[0].room.id);
+        setIsEditing(true);
+      } else {
+        setTimeSlots([]);
+        setIsEditing(false);
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '获取数据时发生错误');
+    } finally {
+      setIsLoadingDetails(false);
     }
-
-    setIsLoadingDetails(false);
   };
 
   const handleCreateInitialSchedule = () => {
@@ -61,17 +69,24 @@ export default function ScheduleCalendar({ initialScheduledDates, rooms, doctorP
 
     const defaultTimeSlots = DEFAULT_TIMES.map(time => ({ time, total: room.bedCount, booked: 0 }));
     setTimeSlots(defaultTimeSlots);
-    setIsEditing(true); // Switch to editing mode
+    setIsEditing(true); // Switch to editing mode, but it's still a new schedule
+    setSchedulesForSelectedDate([{ id: 'new', date: selectedDate!.toISOString().split('T')[0], room, timeSlots: defaultTimeSlots }]);
   };
 
   const handleTimeSlotChange = (index: number, field: keyof TimeSlot, value: string | number) => {
     const updatedSlots = [...timeSlots];
-    updatedSlots[index] = { ...updatedSlots[index], [field]: value };
+    const currentSlot = updatedSlots[index];
+    if (field === 'total') {
+      currentSlot.total = Number(value);
+    } else {
+      currentSlot.time = String(value);
+    }
     setTimeSlots(updatedSlots);
   };
 
   const handleAddTimeSlot = () => {
-    setTimeSlots([...timeSlots, { time: '17:00', total: 1, booked: 0 }]);
+    const room = rooms.find(r => r.id === selectedRoomId);
+    setTimeSlots([...timeSlots, { time: '17:00', total: room?.bedCount ?? 1, booked: 0 }]);
   };
 
   const handleDeleteTimeSlot = (index: number) => {
@@ -79,12 +94,40 @@ export default function ScheduleCalendar({ initialScheduledDates, rooms, doctorP
   };
 
   const handleSaveSchedule = async () => {
-    // This would call the POST or PUT API endpoint
-    console.log('Saving schedule:', { date: selectedDate, roomId: selectedRoomId, timeSlots });
-    // On success:
-    // 1. Update highlightedDates
-    // 2. Close modal
-    setIsModalOpen(false);
+    setError(null);
+    const scheduleToSave = schedulesForSelectedDate[0];
+    const isNew = scheduleToSave.id === 'new';
+
+    const url = isNew ? '/api/schedules' : `/api/schedules?scheduleId=${scheduleToSave.id}`;
+    const method = isNew ? 'POST' : 'PUT';
+
+    const body = {
+      doctorId: doctorProfile.id,
+      date: selectedDate!.toISOString().split('T')[0],
+      roomId: selectedRoomId,
+      timeSlots,
+    };
+
+    try {
+      const response = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+
+      if (!response.ok) {
+        const errData = await response.json();
+        throw new Error(errData.error || '保存失败');
+      }
+
+      // Update UI
+      if (isNew) {
+        setHighlightedDates(prev => [...prev, selectedDate!]);
+      }
+      setIsModalOpen(false);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '保存时发生错误');
+    }
   };
 
   return (
@@ -102,11 +145,11 @@ export default function ScheduleCalendar({ initialScheduledDates, rooms, doctorP
       {isModalOpen && selectedDate && (
         <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4">
           <div className="bg-white p-10 rounded-2xl shadow-2xl w-full max-w-2xl">
-            <h2 className="text-3xl font-bold mb-6">{timeSlots.length > 0 ? '编辑' : '创建'} {selectedDate.toLocaleDateString()} 的排班</h2>
+            <h2 className="text-3xl font-bold mb-6">{schedulesForSelectedDate.length > 0 ? '编辑' : '创建'} {selectedDate.toLocaleDateString()} 的排班</h2>
             
-            {isLoadingDetails ? <p>正在加载...</p> : (
+            {isLoadingDetails ? <p>正在加载...</p> : error ? <p className="text-error">{error}</p> : (
               <div className="space-y-6">
-                {!isEditing ? (
+                {schedulesForSelectedDate.length === 0 ? (
                   <div className="flex items-end gap-4">
                     <div className="flex-grow">
                       <label htmlFor="room" className="block text-lg font-medium">选择诊室</label>
@@ -133,7 +176,7 @@ export default function ScheduleCalendar({ initialScheduledDates, rooms, doctorP
 
             <div className="flex justify-end gap-4 mt-8">
               <button type="button" onClick={() => setIsModalOpen(false)} className="btn bg-gray-200 text-gray-800 text-lg">取消</button>
-              {isEditing && <button onClick={handleSaveSchedule} className="btn btn-primary text-lg">保存排班</button>}
+              {(schedulesForSelectedDate.length > 0 || timeSlots.length > 0) && <button onClick={handleSaveSchedule} className="btn btn-primary text-lg">保存排班</button>}
             </div>
           </div>
         </div>
