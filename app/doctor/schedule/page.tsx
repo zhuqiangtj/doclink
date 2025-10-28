@@ -88,7 +88,15 @@ export default function DoctorSchedulePage() {
       const res = await fetch(`/api/schedules/details?date=${dateString}`);
       if (!res.ok) throw new Error('获取当天排班详情失败。');
       const data: Schedule[] = await res.json();
-      setSchedulesForSelectedDay(data);
+      // Data sanitization: ensure appointments array exists
+      const sanitizedData = data.map(schedule => ({
+        ...schedule,
+        timeSlots: schedule.timeSlots.map(slot => ({
+          ...slot,
+          appointments: slot.appointments || [],
+        })),
+      }));
+      setSchedulesForSelectedDay(sanitizedData);
     } catch (err) { setError(err instanceof Error ? err.message : '获取数据时发生错误'); } finally { setIsLoading(false); }
   };
 

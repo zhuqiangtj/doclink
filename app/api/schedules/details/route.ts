@@ -5,6 +5,12 @@ import { authOptions } from '../../auth/[...nextauth]/route';
 
 const prisma = new PrismaClient();
 
+interface TimeSlot { 
+  time: string; 
+  total: number; 
+  booked: number; 
+}
+
 // GET detailed schedule for a specific date
 export async function GET(request: Request) {
   const session = await getServerSession(authOptions);
@@ -32,15 +38,35 @@ export async function GET(request: Request) {
       },
       include: {
         room: true,
-        appointments: {
-          select: {
-            patient: { select: { user: { select: { name: true } } } },
-          },
-        },
       },
     });
 
-    return NextResponse.json(schedules);
+    const appointments = await prisma.appointment.findMany({
+      where: {
+        doctorId: doctorProfile.id,
+        date: date,
+      },
+      select: {
+        id: true,
+        time: true,
+        status: true,
+        patient: { select: { user: { select: { name: true } } } },
+        scheduleId: true,
+      },
+    });
+
+    // Manually merge appointments into their respective time slots
+    const schedulesWithAppointments = schedules.map(schedule => {
+      const timeSlotsWithAppointments = (schedule.timeSlots as TimeSlot[]).map(slot => {
+        return {
+          ...slot,
+          appointments: appointments.filter(apt => apt.scheduleId === schedule.id && apt.time === slot.time),
+        };
+      });
+      return { ...schedule, timeSlots: timeSlotsWithAppointments };
+    });
+
+    return NextResponse.json(schedulesWithAppointments);
 
   } catch (error) {
     console.error('Error fetching schedule details:', error);
