@@ -29,7 +29,7 @@ export default function MyAppointmentsPage() {
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
+  const [success, ] = useState<string | null>(null);
 
   useEffect(() => {
     if (status === 'unauthenticated') {
@@ -58,7 +58,7 @@ export default function MyAppointmentsPage() {
     }
   }, [status]);
 
-  const handleCancel = async (appointmentId: string) => {
+  const handleCancel = async () => {
     // ... (cancellation logic remains the same)
   };
 

@@ -36,7 +36,7 @@ export async function GET(request: Request, { params }: { params: { id: string }
     }
 
     // Exclude password from the response
-    const { password, ...userWithoutPassword } = user;
+
 
     console.log(`[API_USER] Successfully fetched profile for user: ${user.username}`);
     return NextResponse.json(userWithoutPassword);

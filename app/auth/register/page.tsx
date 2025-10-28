@@ -54,7 +54,7 @@ export default function RegisterPage() {
         } else {
           setUsernameAvailability({ status: 'taken', message: data.message });
         }
-      } catch (err) {
+    } catch (_e) {
         setUsernameAvailability({ status: 'taken', message: '无法检查用户名。' });
       }
     };

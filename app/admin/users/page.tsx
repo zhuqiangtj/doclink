@@ -8,10 +8,7 @@ import 'react-datepicker/dist/react-datepicker.css';
 import pinyin from 'pinyin';
 
 // --- Interfaces ---
-interface Room {
-  id: string;
-  name: string;
-}
+
 
 const genderMap: { [key: string]: string } = {
   Male: '男',
