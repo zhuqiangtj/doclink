@@ -5,7 +5,7 @@ import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
-import { FaTrash, FaPlusCircle, FaRegCalendarTimes, FaUserPlus } from 'react-icons/fa';
+import { FaTrash, FaPlusCircle } from 'react-icons/fa';
 
 // --- Interfaces ---
 interface Room { id: string; name: string; bedCount: number; }
@@ -41,7 +41,7 @@ export default function DoctorSchedulePage() {
 
   // --- Core Data States ---
   const [doctorProfile, setDoctorProfile] = useState<DoctorProfile | null>(null);
-  const [schedules, setSchedules] = useState<Schedule[]>([]);
+  const [schedules, setSchedules] = useState<Schedule[]>([]); // Overview for the month
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [schedulesForSelectedDay, setSchedulesForSelectedDay] = useState<Schedule[]>([]);
 
@@ -75,7 +75,7 @@ export default function DoctorSchedulePage() {
         const schedulesRes = await fetch(`/api/schedules?month=${monthString}`);
         if (!schedulesRes.ok) throw new Error('获取排班数据失败。');
         const scheduleData = await schedulesRes.json();
-        setSchedules(scheduleData.scheduledDates.map((d: string) => ({ date: d, id: d, room: {} as Room, timeSlots: [] }))); // Create dummy schedule objects
+        setSchedules(scheduleData.scheduledDates.map((d: string) => ({ date: d, id: d, room: {} as Room, timeSlots: [] })));
 
       } catch (err) {
         setError(err instanceof Error ? err.message : '发生未知错误');
@@ -87,20 +87,45 @@ export default function DoctorSchedulePage() {
     fetchInitialData();
   }, [status, session, currentMonth]);
 
-  // --- Derived State Effect for Daily Schedules ---
+  // --- Effect to load details when a date is selected ---
   useEffect(() => {
-    const dateString = toYYYYMMDD(selectedDate);
-    const daily = schedules.filter(s => s.date === dateString);
-    setSchedulesForSelectedDay(daily);
-  }, [selectedDate, schedules]);
+    const loadDetailsForDate = async () => {
+      setError(null);
+      setIsLoading(true);
+      try {
+        const dateString = toYYYYMMDD(selectedDate);
+        const res = await fetch(`/api/schedules/details?date=${dateString}`);
+        if (!res.ok) throw new Error('获取当天排班详情失败。');
+        const data: Schedule[] = await res.json();
+        setSchedulesForSelectedDay(data);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : '获取数据时发生错误');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    loadDetailsForDate();
+  }, [selectedDate]);
 
   // --- Handlers ---
-  const handleCreateSchedule = async () => {
-    // This will now be handled by handleSaveSchedule
+  const handleCreateSchedule = () => {
+    const room = doctorProfile!.Room.find(r => r.id === selectedRoomId);
+    if (!room) {
+      setError('请先选择一个有效的诊室。');
+      return;
+    }
+    const defaultTimeSlots = DEFAULT_TIMES.map(time => ({ time, total: room.bedCount, appointments: [] }));
+    const newSchedule: Schedule = {
+      id: 'new-schedule', // Temporary ID
+      date: toYYYYMMDD(selectedDate),
+      room: room,
+      timeSlots: defaultTimeSlots,
+    };
+    setSchedulesForSelectedDay([newSchedule]);
   };
 
   const handleSaveSchedule = async () => {
-    // Logic to save both new and edited schedules
+    // ... (Implementation will be added in the next step)
   };
 
   // --- Render Logic ---
@@ -108,17 +133,9 @@ export default function DoctorSchedulePage() {
     return <div className="container mx-auto p-8 text-center">正在加载数据...</div>;
   }
 
-  if (error) {
-    return <div className="container mx-auto p-8 text-center text-red-500">错误: {error}</div>;
-  }
-
-  if (!doctorProfile) {
-    return <div className="container mx-auto p-8 text-center">无法加载医生信息。</div>;
-  }
-
   return (
     <div className="container mx-auto p-6 md:p-10">
-      <h1 className="text-4xl font-bold mb-8 text-foreground">工作台 ({doctorProfile.name})</h1>
+      <h1 className="text-4xl font-bold mb-8 text-foreground">工作台 ({doctorProfile?.name})</h1>
       
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-1">
@@ -137,15 +154,46 @@ export default function DoctorSchedulePage() {
         <div className="lg:col-span-2">
           <div className="bg-white p-8 rounded-2xl shadow-lg">
             <h2 className="text-3xl font-bold mb-6">{selectedDate.toLocaleDateString()} 的排班详情</h2>
+            {error && <p className="text-error mb-4">{error}</p>}
             
             {schedulesForSelectedDay.length === 0 ? (
               <div className="text-center py-10">
                 <p className="text-xl text-gray-500 mb-4">当天暂无排班</p>
-                <button onClick={handleCreateSchedule} className="btn btn-primary text-lg">为此日创建排班</button>
+                <div className="flex items-end gap-4 max-w-sm mx-auto">
+                  <div className="flex-grow">
+                    <label htmlFor="room" className="block text-lg font-medium text-left">选择诊室</label>
+                    <select id="room" value={selectedRoomId} onChange={e => setSelectedRoomId(e.target.value)} className="input-base mt-2" required>
+                      {doctorProfile?.Room.map(room => <option key={room.id} value={room.id}>{room.name}</option>)}
+                    </select>
+                  </div>
+                  <button onClick={handleCreateSchedule} className="btn btn-primary text-lg">创建排班</button>
+                </div>
               </div>
             ) : (
               <div className="space-y-6">
-                {/* Detailed schedule rendering will go here */}
+                {schedulesForSelectedDay.map(schedule => (
+                  <div key={schedule.id}>
+                    <h3 className="text-2xl font-semibold mb-4">诊室: {schedule.room.name}</h3>
+                    <div className="space-y-4">
+                      {schedule.timeSlots.map((slot, index) => (
+                        <div key={index} className="p-4 border rounded-xl">
+                          <div className="flex justify-between items-center">
+                            <span className="font-bold text-lg">{slot.time}</span>
+                            <span>{slot.appointments.length} / {slot.total}</span>
+                          </div>
+                          <div className="mt-2 space-y-2">
+                            {slot.appointments.map(apt => (
+                              <div key={apt.id} className="flex justify-between items-center bg-gray-100 p-2 rounded-md">
+                                <span>{apt.patient.name}</span>
+                                {/* Action buttons will be added here */}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
               </div>
             )}
           </div>
