@@ -42,6 +42,7 @@ export default function DoctorSchedulePage() {
   const [highlightedDates, setHighlightedDates] = useState<Date[]>([]);
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [schedulesForSelectedDay, setSchedulesForSelectedDay] = useState<Schedule[]>([]);
+  const [selectedRoomId, setSelectedRoomId] = useState<string>('');
   const [currentMonth, setCurrentMonth] = useState(new Date());
 
   // --- UI States ---
