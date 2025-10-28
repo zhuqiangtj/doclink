@@ -6,7 +6,15 @@ import { createAuditLog } from '@/lib/audit';
 
 const prisma = new PrismaClient();
 
-// GET monthly schedule overview for the logged-in doctor
+interface TimeSlot {
+  time: string;
+  total: number;
+  booked: number;
+}
+
+// GET dates with available slots for the logged-in doctor
+
+// GET dates with available slots for the logged-in doctor
 export async function GET(request: Request) {
   const session = await getServerSession(authOptions);
   if (!session || session.user.role !== 'DOCTOR') {
@@ -14,7 +22,7 @@ export async function GET(request: Request) {
   }
 
   const { searchParams } = new URL(request.url);
-  const month = searchParams.get('month'); // e.g., "2025-11"
+  const month = searchParams.get('month');
 
   if (!month || !/\d{4}-\d{2}/.test(month)) {
     return NextResponse.json({ error: 'Month parameter in YYYY-MM format is required.' }, { status: 400 });
@@ -27,27 +35,28 @@ export async function GET(request: Request) {
     }
 
     const startDate = `${month}-01`;
-    const nextMonth = new Date(`${month}-01T00:00:00.000Z`).getMonth() + 1;
-    const year = new Date(`${month}-01T00:00:00.000Z`).getFullYear();
-    const endDate = new Date(year, nextMonth, 1).toISOString().split('T')[0];
+    const nextMonthDate = new Date(`${month}-01T00:00:00.000Z`);
+    nextMonthDate.setMonth(nextMonthDate.getMonth() + 1);
+    const endDate = nextMonthDate.toISOString().split('T')[0];
 
     const schedules = await prisma.schedule.findMany({
       where: {
         doctorId: doctorProfile.id,
-        date: {
-          gte: startDate,
-          lt: endDate,
-        },
+        date: { gte: startDate, lt: endDate },
       },
-      select: {
-        date: true,
-      },
-      distinct: ['date'],
+      select: { date: true, timeSlots: true },
     });
 
-    const scheduledDates = schedules.map(s => s.date);
+    const availableDates = schedules
+      .filter(s => {
+        const timeSlots = s.timeSlots as TimeSlot[];
+        return timeSlots.some(slot => slot.booked < slot.total);
+      })
+      .map(s => s.date);
 
-    return NextResponse.json({ scheduledDates });
+    const distinctDates = [...new Set(availableDates)];
+
+    return NextResponse.json({ scheduledDates: distinctDates });
 
   } catch (error) {
     console.error('Error fetching monthly schedule overview:', error);
@@ -55,7 +64,7 @@ export async function GET(request: Request) {
   }
 }
 
-// POST a new schedule for the logged-in doctor
+// POST a new single schedule entry (timeslot)
 export async function POST(request: Request) {
   const session = await getServerSession(authOptions);
   if (!session || session.user.role !== 'DOCTOR') {
@@ -63,9 +72,8 @@ export async function POST(request: Request) {
   }
 
   try {
-    const { doctorId, date, roomId, timeSlots } = await request.json();
-
-    if (!doctorId || !date || !roomId || !timeSlots) {
+    const { doctorId, date, roomId, time, total } = await request.json();
+    if (!doctorId || !date || !roomId || !time || total === undefined) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
 
@@ -74,19 +82,19 @@ export async function POST(request: Request) {
         doctorId,
         date,
         roomId,
-        timeSlots,
+        timeSlots: [{ time, total: Number(total), booked: 0 }],
       },
     });
 
-    await createAuditLog(session, 'CREATE_SCHEDULE', 'Schedule', newSchedule.id, { date, roomId });
+    await createAuditLog(session, 'CREATE_SCHEDULE_TIMESLOT', 'Schedule', newSchedule.id, { date, time });
     return NextResponse.json(newSchedule, { status: 201 });
   } catch (error) {
-    console.error('Error creating schedule:', error);
+    console.error('Error creating schedule timeslot:', error);
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
   }
 }
 
-// PUT (update) an existing schedule
+// PUT (update) an existing schedule entry (timeslot)
 export async function PUT(request: Request) {
   const session = await getServerSession(authOptions);
   if (!session || session.user.role !== 'DOCTOR') {
@@ -100,20 +108,54 @@ export async function PUT(request: Request) {
   }
 
   try {
-    const { timeSlots } = await request.json();
-    if (!timeSlots) {
-      return NextResponse.json({ error: 'timeSlots are required for update' }, { status: 400 });
+    const { roomId, time, total } = await request.json();
+    if (!roomId || !time || total === undefined) {
+      return NextResponse.json({ error: 'roomId, time, and total are required' }, { status: 400 });
     }
 
     const updatedSchedule = await prisma.schedule.update({
       where: { id: scheduleId },
-      data: { timeSlots },
+      data: { 
+        roomId,
+        timeSlots: [{ time, total: Number(total), booked: 0 }] // Assuming one timeslot per schedule entry now
+      },
     });
 
-    await createAuditLog(session, 'UPDATE_SCHEDULE', 'Schedule', updatedSchedule.id, { scheduleId });
+    await createAuditLog(session, 'UPDATE_SCHEDULE_TIMESLOT', 'Schedule', updatedSchedule.id, { scheduleId });
     return NextResponse.json(updatedSchedule);
   } catch (error) {
-    console.error('Error updating schedule:', error);
+    console.error('Error updating schedule timeslot:', error);
+    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+  }
+}
+
+// DELETE a schedule entry (timeslot)
+export async function DELETE(request: Request) {
+  const session = await getServerSession(authOptions);
+  if (!session || session.user.role !== 'DOCTOR') {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
+  }
+
+  const { searchParams } = new URL(request.url);
+  const scheduleId = searchParams.get('scheduleId');
+  if (!scheduleId) {
+    return NextResponse.json({ error: 'Schedule ID is required' }, { status: 400 });
+  }
+
+  try {
+    // Add authorization to ensure doctor owns this schedule
+    const schedule = await prisma.schedule.findUnique({ where: { id: scheduleId } });
+    const doctor = await prisma.doctor.findUnique({ where: { userId: session.user.id } });
+    if (schedule?.doctorId !== doctor?.id) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+
+    await prisma.schedule.delete({ where: { id: scheduleId } });
+
+    await createAuditLog(session, 'DELETE_SCHEDULE_TIMESLOT', 'Schedule', scheduleId);
+    return NextResponse.json({ message: 'Schedule timeslot deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting schedule timeslot:', error);
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
   }
 }
