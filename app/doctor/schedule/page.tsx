@@ -216,14 +216,7 @@ export default function DoctorSchedulePage() {
               </div>
               <div className="flex justify-end gap-4 mt-8">
                 <button type="button" onClick={() => setIsTemplateModalOpen(false)} className="btn bg-gray-200 text-gray-800 text-lg">取消</button>
-                <button onClick={() => {
-                  const room = doctorProfile.Room.find(r => r.id === selectedRoomId);
-                  if (!room) return;
-                  const defaultTimeSlots = DEFAULT_TIMES.map(time => ({ time, total: room.bedCount, appointments: [] }));
-                  const newSchedule: Schedule = { id: `new-${selectedRoomId}`, date: toYYYYMMDD(selectedDate), room, timeSlots: defaultTimeSlots };
-                  setSchedulesForSelectedDay([newSchedule]);
-                  setIsTemplateModalOpen(false);
-                }} className="btn btn-primary text-lg">应用</button>
+                <button onClick={() => { handleCreateInitialSchedule(); setIsTemplateModalOpen(false); }} className="btn btn-primary text-lg">应用</button>
               </div>
             </div>
           </div>
