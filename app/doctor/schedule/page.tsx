@@ -70,9 +70,13 @@ export default function DoctorSchedulePage() {
           const userData = await userRes.json();
           if (!userData.doctorProfile) throw new Error('未找到医生资料。');
           setDoctorProfile(userData.doctorProfile);
-        } catch (err) { setError(err instanceof Error ? err.message : '发生未知错误'); } finally { setIsLoading(false); }
-      };
-      fetchInitialData();
+      } catch (err) {
+        setError(err instanceof Error ? err.message : '发生未知错误');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchInitialData();
     }
   }, [status, session]);
 
