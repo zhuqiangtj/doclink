@@ -155,7 +155,7 @@ export default function DoctorSchedulePage() {
         <div className="lg:col-span-2">
           <div className="bg-white p-8 rounded-2xl shadow-lg">
             <h2 className="text-3xl font-bold mb-6">{selectedDate.toLocaleDateString()} 的排班详情</h2>
-            {schedulesForSelectedDay.length === 0 ? (
+            {schedulesForSelectedDay.length === 0 || schedulesForSelectedDay.every(s => s.timeSlots.length === 0) ? (
               <div className="text-center py-10">
                 <p className="text-xl text-gray-500 mb-4">当天暂无排班</p>
                 <button onClick={() => setIsTemplateModalOpen(true)} className="btn btn-primary text-lg">使用模板创建排班</button>
