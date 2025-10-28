@@ -51,6 +51,15 @@ export default function DoctorSchedulePage() {
 
   const [isTemplateModalOpen, setIsTemplateModalOpen] = useState(false);
 
+  const handleCreateInitialSchedule = () => {
+    const room = doctorProfile.Room.find(r => r.id === selectedRoomId);
+    if (!room) return;
+
+    const defaultTimeSlots = DEFAULT_TIMES.map(time => ({ time, total: room.bedCount, appointments: [] }));
+    const newSchedule: Schedule = { id: `new-${selectedRoomId}`, date: toYYYYMMDD(selectedDate), room, timeSlots: defaultTimeSlots };
+    setSchedulesForSelectedDay([newSchedule]);
+  };
+
   // --- Initial Data Load ---
   useEffect(() => {
     if (status === 'authenticated' && session.user.role === 'DOCTOR') {
