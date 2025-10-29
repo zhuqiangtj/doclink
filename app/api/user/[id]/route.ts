@@ -5,44 +5,50 @@ import { authOptions } from '../../auth/[...nextauth]/route';
 
 const prisma = new PrismaClient();
 
-// GET user profile by ID
 export async function GET(request: Request, { params }: { params: { id: string } }) {
   const session = await getServerSession(authOptions);
   const { id } = params;
 
-  if (!session || (session.user.id !== id && session.user.role !== 'ADMIN')) {
-    console.error(`[API_USER] Unauthorized attempt to access user ${id} by session:`, session);
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
+  console.log(`[API_USER] Received request for user ID: ${id}`);
+
+  if (!session) {
+    console.error('[API_USER] Unauthorized: No session found.');
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  console.log(`[API_USER] Fetching profile for user ID: ${id} by ${session.user.role}`);
+  if (session.user.id !== id && session.user.role !== 'ADMIN') {
+    console.error(`[API_USER] Forbidden: User ${session.user.id} cannot access profile of ${id}.`);
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  }
 
   try {
+    console.log(`[API_USER] Executing Prisma findUnique for user ID: ${id}`);
     const user = await prisma.user.findUnique({
       where: { id },
       include: {
-        patientProfile: true, // Include full patient profile
+        patientProfile: true,
         doctorProfile: {
           include: {
-            Room: true, // For doctors, include their rooms
+            Room: true,
           },
         },
       },
     });
 
     if (!user) {
-      console.error(`[API_USER] User not found for ID: ${id}`);
+      console.error(`[API_USER] User not found in database for ID: ${id}`);
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
-    // Exclude password from the response
+    console.log(`[API_USER] Successfully found user: ${user.username}`);
 
+    // IMPORTANT: Exclude password from the response for security
+    const { password, ...userWithoutPassword } = user;
 
-    console.log(`[API_USER] Successfully fetched profile for user: ${user.username}`);
     return NextResponse.json(userWithoutPassword);
 
   } catch (error) {
-    console.error(`Error fetching user ${id}:`, error);
+    console.error(`[API_USER] Critical error fetching user ${id}:`, error);
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
   }
 }
