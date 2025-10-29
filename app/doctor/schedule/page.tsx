@@ -1,10 +1,10 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, FormEvent } from 'react';
 import { useSession } from 'next-auth/react';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
-import { FaTrash, FaSave } from 'react-icons/fa';
+import { FaTrash, FaSave, FaUserPlus, FaPlusCircle } from 'react-icons/fa';
 
 // --- Interfaces ---
 interface Room { id: string; name: string; bedCount: number; }
@@ -45,8 +45,10 @@ export default function DoctorSchedulePage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+
   const [isTemplateModalOpen, setIsTemplateModalOpen] = useState(false);
-  const [selectedRoomIdForTemplate, setSelectedRoomIdForTemplate] = useState<string>('');
+
+  // --- Initial Data Load ---
 
   // --- Data Fetching ---
   const fetchAllDataForDate = useCallback(async (date: Date) => {
@@ -68,7 +70,7 @@ export default function DoctorSchedulePage() {
         const userData = await profileRes.json();
         if (!userData.doctorProfile) throw new Error('未找到医生资料。');
         setDoctorProfile(userData.doctorProfile);
-        if (userData.doctorProfile.Room.length > 0) {
+        if (userData.doctorProfile.Room.length > 0 && !selectedRoomIdForTemplate) {
           setSelectedRoomIdForTemplate(userData.doctorProfile.Room[0].id);
         }
       }
@@ -118,45 +120,24 @@ export default function DoctorSchedulePage() {
     }
   };
 
-  const handleTimeSlotChange = (scheduleId: string, index: number, field: 'time' | 'total' | 'roomId', value: string) => {
-    const updatedSchedules = schedulesForSelectedDay.map(sch => {
-      if (sch.id === scheduleId) {
-        const updatedTimeSlots = [...sch.timeSlots];
-        const newSlot = { ...updatedTimeSlots[index], [field]: field === 'total' ? Number(value) : value };
-        updatedTimeSlots[index] = newSlot;
-        return { ...sch, timeSlots: updatedTimeSlots, ...(field === 'roomId' && { room: { ...sch.room, id: value } }) };
-      }
-      return sch;
-    });
-    setSchedulesForSelectedDay(updatedSchedules);
-  };
+  const handleSaveTimeSlot = async (scheduleId: string, timeSlot: TimeSlot) => {
+    const isNew = scheduleId.startsWith('new');
+    const url = isNew ? '/api/schedules' : `/api/schedules?scheduleId=${scheduleId}`;
+    const method = isNew ? 'POST' : 'PUT';
+    const body = {
+      doctorId: doctorProfile!.id,
+      date: toYYYYMMDD(selectedDate),
+      roomId: isNew ? scheduleId.replace('new-', '') : schedulesForSelectedDay.find(s => s.id === scheduleId)!.room.id,
+      time: timeSlot.time,
+      total: timeSlot.total,
+    };
 
-  const handleSaveTimeSlot = async (schedule: Schedule, timeSlot: TimeSlot, originalTime: string) => {
     try {
-      const res = await fetch(`/api/schedules?scheduleId=${schedule.id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          time: timeSlot.time, 
-          total: timeSlot.total,
-          roomId: schedule.room.id,
-          originalTime: originalTime
-        }),
-      });
+      const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
       if (!res.ok) throw new Error('保存失败');
-      setSuccess('保存成功!');
-      await fetchAllDataForDate(selectedDate);
-    } catch (err) { setError(err instanceof Error ? err.message : '保存失败'); }
-  };
-
-  const handleDeleteTimeSlot = async (scheduleId: string, time: string) => {
-    if (!window.confirm(`确定要删除 ${time} 这个时间点吗？`)) return;
-    try {
-      const res = await fetch(`/api/schedules?scheduleId=${scheduleId}&time=${time}`, { method: 'DELETE' });
-      if (!res.ok) throw new Error('删除失败');
-      setSuccess('时间点已删除。');
-      await fetchAllDataForDate(selectedDate);
-    } catch (err) { setError(err instanceof Error ? err.message : '删除失败'); }
+      await loadDetailsForDate(selectedDate); // Refresh data
+      await fetchMonthSchedules(); // Refresh highlights
+    } catch (err) { setError(err instanceof Error ? err.message : '保存时发生错误'); }
   };
 
   // ... other handlers ...
@@ -178,28 +159,43 @@ export default function DoctorSchedulePage() {
             <button onClick={() => setIsTemplateModalOpen(true)} className="btn btn-secondary text-lg">使用模板填充</button>
           </div>
           {isLoading ? <p>正在加载详情...</p> : schedulesForSelectedDay.length === 0 ? (
-            <div className="text-center py-10"><p className="text-xl text-gray-500">当天暂无排班</p></div>
-          ) : (
+                          <div className="text-center py-10">
+                            <p className="text-xl text-gray-500 mb-4">当天暂无排班</p>
+                            <button onClick={() => setIsTemplateModalOpen(true)} className="btn btn-primary text-lg">使用模板创建排班</button>
+                          </div>          ) : (
             <div className="space-y-6">
               {schedulesForSelectedDay.map(schedule => (
                 <div key={schedule.id}>
                   <h3 className="text-2xl font-semibold mb-4">诊室: {schedule.room.name}</h3>
                   <div className="space-y-2">
-                    {schedule.timeSlots.map((slot, index) => (
-                      <div key={`${schedule.id}-${index}`} className="p-4 border rounded-xl bg-gray-50">
-                        <div className="flex justify-between items-center">
-                          <div className="flex items-center gap-2">
-                            <input type="text" value={slot.time} onChange={e => handleTimeSlotChange(schedule.id, index, 'time', e.target.value)} className="input-base w-28" />
-                            <input type="number" value={slot.total} onChange={e => handleTimeSlotChange(schedule.id, index, 'total', e.target.value)} className="input-base w-24" />
+                      {schedule.timeSlots.map((slot, index) => (
+                        <div key={index} className="p-4 border rounded-xl bg-gray-50">
+                          <div className="flex justify-between items-center">
+                            <div className="flex items-center gap-2">
+                              <input type="text" value={slot.time} onChange={e => handleTimeSlotChange(schedule.id, index, 'time', e.target.value)} className="input-base w-28" />
+                              <input type="number" value={slot.total} onChange={e => handleTimeSlotChange(schedule.id, index, 'total', e.target.value)} className="input-base w-24" />
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <button onClick={() => handleSaveTimeSlot(schedule.id, slot)} className="text-green-500 hover:text-green-700"><FaSave title="保存此时间点" /></button>
+                              <button onClick={() => handleDeleteTimeSlot(schedule.id, slot.time)} className="text-red-500 hover:text-red-700"><FaTrash title="删除此时间点" /></button>
+                              <button onClick={() => { setSelectedTimeForBooking(slot.time); setIsBookingModalOpen(true); }} className="text-blue-500 hover:text-blue-700"><FaUserPlus title="为病人预约" /></button>
+                            </div>
                           </div>
-                          <div className="flex items-center gap-2">
-                            <button onClick={() => handleSaveTimeSlot(schedule, slot, schedule.timeSlots[index].time)} className="text-green-500 hover:text-green-700"><FaSave title="保存此时间点" /></button>
-                            <button onClick={() => handleDeleteTimeSlot(schedule.id, slot.time)} className="text-red-500 hover:text-red-700"><FaTrash title="删除此时间点" /></button>
+                          <div className="mt-2 space-y-2">
+                            {slot.appointments.map(apt => (
+                              <div key={apt.id} className="flex justify-between items-center bg-gray-100 p-2 rounded-md">
+                                <span>{apt.patient.name}</span>
+                                <div className="flex gap-2">
+                                  {new Date() > new Date(`${schedule.date}T${apt.time}`) && apt.status !== 'NO_SHOW' && (
+                                    <button onClick={() => handleMarkAsNoShow(apt.id)} className="text-xs btn bg-yellow-500 text-white">标记爽约</button>
+                                  )}
+                                  <button onClick={() => handleCancelAppointment(apt.id)} className="text-xs btn bg-error text-white">取消预约</button>
+                                </div>
+                              </div>
+                            ))}
                           </div>
                         </div>
-                        {/* Appointments for this slot */}
-                      </div>
-                    ))}
+                      ))}
                   </div>
                 </div>
               ))}
@@ -211,16 +207,41 @@ export default function DoctorSchedulePage() {
         <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4">
           <div className="bg-white p-10 rounded-2xl shadow-2xl w-full max-w-md">
             <h2 className="text-3xl font-bold mb-6">选择诊室以应用模板</h2>
-            <select value={selectedRoomIdForTemplate} onChange={e => setSelectedRoomIdForTemplate(e.target.value)} className="input-base mt-2" required>
-              {doctorProfile.Room.map(room => <option key={room.id} value={room.id}>{room.name}</option>)}
-            </select>
-            <div className="flex justify-end gap-4 mt-8">
-              <button type="button" onClick={() => setIsTemplateModalOpen(false)} className="btn bg-gray-200 text-gray-800 text-lg">取消</button>
-              <button onClick={handleApplyTemplate} className="btn btn-primary text-lg">应用</button>
-            </div>
-          </div>
-        </div>
+            <div className="space-y-6">
+              <div>
+                <label htmlFor="room-template" className="block text-lg font-medium">诊室</label>
+                <select id="room-template" value={selectedRoomIdForTemplate} onChange={e => setSelectedRoomIdForTemplate(e.target.value)} className="input-base mt-2" required>
+                  {doctorProfile.Room.map(room => <option key={room.id} value={room.id}>{room.name}</option>)}
+                </select>
+              </div>
+              <div className="flex justify-end gap-4 mt-8">
+                <button type="button" onClick={() => setIsTemplateModalOpen(false)} className="btn bg-gray-200 text-gray-800 text-lg">取消</button>
+                <button onClick={handleApplyTemplate} className="btn btn-primary text-lg">应用</button>
+                      </div></div>
+                    </div>
+                    {isTemplateModalOpen && (
+                      <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4">
+                        <div className="bg-white p-10 rounded-2xl shadow-2xl w-full max-w-md">
+                          <h2 className="text-3xl font-bold mb-6">选择诊室以应用模板</h2>
+                          <div className="space-y-6">
+                            <div>
+                              <label htmlFor="room-template" className="block text-lg font-medium">诊室</label>
+                              <select id="room-template" value={selectedRoomIdForTemplate} onChange={e => setSelectedRoomIdForTemplate(e.target.value)} className="input-base mt-2" required>
+                                {doctorProfile.Room.map(room => <option key={room.id} value={room.id}>{room.name}</option>)}
+                              </select>
+                            </div>
+                            <div className="flex justify-end gap-4 mt-8">
+                              <button type="button" onClick={() => setIsTemplateModalOpen(false)} className="btn bg-gray-200 text-gray-800 text-lg">取消</button>
+                              <button onClick={handleApplyTemplate} className="btn btn-primary text-lg">应用</button>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                    {/* Booking Modal will be added here */}
+                  </div>
       )}
+      {/* Booking Modal will be added here */}
     </div>
   );
 }
