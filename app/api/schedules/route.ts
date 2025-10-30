@@ -70,7 +70,7 @@ export async function GET(request: Request) {
   }
 }
 
-// POST a new single schedule entry (timeslot)
+// POST a new timeslot to a schedule
 export async function POST(request: Request) {
   const session = await getServerSession(authOptions);
   if (!session || session.user.role !== 'DOCTOR') {
@@ -88,24 +88,37 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Doctor profile not found' }, { status: 404 });
     }
 
-    const newSchedule = await prisma.schedule.create({
-      data: {
-        doctorId: doctorProfile.id,
-        date,
-        roomId,
-        timeSlots: [{ time, total: Number(total), booked: 0, appointments: [] }],
-      },
+    let schedule = await prisma.schedule.findFirst({
+      where: { date, doctorId: doctorProfile.id, roomId },
     });
 
-    await createAuditLog(session, 'CREATE_SCHEDULE_TIMESLOT', 'Schedule', newSchedule.id, { date, time });
-    return NextResponse.json(newSchedule, { status: 201 });
+    if (schedule) {
+      const timeSlots = schedule.timeSlots as TimeSlot[];
+      timeSlots.push({ time, total: Number(total), booked: 0, appointments: [] });
+      schedule = await prisma.schedule.update({
+        where: { id: schedule.id },
+        data: { timeSlots },
+      });
+    } else {
+      schedule = await prisma.schedule.create({
+        data: {
+          doctorId: doctorProfile.id,
+          date,
+          roomId,
+          timeSlots: [{ time, total: Number(total), booked: 0, appointments: [] }],
+        },
+      });
+    }
+
+    await createAuditLog(session, 'CREATE_SCHEDULE_TIMESLOT', 'Schedule', schedule.id, { date, time });
+    return NextResponse.json(schedule, { status: 201 });
   } catch (error) {
     console.error('Error creating schedule timeslot:', error);
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
   }
 }
 
-// PUT (update) an existing schedule entry (timeslot)
+// PUT (update) an existing timeslot in a schedule
 export async function PUT(request: Request) {
   const session = await getServerSession(authOptions);
   if (!session || session.user.role !== 'DOCTOR') {
@@ -114,8 +127,9 @@ export async function PUT(request: Request) {
 
   const { searchParams } = new URL(request.url);
   const scheduleId = searchParams.get('scheduleId');
-  if (!scheduleId) {
-    return NextResponse.json({ error: 'Schedule ID is required' }, { status: 400 });
+  const originalTime = searchParams.get('time');
+  if (!scheduleId || !originalTime) {
+    return NextResponse.json({ error: 'Schedule ID and original time are required' }, { status: 400 });
   }
 
   try {
@@ -137,12 +151,18 @@ export async function PUT(request: Request) {
       return NextResponse.json({ error: 'Schedule not found or you do not have permission to update it.' }, { status: 404 });
     }
 
+    const timeSlots = scheduleToUpdate.timeSlots as TimeSlot[];
+    const timeSlotIndex = timeSlots.findIndex(slot => slot.time === originalTime);
+
+    if (timeSlotIndex === -1) {
+      return NextResponse.json({ error: 'Timeslot not found' }, { status: 404 });
+    }
+
+    timeSlots[timeSlotIndex] = { ...timeSlots[timeSlotIndex], time, total: Number(total) };
+
     const updatedSchedule = await prisma.schedule.update({
       where: { id: scheduleId },
-      data: { 
-        roomId,
-        timeSlots: [{ time, total: Number(total), booked: (scheduleToUpdate.timeSlots as TimeSlot[])[0].booked, appointments: (scheduleToUpdate.timeSlots as TimeSlot[])[0].appointments }],
-      },
+      data: { roomId, timeSlots },
     });
 
     await createAuditLog(session, 'UPDATE_SCHEDULE_TIMESLOT', 'Schedule', updatedSchedule.id, { scheduleId });
@@ -153,7 +173,7 @@ export async function PUT(request: Request) {
   }
 }
 
-// DELETE a schedule entry (timeslot)
+// DELETE a timeslot from a schedule
 export async function DELETE(request: Request) {
   const session = await getServerSession(authOptions);
   if (!session || session.user.role !== 'DOCTOR') {
@@ -162,8 +182,9 @@ export async function DELETE(request: Request) {
 
   const { searchParams } = new URL(request.url);
   const scheduleId = searchParams.get('scheduleId');
-  if (!scheduleId) {
-    return NextResponse.json({ error: 'Schedule ID is required' }, { status: 400 });
+  const time = searchParams.get('time');
+  if (!scheduleId || !time) {
+    return NextResponse.json({ error: 'Schedule ID and time are required' }, { status: 400 });
   }
 
   try {
@@ -172,17 +193,26 @@ export async function DELETE(request: Request) {
       return NextResponse.json({ error: 'Doctor profile not found' }, { status: 404 });
     }
 
-    const scheduleToDelete = await prisma.schedule.findFirst({
+    const scheduleToUpdate = await prisma.schedule.findFirst({
       where: { id: scheduleId, doctorId: doctorProfile.id },
     });
 
-    if (!scheduleToDelete) {
+    if (!scheduleToUpdate) {
       return NextResponse.json({ error: 'Schedule not found or you do not have permission to delete it.' }, { status: 404 });
     }
 
-    await prisma.schedule.delete({ where: { id: scheduleId } });
+    const timeSlots = (scheduleToUpdate.timeSlots as TimeSlot[]).filter(slot => slot.time !== time);
 
-    await createAuditLog(session, 'DELETE_SCHEDULE_TIMESLOT', 'Schedule', scheduleId);
+    if (timeSlots.length === 0) {
+      await prisma.schedule.delete({ where: { id: scheduleId } });
+    } else {
+      await prisma.schedule.update({
+        where: { id: scheduleId },
+        data: { timeSlots },
+      });
+    }
+
+    await createAuditLog(session, 'DELETE_SCHEDULE_TIMESLOT', 'Schedule', scheduleId, { time });
     return NextResponse.json({ message: 'Schedule timeslot deleted successfully' });
   } catch (error) {
     console.error('Error deleting schedule timeslot:', error);
