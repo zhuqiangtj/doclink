@@ -2,17 +2,25 @@ import { NextResponse } from 'next/server';
 import { PrismaClient } from '@prisma/client';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '../auth/[...nextauth]/route';
+import { createAuditLog } from '@/lib/audit';
 
 const prisma = new PrismaClient();
+
+interface Appointment {
+  id: string;
+  patient: { name: string };
+  status: string;
+  time: string;
+}
 
 interface TimeSlot {
   time: string;
   total: number;
   booked: number;
-  appointments: unknown[]; // Use unknown instead of any for type safety
+  appointments: Appointment[];
 }
 
-// GET dates with available slots for the logged-in doctor for a specific month
+// GET dates with available slots for the logged-in doctor
 export async function GET(request: Request) {
   const session = await getServerSession(authOptions);
   if (!session || session.user.role !== 'DOCTOR') {
@@ -28,7 +36,9 @@ export async function GET(request: Request) {
 
   try {
     const doctorProfile = await prisma.doctor.findUnique({ where: { userId: session.user.id } });
-    if (!doctorProfile) return NextResponse.json({ error: 'Doctor profile not found' }, { status: 404 });
+    if (!doctorProfile) {
+      return NextResponse.json({ error: 'Doctor profile not found' }, { status: 404 });
+    }
 
     const startDate = `${month}-01`;
     const nextMonthDate = new Date(`${month}-01T00:00:00.000Z`);
@@ -46,14 +56,16 @@ export async function GET(request: Request) {
     const availableDates = schedules
       .filter(s => {
         const timeSlots = s.timeSlots as TimeSlot[];
-        return timeSlots.some(slot => slot.total > slot.booked);
+        return timeSlots.some(slot => slot.booked < slot.total);
       })
       .map(s => s.date);
 
-    return NextResponse.json({ scheduledDates: [...new Set(availableDates)] });
+    const distinctDates = [...new Set(availableDates)];
+
+    return NextResponse.json({ scheduledDates: distinctDates });
 
   } catch (error) {
-    console.error('Error fetching monthly schedule:', error);
+    console.error('Error fetching monthly schedule overview:', error);
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
   }
 }
@@ -67,40 +79,33 @@ export async function POST(request: Request) {
 
   try {
     const { date, roomId, time, total } = await request.json();
+    if (!date || !roomId || !time || total === undefined) {
+      return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
+    }
+
     const doctorProfile = await prisma.doctor.findUnique({ where: { userId: session.user.id } });
-    if (!doctorProfile) return NextResponse.json({ error: 'Doctor not found' }, { status: 404 });
+    if (!doctorProfile) {
+      return NextResponse.json({ error: 'Doctor profile not found' }, { status: 404 });
+    }
 
-    const newTimeSlot: TimeSlot = { time, total: Number(total), booked: 0, appointments: [] };
-
-    const schedule = await prisma.schedule.findFirst({
-      where: { doctorId: doctorProfile.id, date, roomId },
+    const newSchedule = await prisma.schedule.create({
+      data: {
+        doctorId: doctorProfile.id,
+        date,
+        roomId,
+        timeSlots: [{ time, total: Number(total), booked: 0, appointments: [] }],
+      },
     });
 
-    if (schedule) {
-      const timeSlots = [...(schedule.timeSlots as TimeSlot[]), newTimeSlot];
-      const updatedSchedule = await prisma.schedule.update({
-        where: { id: schedule.id },
-        data: { timeSlots },
-      });
-      return NextResponse.json(updatedSchedule, { status: 200 });
-    } else {
-      const newSchedule = await prisma.schedule.create({
-        data: {
-          doctorId: doctorProfile.id,
-          date,
-          roomId,
-          timeSlots: [newTimeSlot],
-        },
-      });
-      return NextResponse.json(newSchedule, { status: 201 });
-    }
+    await createAuditLog(session, 'CREATE_SCHEDULE_TIMESLOT', 'Schedule', newSchedule.id, { date, time });
+    return NextResponse.json(newSchedule, { status: 201 });
   } catch (error) {
     console.error('Error creating schedule timeslot:', error);
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
   }
 }
 
-// PUT (update) an existing schedule's timeslot
+// PUT (update) an existing schedule entry (timeslot)
 export async function PUT(request: Request) {
   const session = await getServerSession(authOptions);
   if (!session || session.user.role !== 'DOCTOR') {
@@ -109,25 +114,38 @@ export async function PUT(request: Request) {
 
   const { searchParams } = new URL(request.url);
   const scheduleId = searchParams.get('scheduleId');
-  if (!scheduleId) return NextResponse.json({ error: 'Schedule ID is required' }, { status: 400 });
+  if (!scheduleId) {
+    return NextResponse.json({ error: 'Schedule ID is required' }, { status: 400 });
+  }
 
   try {
-    const { time, total, originalTime, roomId } = await request.json();
+    const { roomId, time, total } = await request.json();
+    if (!roomId || !time || total === undefined) {
+      return NextResponse.json({ error: 'roomId, time, and total are required' }, { status: 400 });
+    }
 
-    const schedule = await prisma.schedule.findUnique({ where: { id: scheduleId } });
-    if (!schedule) return NextResponse.json({ error: 'Schedule not found' }, { status: 404 });
+    const doctorProfile = await prisma.doctor.findUnique({ where: { userId: session.user.id } });
+    if (!doctorProfile) {
+      return NextResponse.json({ error: 'Doctor profile not found' }, { status: 404 });
+    }
 
-    const timeSlots = schedule.timeSlots as TimeSlot[];
-    const slotIndex = timeSlots.findIndex(slot => slot.time === originalTime);
-    if (slotIndex === -1) return NextResponse.json({ error: `Timeslot ${originalTime} not found for update` }, { status: 404 });
+    const scheduleToUpdate = await prisma.schedule.findFirst({
+      where: { id: scheduleId, doctorId: doctorProfile.id },
+    });
 
-    timeSlots[slotIndex] = { ...timeSlots[slotIndex], time, total: Number(total) };
+    if (!scheduleToUpdate) {
+      return NextResponse.json({ error: 'Schedule not found or you do not have permission to update it.' }, { status: 404 });
+    }
 
     const updatedSchedule = await prisma.schedule.update({
       where: { id: scheduleId },
-      data: { timeSlots, roomId },
+      data: { 
+        roomId,
+        timeSlots: [{ time, total: Number(total), booked: (scheduleToUpdate.timeSlots as TimeSlot[])[0].booked, appointments: (scheduleToUpdate.timeSlots as TimeSlot[])[0].appointments }],
+      },
     });
 
+    await createAuditLog(session, 'UPDATE_SCHEDULE_TIMESLOT', 'Schedule', updatedSchedule.id, { scheduleId });
     return NextResponse.json(updatedSchedule);
   } catch (error) {
     console.error('Error updating schedule timeslot:', error);
@@ -135,7 +153,7 @@ export async function PUT(request: Request) {
   }
 }
 
-// DELETE a timeslot from a schedule
+// DELETE a schedule entry (timeslot)
 export async function DELETE(request: Request) {
   const session = await getServerSession(authOptions);
   if (!session || session.user.role !== 'DOCTOR') {
@@ -144,27 +162,30 @@ export async function DELETE(request: Request) {
 
   const { searchParams } = new URL(request.url);
   const scheduleId = searchParams.get('scheduleId');
-  const time = searchParams.get('time');
-  if (!scheduleId || !time) return NextResponse.json({ error: 'Schedule ID and time are required' }, { status: 400 });
+  if (!scheduleId) {
+    return NextResponse.json({ error: 'Schedule ID is required' }, { status: 400 });
+  }
 
   try {
-    const schedule = await prisma.schedule.findUnique({ where: { id: scheduleId } });
-    if (!schedule) return NextResponse.json({ error: 'Schedule not found' }, { status: 404 });
-
-    const timeSlots = (schedule.timeSlots as TimeSlot[]).filter(slot => slot.time !== time);
-
-    if (timeSlots.length === 0) {
-      await prisma.schedule.delete({ where: { id: scheduleId } });
-      return NextResponse.json({ message: 'Schedule deleted as it has no more timeslots.' });
-    } else {
-      const updatedSchedule = await prisma.schedule.update({
-        where: { id: scheduleId },
-        data: { timeSlots },
-      });
-      return NextResponse.json(updatedSchedule);
+    const doctorProfile = await prisma.doctor.findUnique({ where: { userId: session.user.id } });
+    if (!doctorProfile) {
+      return NextResponse.json({ error: 'Doctor profile not found' }, { status: 404 });
     }
+
+    const scheduleToDelete = await prisma.schedule.findFirst({
+      where: { id: scheduleId, doctorId: doctorProfile.id },
+    });
+
+    if (!scheduleToDelete) {
+      return NextResponse.json({ error: 'Schedule not found or you do not have permission to delete it.' }, { status: 404 });
+    }
+
+    await prisma.schedule.delete({ where: { id: scheduleId } });
+
+    await createAuditLog(session, 'DELETE_SCHEDULE_TIMESLOT', 'Schedule', scheduleId);
+    return NextResponse.json({ message: 'Schedule timeslot deleted successfully' });
   } catch (error) {
-    console.error('Error deleting timeslot:', error);
+    console.error('Error deleting schedule timeslot:', error);
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
   }
 }
