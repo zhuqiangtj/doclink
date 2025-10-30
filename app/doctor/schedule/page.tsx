@@ -166,15 +166,21 @@ export default function DoctorSchedulePage() {
     }
   };
 
-  const handleAddNewTimeSlot = () => {
+  const handleAddNewTimeSlot = async () => {
     if (!doctorProfile || doctorProfile.Room.length === 0) return;
-    const newScheduleEntry: Schedule = {
-      id: `new-${Date.now()}`,
-      date: toYYYYMMDD(selectedDate),
-      room: doctorProfile.Room[0],
-      timeSlots: [{ time: '17:00', total: doctorProfile.Room[0].bedCount, appointments: [] }],
-    };
-    setSchedulesForSelectedDay(prev => [...prev, newScheduleEntry]);
+    const newTime = '17:00';
+    const room = doctorProfile.Room[0];
+    try {
+      await fetch('/api/schedules', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ date: toYYYYMMDD(selectedDate), roomId: room.id, time: newTime, total: room.bedCount }),
+      });
+      setSuccess('新时间点已添加!');
+      await fetchAllDataForDate(selectedDate);
+    } catch (err) {
+      setError('添加新时间点失败。');
+    }
   };
 
   const handleCancelAppointment = async (appointmentId: string) => {
@@ -268,7 +274,6 @@ export default function DoctorSchedulePage() {
             <div className="space-y-6">
               {schedulesForSelectedDay.map(schedule => (
                 <div key={schedule.id}>
-                  <h3 className="text-2xl font-semibold mb-4">诊室: {schedule.room.name}</h3>
                   <div className="space-y-2">
                     {schedule.timeSlots.map((slot, index) => (
                       <div key={index} className="p-4 border rounded-xl bg-gray-50">
@@ -283,6 +288,7 @@ export default function DoctorSchedulePage() {
                           <div className="flex items-center gap-2">
                             <button onClick={() => handleSaveTimeSlot(schedule, slot, slot.time)} className="text-green-500 hover:text-green-700"><FaSave title="保存此时间点" /></button>
                             <button onClick={() => handleDeleteTimeSlot(schedule.id, slot.time)} className="text-red-500 hover:text-red-700"><FaTrash title="删除此时间点" /></button>
+                            <button onClick={() => { setSelectedTimeForBooking(slot.time); setIsBookingModalOpen(true); }} className="text-blue-500 hover:text-blue-700"><FaUserPlus title="为病人预约" /></button>
                           </div>
                         </div>
                         <div className="mt-4 space-y-2">
@@ -297,9 +303,6 @@ export default function DoctorSchedulePage() {
                               </div>
                             </div>
                           ))}
-                        </div>
-                        <div className="mt-4">
-                          <button onClick={() => { setSelectedTimeForBooking(slot.time); setIsBookingModalOpen(true); }} className="btn btn-sm btn-primary"><FaUserPlus className="mr-2"/>为病人预约</button>
                         </div>
                       </div>
                     ))}
