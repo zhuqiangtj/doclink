@@ -93,7 +93,6 @@ export async function POST(request: Request) {
 
       await tx.schedule.update({
         where: { id: scheduleId },
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         data: { timeSlots: timeSlots as any },
       });
 
