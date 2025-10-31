@@ -202,7 +202,8 @@ export default function BookAppointmentPage() {
               <div>
                 <label className="block text-lg font-medium">时间段</label>
                 <div className="grid grid-cols-3 sm:grid-cols-4 gap-3 mt-2">
-                  {schedules.find(s => s.id === selectedScheduleId)?.timeSlots.map(slot => (
+                  {schedules.find(s => s.id === selectedScheduleId)?.timeSlots && Array.isArray(schedules.find(s => s.id === selectedScheduleId)?.timeSlots) ? 
+                    schedules.find(s => s.id === selectedScheduleId)?.timeSlots.map(slot => (
                     <button
                       type="button"
                       key={slot.time}
@@ -218,7 +219,9 @@ export default function BookAppointmentPage() {
                     >
                       {slot.time} ({slot.booked}/{slot.total})
                     </button>
-                  ))}
+                  )) : 
+                    <p className="text-gray-500 col-span-3">暂无可用时间段</p>
+                  }
                 </div>
               </div>
             )}

@@ -91,7 +91,7 @@ export default function HomePage({ session }: { session: Session | null }) {
 
         if (!appointmentsRes.ok) throw new Error("获取我的预约失败。");
         const appointmentsData: Appointment[] = await appointmentsRes.json();
-        setMyAppointments(appointmentsData.map((apt) => `${apt.date}-${apt.time}`));
+        setMyAppointments(appointmentsData && Array.isArray(appointmentsData) ? appointmentsData.map((apt) => `${apt.date}-${apt.time}`) : []);
 
       } catch (err) {
         setError(err instanceof Error ? err.message : '发生未知错误');
@@ -118,7 +118,7 @@ export default function HomePage({ session }: { session: Session | null }) {
 
       if (!highlightsRes.ok) throw new Error("获取医生排班失败。");
       const highlightsData = await highlightsRes.json();
-      setHighlightedDates(highlightsData.highlightedDates.map(fromYYYYMMDD));
+      setHighlightedDates(highlightsData && highlightsData.highlightedDates && Array.isArray(highlightsData.highlightedDates) ? highlightsData.highlightedDates.map(fromYYYYMMDD) : []);
 
       if (detailsRes) {
         if (!detailsRes.ok) throw new Error("获取当天排班详情失败。");
@@ -167,7 +167,7 @@ export default function HomePage({ session }: { session: Session | null }) {
       await fetchSchedules(); // Refresh data
       const appointmentsRes = await fetch('/api/appointments');
               const appointmentsData: Appointment[] = await appointmentsRes.json();
-              setMyAppointments(appointmentsData.map((apt) => `${apt.date}-${apt.time}`));
+              setMyAppointments(appointmentsData && Array.isArray(appointmentsData) ? appointmentsData.map((apt) => `${apt.date}-${apt.time}`) : []);
     } catch (err) {
       setError(err instanceof Error ? err.message : '发生未知错误');
     }
@@ -184,7 +184,7 @@ export default function HomePage({ session }: { session: Session | null }) {
           <label htmlFor="doctor-select" className="block text-xl font-medium text-foreground mb-4">第一步: 选择医生</label>
           <select id="doctor-select" value={selectedDoctorId} onChange={(e) => { setSelectedDoctorId(e.target.value); setSelectedDate(new Date()); }} className="input-base text-lg">
             <option value="">-- 请选择一位医生 --</option>
-            {doctors.map((doc) => <option key={doc.id} value={doc.id}>{doc.name}</option>)}
+            {doctors && Array.isArray(doctors) ? doctors.map((doc) => <option key={doc.id} value={doc.id}>{doc.name}</option>) : null}
           </select>
         </div>
 
@@ -199,27 +199,33 @@ export default function HomePage({ session }: { session: Session | null }) {
               {isLoading && <p>正在加载时间点...</p>}
               {error && <p className="text-error">{error}</p>}
               <div className="space-y-4">
-                {schedulesForDay.map(schedule => (
-                  <div key={schedule.id}>
-                    <h3 className="font-semibold text-lg mb-2">{schedule.room.name}</h3>
-                    <div className="grid grid-cols-3 gap-2">
-                      {schedule.timeSlots.map(slot => {
-                        const isBookedByMe = myAppointments.includes(`${schedule.date}-${slot.time}`);
-                        const isFull = slot.booked >= slot.total;
-                        return (
-                          <button 
-                            key={slot.time} 
-                            disabled={isFull || isBookedByMe}
-                            onClick={() => { setSelectedSlot({ schedule, time: slot.time }); setIsConfirmModalOpen(true); }}
-                            className={`p-3 border rounded-lg text-center text-base transition-all duration-200 transform ${isBookedByMe ? 'bg-success text-white' : isFull ? 'bg-gray-200 text-gray-400 cursor-not-allowed' : 'bg-white text-foreground hover:bg-gray-100 hover:scale-105'}`}>
-                            {slot.time}
-                            <span className="block text-sm">{isBookedByMe ? '已预约' : `余 ${slot.total - slot.booked}`}</span>
-                          </button>
-                        );
-                      })}
+                {schedulesForDay && Array.isArray(schedulesForDay) && schedulesForDay.length > 0 ? (
+                  schedulesForDay.map(schedule => (
+                    <div key={schedule.id}>
+                      <h3 className="font-semibold text-lg mb-2">{schedule.room.name}</h3>
+                      <div className="grid grid-cols-3 gap-2">
+                        {schedule.timeSlots && Array.isArray(schedule.timeSlots) ? schedule.timeSlots.map(slot => {
+                          const isBookedByMe = myAppointments.includes(`${schedule.date}-${slot.time}`);
+                          const isFull = slot.booked >= slot.total;
+                          return (
+                            <button 
+                              key={slot.time} 
+                              disabled={isFull || isBookedByMe}
+                              onClick={() => { setSelectedSlot({ schedule, time: slot.time }); setIsConfirmModalOpen(true); }}
+                              className={`p-3 border rounded-lg text-center text-base transition-all duration-200 transform ${isBookedByMe ? 'bg-success text-white' : isFull ? 'bg-gray-200 text-gray-400 cursor-not-allowed' : 'bg-white text-foreground hover:bg-gray-100 hover:scale-105'}`}>
+                              {slot.time}
+                              <span className="block text-sm">{isBookedByMe ? '已预约' : `余 ${slot.total - slot.booked}`}</span>
+                            </button>
+                          );
+                        }) : (
+                          <p className="text-gray-500 col-span-3">暂无可用时间段</p>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  ))
+                ) : (
+                  <p className="text-gray-500">請先選擇醫生和日期</p>
+                )}
               </div>
             </div>
           </div>

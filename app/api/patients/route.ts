@@ -8,8 +8,13 @@ const prisma = new PrismaClient();
 // GET patients (for doctors to search)
 export async function GET(request: Request) {
   const session = await getServerSession(authOptions);
-  if (!session || session.user.role !== 'DOCTOR') {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
+  if (!session) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  // Allow both DOCTOR and ADMIN roles to search patients
+  if (session.user.role !== 'DOCTOR' && session.user.role !== 'ADMIN') {
+    return NextResponse.json({ error: 'Forbidden: Doctor or Admin access required' }, { status: 403 });
   }
 
   const { searchParams } = new URL(request.url);

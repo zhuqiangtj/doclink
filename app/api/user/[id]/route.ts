@@ -1,13 +1,11 @@
-import { PrismaClient } from '@prisma/client';
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '../../auth/[...nextauth]/route';
-
-const prisma = new PrismaClient();
+import { prisma } from '@/lib/prisma';
 
 export async function GET(request: Request, { params }: { params: { id: string } }) {
   const session = await getServerSession(authOptions);
-  const { id } = params;
+  const { id } = await params; // Await params for Next.js 15 compatibility
 
   console.log(`[API_USER] Received request for user ID: ${id}`);
 
@@ -43,6 +41,7 @@ export async function GET(request: Request, { params }: { params: { id: string }
     console.log(`[API_USER] Successfully found user: ${user.username}`);
 
     // IMPORTANT: Exclude password from the response for security
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { password, ...userWithoutPassword } = user;
 
     return NextResponse.json(userWithoutPassword);

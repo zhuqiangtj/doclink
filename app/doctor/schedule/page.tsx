@@ -151,12 +151,14 @@ export default function DoctorSchedulePage() {
                 <div key={schedule.id}>
                   <h3 className="text-2xl font-semibold mb-4">诊室: {schedule.room.name}</h3>
                   <div className="space-y-2">
-                    {schedule.timeSlots.map((slot, index) => (
+                    {schedule.timeSlots && Array.isArray(schedule.timeSlots) ? schedule.timeSlots.map((slot, index) => (
                       <div key={index} className="p-4 border rounded-xl bg-gray-50">
                         {/* Fully interactive timeslot row will be rendered here */}
                         <p>{slot.time} - {slot.appointments.length}/{slot.total}</p>
                       </div>
-                    ))}
+                    )) : 
+                      <p className="text-gray-500">暂无时间段</p>
+                    }
                   </div>
                 </div>
               ))}

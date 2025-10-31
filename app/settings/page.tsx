@@ -36,6 +36,28 @@ export default function SettingsPage() {
     e.preventDefault();
     setError(null);
     setSuccess(null);
+
+    // Form validation
+    if (phone && !/^[1-9]\d{10}$/.test(phone)) {
+      setError('请输入有效的11位手机号码');
+      return;
+    }
+
+    if (dateOfBirth) {
+      const birthDate = new Date(dateOfBirth);
+      const today = new Date();
+      const age = today.getFullYear() - birthDate.getFullYear();
+      if (age < 0 || age > 150) {
+        setError('请输入有效的出生日期');
+        return;
+      }
+    }
+
+    if (name && name.trim().length < 2) {
+      setError('姓名至少需要2个字符');
+      return;
+    }
+
     try {
       const response = await fetch('/api/account/profile', {
         method: 'PUT',
@@ -53,7 +75,18 @@ export default function SettingsPage() {
     e.preventDefault();
     setError(null);
     setSuccess(null);
-    if (newPassword !== confirmPassword) return setError('新密码不匹配。');
+    
+    // Password validation
+    if (newPassword.length < 6) {
+      setError('新密码至少需要6个字符');
+      return;
+    }
+    
+    if (newPassword !== confirmPassword) {
+      setError('新密码不匹配。');
+      return;
+    }
+    
     try {
       const response = await fetch('/api/account/change-password', {
         method: 'POST',
@@ -67,6 +100,7 @@ export default function SettingsPage() {
       setSuccess('密码更新成功！');
       setCurrentPassword('');
       setNewPassword('');
+      setConfirmPassword(''); // 修复：清理所有密码字段
     } catch (err) { setError(err instanceof Error ? err.message : '更新失败'); }
   };
 

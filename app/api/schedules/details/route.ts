@@ -59,7 +59,7 @@ export async function GET(request: Request) {
 
     // Manually merge appointments into their respective time slots
     const schedulesWithAppointments = schedules.map(schedule => {
-      const timeSlotsWithAppointments = (schedule.timeSlots as TimeSlot[]).map(slot => {
+      const timeSlotsWithAppointments = (schedule.timeSlots && Array.isArray(schedule.timeSlots) ? schedule.timeSlots as TimeSlot[] : []).map(slot => {
         return {
           ...slot,
           appointments: appointments.filter(apt => apt.scheduleId === schedule.id && apt.time === slot.time),

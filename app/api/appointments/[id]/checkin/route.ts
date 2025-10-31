@@ -1,10 +1,8 @@
-import { PrismaClient } from '@prisma/client';
 import { NextResponse, NextRequest } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '../../../auth/[...nextauth]/route';
 import { createAuditLog } from '@/lib/audit'; // Adjust path as needed
-
-const prisma = new PrismaClient();
+import { prisma } from '@/lib/prisma';
 
 export async function POST(request: NextRequest, context: { params: { id: string } }) {
   const { params } = context;
@@ -13,7 +11,7 @@ export async function POST(request: NextRequest, context: { params: { id: string
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const appointmentId = params.id;
+  const { id: appointmentId } = await params; // Await params for Next.js 15 compatibility
 
   try {
     const appointment = await prisma.appointment.findUnique({

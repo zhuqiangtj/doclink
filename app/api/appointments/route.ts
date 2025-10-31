@@ -84,6 +84,15 @@ export async function POST(request: Request) {
     }
 
     const result = await prisma.$transaction(async (tx) => {
+      // First, fetch the schedule to get timeSlots
+      const schedule = await tx.schedule.findUnique({
+        where: { id: scheduleId },
+      });
+      
+      if (!schedule) {
+        throw new Error('Schedule not found.');
+      }
+
       const timeSlots = schedule.timeSlots as TimeSlot[];
       const targetSlot = timeSlots.find(slot => slot.time === time);
       if (!targetSlot) throw new Error('Time slot not found in schedule.');
@@ -93,7 +102,7 @@ export async function POST(request: Request) {
 
       await tx.schedule.update({
         where: { id: scheduleId },
-        data: { timeSlots: timeSlots as any },
+        data: { timeSlots: timeSlots },
       });
 
       const newAppointment = await tx.appointment.create({
