@@ -47,6 +47,76 @@ async function main() {
     console.error('Error creating new admin user:', e);
     process.exit(1);
   }
+
+  // 3. Create test patient users
+  try {
+    const testPatients = [
+      {
+        username: 'patient1',
+        name: '李小明',
+        gender: 'Male',
+        dateOfBirth: new Date('1990-05-15T00:00:00.000Z'),
+        password: 'patient123'
+      },
+      {
+        username: 'patient2', 
+        name: '王美麗',
+        gender: 'Female',
+        dateOfBirth: new Date('1985-03-20T00:00:00.000Z'),
+        password: 'patient123'
+      },
+      {
+        username: 'patient3',
+        name: '張志強',
+        gender: 'Male', 
+        dateOfBirth: new Date('1992-11-08T00:00:00.000Z'),
+        password: 'patient123'
+      },
+      {
+        username: 'patient4',
+        name: '李雅婷',
+        gender: 'Female',
+        dateOfBirth: new Date('1988-07-12T00:00:00.000Z'),
+        password: 'patient123'
+      }
+    ];
+
+    for (const patientData of testPatients) {
+      // Delete existing patient if exists
+      const existingPatient = await prisma.user.findUnique({ where: { username: patientData.username } });
+      if (existingPatient) {
+        await prisma.appointment.deleteMany({ where: { userId: existingPatient.id } });
+        await prisma.patient.deleteMany({ where: { userId: existingPatient.id } });
+        await prisma.user.delete({ where: { username: patientData.username } });
+      }
+
+      const hashedPassword = await bcrypt.hash(patientData.password, 10);
+      
+      const patientUser = await prisma.user.create({
+        data: {
+          username: patientData.username,
+          name: patientData.name,
+          gender: patientData.gender,
+          dateOfBirth: patientData.dateOfBirth,
+          password: hashedPassword,
+          role: Role.PATIENT,
+        },
+      });
+
+      // Create patient record
+      await prisma.patient.create({
+        data: {
+          userId: patientUser.id,
+        },
+      });
+
+      console.log(`Successfully created test patient: ${patientUser.name} (${patientUser.username})`);
+    }
+
+  } catch (e) {
+    console.error('Error creating test patients:', e);
+    process.exit(1);
+  }
 }
 
 main()

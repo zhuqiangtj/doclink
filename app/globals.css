@@ -3,14 +3,20 @@
 :root {
   --background: #f3f4f6; /* gray-100 */
   --foreground: #171717;
-  --font-size-base: 18px;
-  --line-height-base: 1.6;
+  --font-size-base: 16px; /* 手機端適中字體 */
+  --line-height-base: 1.5;
 
   --primary: #3b82f6; /* blue-500 */
   --secondary: #f97316; /* orange-500 */
   --accent: #facc15; /* yellow-400 */
   --success: #22c55e; /* green-500 */
   --error: #ef4444; /* red-500 */
+  
+  /* 手機端專用變數 */
+  --mobile-padding: 1rem;
+  --mobile-margin: 0.75rem;
+  --touch-target-min: 44px; /* iOS 建議的最小觸控目標 */
+  --mobile-border-radius: 12px;
 }
 
 @theme inline {
@@ -32,26 +38,68 @@
   }
 }
 
+/* 頁面主體樣式 - 為底部導航留出空間 */
 body {
   background: var(--background);
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
   font-size: var(--font-size-base);
   line-height: var(--line-height-base);
+  margin: 0;
+  padding: 0;
+  /* 為底部導航留出空間 */
+  padding-bottom: 80px;
+  /* iOS Safari 底部安全區域 */
+  padding-bottom: max(80px, env(safe-area-inset-bottom));
 }
 
-/* Base styles for buttons */
+/* 主內容區域 */
+main {
+  min-height: calc(100vh - 80px);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+/* Base styles for buttons - 手機端優化 */
 .btn {
-  padding: 0.75rem 1.5rem;
-  border-radius: 0.5rem;
+  padding: 0.875rem 1.5rem; /* 增加垂直內邊距 */
+  border-radius: var(--mobile-border-radius);
   font-weight: 600;
+  font-size: 1rem;
+  min-height: var(--touch-target-min);
   transition: all 0.2s ease-in-out;
-  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+  box-shadow: 0 2px 4px 0 rgba(0, 0, 0, 0.1);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  /* 防止在手機上的意外縮放 */
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
 }
 
-.btn:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+.btn:hover, .btn:active {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.15);
+}
+
+/* 手機端按鈕間距 */
+.btn + .btn {
+  margin-top: var(--mobile-margin);
+}
+
+/* 手機端按鈕組 */
+.btn-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mobile-margin);
+}
+
+.btn-group-horizontal {
+  display: flex;
+  flex-direction: row;
+  gap: var(--mobile-margin);
+  flex-wrap: wrap;
 }
 
 .btn-primary {
@@ -64,23 +112,170 @@ body {
   color: white;
 }
 
-/* Base styles for inputs */
+/* Base styles for inputs - 手機端優化 */
 .input-base {
   display: block;
   width: 100%;
-  min-height: 3rem;
-  padding: 0.5rem 1rem;
-  border-radius: 0.5rem;
-  border: 1px solid #d1d5db; /* gray-300 */
+  min-height: var(--touch-target-min);
+  padding: 0.875rem 1rem; /* 增加內邊距 */
+  border-radius: var(--mobile-border-radius);
+  border: 2px solid #d1d5db; /* 增加邊框寬度 */
   color: var(--foreground);
   background-color: var(--background);
+  font-size: 1rem; /* 防止iOS縮放 */
   transition: border-color 0.2s ease-in-out;
+  -webkit-appearance: none; /* 移除iOS默認樣式 */
+  appearance: none;
 }
 
 .input-base:focus {
   outline: none;
   border-color: var(--primary);
-  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.4);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+}
+
+/* 手機端表單組 */
+.form-group {
+  margin-bottom: var(--mobile-margin);
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 0.5rem;
+  font-weight: 600;
+  color: var(--foreground);
+}
+
+/* 手機端容器 - 統一居中佈局 */
+.mobile-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  min-height: calc(100vh - 80px);
+  padding: var(--mobile-padding);
+  background-color: var(--background);
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding-bottom: 100px; /* Account for bottom nav */
+}
+
+/* 主內容區域統一樣式 */
+.page-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  min-height: calc(100vh - 80px);
+  padding: var(--mobile-padding);
+  background-color: var(--background);
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding-bottom: 100px; /* Account for bottom nav */
+}
+
+/* 手機端卡片 - 統一樣式 */
+.mobile-card {
+  background: white;
+  border-radius: var(--mobile-border-radius);
+  padding: var(--mobile-padding);
+  margin-bottom: var(--mobile-margin);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  border: 1px solid #e5e7eb;
+  width: 100%;
+  max-width: 600px !important; /* 強制統一寬度 */
+  box-sizing: border-box; /* 確保padding不影響總寬度 */
+}
+
+/* 手機端模態框優化 */
+.mobile-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.mobile-modal-content {
+  background: white;
+  border-radius: var(--mobile-border-radius) var(--mobile-border-radius) 0 0;
+  padding: var(--mobile-padding);
+  width: 100%;
+  max-height: 80vh;
+  overflow-y: auto;
+  animation: slideUp 0.3s ease-out;
+}
+
+@keyframes slideUp {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+
+/* 響應式文字大小 */
+@media (max-width: 640px) {
+  .text-responsive {
+    font-size: 0.875rem;
+  }
+  
+  .text-responsive-lg {
+    font-size: 1.125rem;
+  }
+  
+  .text-responsive-xl {
+    font-size: 1.25rem;
+  }
+  
+  /* 小屏幕優化 */
+  .mobile-card {
+    padding: 12px !important;
+    max-width: 100% !important; /* 小屏幕下統一使用100%寬度 */
+    box-sizing: border-box;
+  }
+  
+  .mobile-header {
+    font-size: 1.5rem;
+  }
+}
+
+@media (min-width: 641px) and (max-width: 1024px) {
+  /* 平板優化 */
+  .page-container {
+    padding: 20px;
+  }
+  
+  .mobile-card {
+    padding: 20px;
+    max-width: 100% !important; /* 平板下統一使用100%寬度 */
+    box-sizing: border-box;
+  }
+}
+
+@media (min-width: 1025px) {
+  /* 桌面優化 */
+  .page-container {
+    padding: 24px;
+  }
+  
+  .mobile-card {
+    padding: 24px;
+    max-width: 600px !important; /* 桌面下使用固定最大寬度 */
+    box-sizing: border-box;
+  }
+  
+  .mobile-header {
+    font-size: 2rem;
+  }
 }
 
 /* Custom class for react-datepicker */

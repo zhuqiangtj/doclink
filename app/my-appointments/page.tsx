@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
+import './mobile.css';
 
 // --- Interfaces ---
 interface Appointment {
@@ -70,28 +71,47 @@ export default function MyAppointmentsPage() {
   };
 
   if (isLoading || status === 'loading') {
-    return <div className="container mx-auto p-8 text-center">正在加载预约...</div>;
+    return <div className="mobile-loading">正在加载预约...</div>;
   }
 
   return (
-    <div className="container mx-auto p-6 md:p-10">
-      <h1 className="text-4xl font-bold mb-8 text-foreground">我的预约</h1>
-      {error && <div className="p-4 mb-6 text-lg text-error bg-red-100 rounded-xl">{error}</div>}
-      {success && <div className="p-4 mb-6 text-lg text-white bg-success rounded-xl">{success}</div>}
+    <div className="page-container">
+      <h1 className="mobile-header">我的预约</h1>
+      {error && <div className="mobile-alert mobile-alert-error">{error}</div>}
+      {success && <div className="mobile-alert mobile-alert-success">{success}</div>}
 
-      <div className="space-y-6">
+      <div className="mobile-appointments-grid">
         {appointments.length > 0 ? appointments.map(apt => (
-          <div key={apt.id} className="bg-white p-6 rounded-2xl shadow-lg">
-            <p className="font-bold text-xl">医生 {apt.doctor.name}</p>
-            <p className="text-gray-700 text-lg mt-1">日期：{new Date(apt.date).toLocaleDateString()}</p>
-            <p className="text-gray-600 text-lg">时间：{apt.time} 在 {apt.room.name}</p>
-            <p className="text-base font-medium uppercase mt-4">状态：{getDisplayStatus(apt)}</p>
+          <div key={apt.id} className="mobile-appointment-card">
+            <div className="mobile-doctor-name">医生 {apt.doctor.name}</div>
+            <div className="mobile-appointment-detail">
+              <strong>日期：</strong>{new Date(apt.date).toLocaleDateString()}
+            </div>
+            <div className="mobile-appointment-detail">
+              <strong>时间：</strong>{apt.time}
+            </div>
+            <div className="mobile-appointment-detail">
+              <strong>地点：</strong>{apt.room.name}
+            </div>
+            <div className={`mobile-status ${
+              apt.status === 'pending' ? 'mobile-status-pending' :
+              apt.status === 'COMPLETED' ? 'mobile-status-completed' :
+              apt.status === 'CANCELLED' ? 'mobile-status-cancelled' :
+              'mobile-status-no-show'
+            }`}>
+              状态：{getDisplayStatus(apt)}
+            </div>
             {new Date(`${apt.date}T${apt.time}`) > new Date() && apt.status === 'pending' && (
-              <button onClick={() => handleCancel(apt.id)} className="btn bg-error text-white text-lg mt-4">取消预约</button>
+              <button onClick={() => handleCancel(apt.id)} className="mobile-cancel-btn">
+                取消预约
+              </button>
             )}
           </div>
         )) : (
-          <div className="text-center py-20"><p className="text-2xl text-gray-500">您没有预约。</p></div>
+          <div className="mobile-empty-state">
+            <div className="mobile-empty-icon">📅</div>
+            <p className="mobile-empty-text">您没有预约。</p>
+          </div>
         )}
       </div>
     </div>

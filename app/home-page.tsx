@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import type { Session } from 'next-auth';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
+import './mobile.css';
 
 // --- Interfaces ---
 interface Doctor { id: string; name: string; }
@@ -173,37 +174,36 @@ export default function HomePage({ session }: { session: Session | null }) {
     }
   };
 
-  if (!session) return <main className="container mx-auto p-8 text-center">正在跳转到登录页面...</main>;
+  if (!session) return <main className="mobile-loading-container">正在跳转到登录页面...</main>;
 
   return (
-    <main className="container mx-auto p-6 md:p-10">
-      <div className="max-w-4xl mx-auto">
-        <h1 className="text-4xl font-bold text-center mb-8 text-foreground">预约挂号</h1>
+    <main className="page-container">
+      <h1 className="mobile-header">预约挂号</h1>
 
-        <div className="mb-8 p-6 bg-white rounded-2xl shadow-lg">
-          <label htmlFor="doctor-select" className="block text-xl font-medium text-foreground mb-4">第一步: 选择医生</label>
-          <select id="doctor-select" value={selectedDoctorId} onChange={(e) => { setSelectedDoctorId(e.target.value); setSelectedDate(new Date()); }} className="input-base text-lg">
-            <option value="">-- 请选择一位医生 --</option>
-            {doctors && Array.isArray(doctors) ? doctors.map((doc) => <option key={doc.id} value={doc.id}>{doc.name}</option>) : null}
-          </select>
-        </div>
+      <div className="mobile-step-card">
+        <label htmlFor="doctor-select" className="mobile-step-label">第一步: 选择医生</label>
+        <select id="doctor-select" value={selectedDoctorId} onChange={(e) => { setSelectedDoctorId(e.target.value); setSelectedDate(new Date()); }} className="mobile-doctor-select">
+          <option value="">-- 请选择一位医生 --</option>
+          {doctors && Array.isArray(doctors) ? doctors.map((doc) => <option key={doc.id} value={doc.id}>{doc.name}</option>) : null}
+        </select>
+      </div>
 
         {selectedDoctorId && (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            <div className="p-6 bg-white rounded-2xl shadow-lg">
-              <h2 className="text-xl font-medium text-foreground mb-4">第二步: 选择日期</h2>
+          <div className="mobile-grid">
+            <div className="mobile-date-picker-card">
+              <h2 className="mobile-step-title">第二步: 选择日期</h2>
               <DatePicker selected={selectedDate} onChange={(date: Date) => setSelectedDate(date)} inline highlightDates={highlightedDates} minDate={new Date()} />
             </div>
-            <div className="p-6 bg-white rounded-2xl shadow-lg">
-              <h2 className="text-xl font-medium text-foreground mb-4">第三步: 选择时间</h2>
-              {isLoading && <p>正在加载时间点...</p>}
-              {error && <p className="text-error">{error}</p>}
+            <div className="mobile-time-slots-card">
+              <h2 className="mobile-step-title">第三步: 选择时间</h2>
+              {isLoading && <p className="mobile-loading-text">正在加载时间点...</p>}
+              {error && <p className="mobile-error-text">{error}</p>}
               <div className="space-y-4">
                 {schedulesForDay && Array.isArray(schedulesForDay) && schedulesForDay.length > 0 ? (
                   schedulesForDay.map(schedule => (
-                    <div key={schedule.id}>
-                      <h3 className="font-semibold text-lg mb-2">{schedule.room.name}</h3>
-                      <div className="grid grid-cols-3 gap-2">
+                    <div key={schedule.id} className="mobile-schedule-container">
+                      <h3 className="mobile-room-title">{schedule.room.name}</h3>
+                      <div className="mobile-time-grid">
                         {schedule.timeSlots && Array.isArray(schedule.timeSlots) ? schedule.timeSlots.map(slot => {
                           const isBookedByMe = myAppointments.includes(`${schedule.date}-${slot.time}`);
                           const isFull = slot.booked >= slot.total;
@@ -212,38 +212,37 @@ export default function HomePage({ session }: { session: Session | null }) {
                               key={slot.time} 
                               disabled={isFull || isBookedByMe}
                               onClick={() => { setSelectedSlot({ schedule, time: slot.time }); setIsConfirmModalOpen(true); }}
-                              className={`p-3 border rounded-lg text-center text-base transition-all duration-200 transform ${isBookedByMe ? 'bg-success text-white' : isFull ? 'bg-gray-200 text-gray-400 cursor-not-allowed' : 'bg-white text-foreground hover:bg-gray-100 hover:scale-105'}`}>
+                              className={`mobile-time-slot ${isBookedByMe ? 'booked' : isFull ? 'full' : ''}`}>
                               {slot.time}
-                              <span className="block text-sm">{isBookedByMe ? '已预约' : `余 ${slot.total - slot.booked}`}</span>
+                              <span className="mobile-time-slot-info">{isBookedByMe ? '已预约' : `余 ${slot.total - slot.booked}`}</span>
                             </button>
                           );
                         }) : (
-                          <p className="text-gray-500 col-span-3">暂无可用时间段</p>
+                          <p className="mobile-no-slots">暂无可用时间段</p>
                         )}
                       </div>
                     </div>
                   ))
                 ) : (
-                  <p className="text-gray-500">請先選擇醫生和日期</p>
+                  <p className="mobile-no-selection">請先選擇醫生和日期</p>
                 )}
               </div>
             </div>
           </div>
         )}
 
-        {successMessage && <div className="mt-8 p-5 bg-success text-white rounded-xl text-center text-lg">{successMessage}</div>}
-      </div>
+        {successMessage && <div className="mobile-success-message">{successMessage}</div>}
 
       {isConfirmModalOpen && selectedSlot && (
-        <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4">
-          <div className="bg-white p-10 rounded-2xl shadow-2xl w-full max-w-md">
-            <h2 className="text-3xl font-bold mb-6">确认预约</h2>
-            <p className="text-lg mb-2">医生: {doctors.find(d => d.id === selectedDoctorId)?.name}</p>
-            <p className="text-lg mb-2">日期: {selectedDate?.toLocaleDateString()}</p>
-            <p className="text-lg mb-6">时间: {selectedSlot.time}</p>
-            <div className="flex justify-end gap-4 mt-8">
-              <button type="button" onClick={() => setIsConfirmModalOpen(false)} className="btn bg-gray-200 text-gray-800 text-lg">取消</button>
-              <button onClick={handleBooking} className="btn btn-primary text-lg">确定</button>
+        <div className="mobile-modal-overlay">
+          <div className="mobile-modal">
+            <h2 className="mobile-modal-title">确认预约</h2>
+            <p className="mobile-modal-info">医生: {doctors.find(d => d.id === selectedDoctorId)?.name}</p>
+            <p className="mobile-modal-info">日期: {selectedDate?.toLocaleDateString()}</p>
+            <p className="mobile-modal-info">时间: {selectedSlot.time}</p>
+            <div className="mobile-modal-actions">
+              <button type="button" onClick={() => setIsConfirmModalOpen(false)} className="mobile-modal-btn mobile-modal-btn-cancel">取消</button>
+              <button onClick={handleBooking} className="mobile-modal-btn mobile-modal-btn-confirm">确定</button>
             </div>
           </div>
         </div>

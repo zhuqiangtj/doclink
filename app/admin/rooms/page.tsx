@@ -3,6 +3,7 @@
 import { useState, useEffect, FormEvent } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
+import './mobile.css';
 
 // --- Interfaces ---
 interface Room {
@@ -157,72 +158,81 @@ export default function AdminRoomsPage() {
   };
 
   // --- Render Logic ---
-  if (status === 'loading' || isLoading) return <div className="container mx-auto p-8 text-center">加载中...</div>;
-  if (session?.user.role !== 'ADMIN') return <div className="container mx-auto p-8 text-center text-red-600">{error || '访问被拒绝：您必须是管理员才能查看此页面。'}</div>;
+  if (status === 'loading' || isLoading) return <div className="mobile-loading">加载中...</div>;
+  if (session?.user.role !== 'ADMIN') return <div className="mobile-access-denied">{error || '访问被拒绝：您必须是管理员才能查看此页面。'}</div>;
 
   return (
-    <div className="container mx-auto p-6 md:p-10">
-      <div className="flex justify-between items-center mb-8">
-        <h1 className="text-4xl font-bold text-foreground">诊室管理</h1>
-        <button onClick={() => openModal('add')} className="btn btn-primary text-lg">
+    <div className="page-container">
+      <div className="mobile-header-section">
+        <h1 className="mobile-header">诊室管理</h1>
+        <button onClick={() => openModal('add')} className="mobile-add-btn">
           添加诊室
         </button>
       </div>
 
-      {error && <div className="p-3 mb-4 text-sm text-red-700 bg-red-100 rounded-md">{error}</div>}
-      {success && <div className="p-3 mb-4 text-sm text-green-700 bg-green-100 rounded-md">{success}</div>}
+      {error && <div className="mobile-error">{error}</div>}
+      {success && <div className="mobile-success">{success}</div>}
 
-      <div className="bg-white p-6 rounded-2xl shadow-lg">
-        <ul className="space-y-4">
+      <div className="mobile-content-section">
+        <ul className="mobile-rooms-list">
           {rooms.length > 0 ? rooms.map((room) => (
-            <li key={room.id} className="p-5 border rounded-xl shadow-sm flex justify-between items-center">
-              <div>
-                <p className="font-semibold text-xl">{room.name} ({room.bedCount} 床位)</p>
-                <p className="text-lg text-gray-600">所属医生: {room.doctor.name}</p>
+            <li key={room.id} className="mobile-room-item">
+              <div className="mobile-room-info">
+                <p className="mobile-room-name">{room.name} ({room.bedCount} 床位)</p>
+                <div className="mobile-room-details">
+                  <p className="mobile-room-detail">所属医生: {room.doctor.name}</p>
+                </div>
               </div>
-              <div className="flex space-x-2">
-                <button onClick={() => openModal('edit', room)} className="btn btn-secondary text-base">编辑</button>
-                <button onClick={() => handleDelete(room.id)} className="btn bg-error text-white text-base">删除</button>
+              <div className="mobile-room-actions">
+                <button onClick={() => openModal('edit', room)} className="mobile-action-btn mobile-edit-btn">编辑</button>
+                <button onClick={() => handleDelete(room.id)} className="mobile-action-btn mobile-delete-btn">删除</button>
               </div>
             </li>
-          )) : <p className="text-center text-2xl text-gray-500 py-10">未找到诊室。</p>}
+          )) : <div className="mobile-empty-state"><p className="mobile-empty-text">未找到诊室。</p></div>}
         </ul>
       </div>
 
       {/* Modal */}
       {isModalOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4">
-          <div className="bg-white p-10 rounded-2xl shadow-2xl w-full max-w-lg">
-            <h2 className="text-3xl font-bold mb-6 capitalize">{modalMode === 'add' ? '添加诊室' : '编辑诊室'}</h2>
-            <form onSubmit={handleSubmit} className="space-y-6">
-            <input type="text" value={name} onChange={e => setName(e.target.value)} placeholder="诊室名称" className="input-base text-lg" required />
-            <input type="number" value={bedCount} onChange={e => setBedCount(parseInt(e.target.value, 10))} placeholder="床位数量" className="input-base text-lg" min="1" required />
-            
-            <div>
-              <label htmlFor="doctor-select" className="block text-lg font-medium">指定所属医生</label>
-              <select
-                id="doctor-select"
-                value={selectedDoctorId}
-                onChange={e => setSelectedDoctorId(e.target.value)}
-                className="input-base mt-2 text-lg"
-                required
-              >
-                <option value="">-- 选择医生 --</option>
-                {doctors.map(doctor => (
-                  <option key={doctor.id} value={doctor.id}>{doctor.name}</option>
-                ))}
-              </select>
-            </div>
+        <div className="mobile-modal-overlay">
+          <div className="mobile-modal">
+            <h2 className="mobile-modal-title">{modalMode === 'add' ? '添加诊室' : '编辑诊室'}</h2>
+            <form onSubmit={handleSubmit} className="mobile-modal-form">
+              <div className="mobile-form-group">
+                <label className="mobile-form-label">诊室名称</label>
+                <input type="text" value={name} onChange={e => setName(e.target.value)} placeholder="诊室名称" className="mobile-form-input" required />
+              </div>
+              
+              <div className="mobile-form-group">
+                <label className="mobile-form-label">床位数量</label>
+                <input type="number" value={bedCount} onChange={e => setBedCount(parseInt(e.target.value, 10))} placeholder="床位数量" className="mobile-form-input" min="1" required />
+              </div>
+              
+              <div className="mobile-form-group">
+                <label htmlFor="doctor-select" className="mobile-form-label">指定所属医生</label>
+                <select
+                  id="doctor-select"
+                  value={selectedDoctorId}
+                  onChange={e => setSelectedDoctorId(e.target.value)}
+                  className="mobile-form-select"
+                  required
+                >
+                  <option value="">-- 选择医生 --</option>
+                  {doctors.map(doctor => (
+                    <option key={doctor.id} value={doctor.id}>{doctor.name}</option>
+                  ))}
+                </select>
+              </div>
 
-            <div className="flex justify-end gap-4 pt-4">
-              <button type="button" onClick={closeModal} className="btn bg-gray-200 text-gray-800 text-lg">取消</button>
-              <button type="submit" className="btn btn-primary text-lg">保存</button>
-            </div>
-          </form>
+              <div className="mobile-modal-actions">
+                <button type="button" onClick={closeModal} className="mobile-cancel-btn">取消</button>
+                <button type="submit" className="mobile-save-btn">保存</button>
+              </div>
+            </form>
+          </div>
         </div>
-      </div>
-    )}
-  </div>
-);
+      )}
+    </div>
+  );
 }
               

@@ -1,0 +1,573 @@
+/* Mobile-optimized styles for home page */
+
+/* Main container */
+.mobile-main-container {
+  padding: 1rem;
+  max-width: 100%;
+  margin: 0 auto;
+}
+
+/* Header */
+.mobile-header {
+  font-size: 1.75rem;
+  font-weight: bold;
+  text-align: center;
+  margin-bottom: 1.5rem;
+  color: #1f2937;
+  line-height: 1.2;
+}
+
+/* Step cards */
+.mobile-step-card {
+  margin-bottom: 1.5rem;
+  padding: 1rem;
+  background: white;
+  border-radius: 1rem;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+}
+
+.mobile-step-label {
+  display: block;
+  font-size: 1.125rem;
+  font-weight: 500;
+  color: #1f2937;
+  margin-bottom: 0.75rem;
+}
+
+.mobile-doctor-select {
+  width: 100%;
+  padding: 0.75rem;
+  font-size: 1rem;
+  border: 1px solid #d1d5db;
+  border-radius: 0.5rem;
+  background: white;
+  color: #1f2937;
+}
+
+/* Grid layout for mobile */
+.mobile-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1.5rem;
+}
+
+/* Date picker container */
+.mobile-date-picker-card {
+  padding: 1rem;
+  background: white;
+  border-radius: 1rem;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+}
+
+.mobile-step-title {
+  font-size: 1.125rem;
+  font-weight: 500;
+  color: #1f2937;
+  margin-bottom: 0.75rem;
+}
+
+/* Time slots container */
+.mobile-time-slots-card {
+  padding: 1rem;
+  background: white;
+  border-radius: 1rem;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+}
+
+.mobile-loading-text {
+  color: #6b7280;
+  text-align: center;
+  padding: 1rem;
+}
+
+.mobile-error-text {
+  color: #dc2626;
+  text-align: center;
+  padding: 1rem;
+}
+
+.mobile-schedule-container {
+  margin-bottom: 1rem;
+}
+
+.mobile-room-title {
+  font-weight: 600;
+  font-size: 1rem;
+  margin-bottom: 0.5rem;
+  color: #1f2937;
+}
+
+.mobile-time-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.5rem;
+}
+
+.mobile-time-slot {
+  padding: 0.75rem;
+  border: 1px solid #d1d5db;
+  border-radius: 0.5rem;
+  text-align: center;
+  font-size: 0.875rem;
+  transition: all 0.2s ease;
+  background: white;
+  color: #1f2937;
+  min-height: 3rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+}
+
+.mobile-time-slot:not(:disabled):hover {
+  background: #f3f4f6;
+  transform: scale(1.02);
+}
+
+.mobile-time-slot.booked {
+  background: #10b981;
+  color: white;
+  border-color: #10b981;
+}
+
+.mobile-time-slot.full {
+  background: #e5e7eb;
+  color: #9ca3af;
+  cursor: not-allowed;
+}
+
+.mobile-time-slot-info {
+  font-size: 0.75rem;
+  margin-top: 0.25rem;
+}
+
+.mobile-no-slots {
+  color: #6b7280;
+  text-align: center;
+  padding: 1rem;
+  grid-column: 1 / -1;
+}
+
+.mobile-no-selection {
+  color: #6b7280;
+  text-align: center;
+  padding: 1rem;
+}
+
+/* Success message */
+.mobile-success-message {
+  margin-top: 1.5rem;
+  padding: 1rem;
+  background: #10b981;
+  color: white;
+  border-radius: 0.75rem;
+  text-align: center;
+  font-size: 1rem;
+}
+
+/* Modal */
+.mobile-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 50;
+  padding: 1rem;
+}
+
+.mobile-modal {
+  background: white;
+  padding: 1.5rem;
+  border-radius: 1rem;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+  width: 100%;
+  max-width: 24rem;
+}
+
+.mobile-modal-title {
+  font-size: 1.5rem;
+  font-weight: bold;
+  margin-bottom: 1rem;
+  color: #1f2937;
+}
+
+.mobile-modal-info {
+  font-size: 1rem;
+  margin-bottom: 0.5rem;
+  color: #1f2937;
+}
+
+.mobile-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  margin-top: 1.5rem;
+}
+
+.mobile-modal-btn {
+  padding: 0.75rem 1.5rem;
+  border-radius: 0.5rem;
+  font-size: 1rem;
+  font-weight: 500;
+  cursor: pointer;
+  border: none;
+  transition: all 0.2s ease;
+}
+
+.mobile-modal-btn-cancel {
+  background: #e5e7eb;
+  color: #374151;
+}
+
+.mobile-modal-btn-cancel:hover {
+  background: #d1d5db;
+}
+
+.mobile-modal-btn-confirm {
+  background: #3b82f6;
+  color: white;
+}
+
+.mobile-modal-btn-confirm:hover {
+  background: #2563eb;
+}
+
+/* Loading state */
+.mobile-loading-container {
+  text-align: center;
+  padding: 2rem;
+  color: #6b7280;
+}
+
+/* React DatePicker mobile optimizations */
+.react-datepicker-wrapper {
+  width: 100%;
+}
+
+.react-datepicker {
+  font-size: 0.875rem;
+  border: 1px solid #d1d5db;
+  border-radius: 0.5rem;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+}
+
+.react-datepicker__day {
+  width: 2rem;
+  height: 2rem;
+  line-height: 2rem;
+  margin: 0.1rem;
+}
+
+.react-datepicker__day--highlighted {
+  background-color: #dbeafe;
+  color: #1d4ed8;
+}
+
+.react-datepicker__day--selected {
+  background-color: #3b82f6;
+  color: white;
+}
+
+/* Responsive adjustments for larger screens */
+@media (min-width: 768px) {
+  .mobile-main-container {
+    padding: 2rem;
+    max-width: 64rem;
+  }
+
+  .mobile-header {
+    font-size: 2.25rem;
+    margin-bottom: 2rem;
+  }
+
+  .mobile-grid {
+    grid-template-columns: 1fr 1fr;
+    gap: 2rem;
+  }
+
+  .mobile-step-card {
+    padding: 1.5rem;
+  }
+
+  .mobile-date-picker-card,
+  .mobile-time-slots-card {
+    padding: 1.5rem;
+  }
+
+  .mobile-time-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+
+  .mobile-modal {
+    padding: 2.5rem;
+  }
+
+  .mobile-modal-title {
+    font-size: 1.875rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .mobile-modal-info {
+    font-size: 1.125rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  .mobile-time-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+/* 新的單行時間點佈局樣式 */
+.mobile-time-slot-single-line {
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 12px;
+  margin-bottom: 8px;
+  transition: all 0.2s ease;
+}
+
+.mobile-time-slot-single-line:hover {
+  border-color: #3b82f6;
+  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.1);
+}
+
+.mobile-time-slot-modified {
+  border-color: #f59e0b;
+  background-color: #fffbeb;
+}
+
+/* 單行內聯佈局 */
+.mobile-time-slot-inline {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+/* 時間輸入 - 內聯 */
+.mobile-time-input-inline {
+  padding: 4px 8px;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  font-size: 14px;
+  width: 80px;
+  background: white;
+}
+
+.mobile-time-input-inline:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
+}
+
+/* 床位輸入 - 內聯 */
+.mobile-capacity-inline {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.mobile-capacity-label-inline {
+  font-size: 12px;
+  color: #6b7280;
+  white-space: nowrap;
+}
+
+.mobile-capacity-input-inline {
+  padding: 4px 6px;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  font-size: 14px;
+  width: 50px;
+  background: white;
+}
+
+.mobile-capacity-input-inline:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
+}
+
+/* 預約狀態 - 內聯 */
+.mobile-booking-status-inline {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.mobile-booking-count-inline {
+  font-size: 13px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 12px;
+  white-space: nowrap;
+}
+
+.mobile-booking-available {
+  background-color: #dcfce7;
+  color: #166534;
+}
+
+.mobile-booking-full {
+  background-color: #fee2e2;
+  color: #dc2626;
+}
+
+/* 下拉按鈕 - 內聯 */
+.mobile-dropdown-btn-inline {
+  padding: 4px;
+  background: #f3f4f6;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  color: #6b7280;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.mobile-dropdown-btn-inline:hover {
+  background: #e5e7eb;
+  color: #374151;
+}
+
+/* 彩色操作按鈕 - 內聯 */
+.mobile-action-buttons-inline {
+  display: flex;
+  gap: 4px;
+  margin-left: auto;
+}
+
+.mobile-icon-btn-colored {
+  padding: 6px;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.mobile-icon-btn-colored:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+/* 新增按鈕 - 綠色 */
+.mobile-icon-btn-add-colored {
+  background: #10b981;
+  color: white;
+}
+
+.mobile-icon-btn-add-colored:hover:not(:disabled) {
+  background: #059669;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(16, 185, 129, 0.3);
+}
+
+/* 儲存按鈕 - 藍色 */
+.mobile-icon-btn-save-colored {
+  background: #3b82f6;
+  color: white;
+}
+
+.mobile-icon-btn-save-colored:hover:not(:disabled) {
+  background: #2563eb;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(59, 130, 246, 0.3);
+}
+
+/* 刪除按鈕 - 紅色 */
+.mobile-icon-btn-delete-colored {
+  background: #ef4444;
+  color: white;
+}
+
+.mobile-icon-btn-delete-colored:hover:not(:disabled) {
+  background: #dc2626;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(239, 68, 68, 0.3);
+}
+
+/* 禁用狀態按鈕 */
+.mobile-icon-btn-disabled-colored {
+  background: #9ca3af;
+  color: white;
+}
+
+/* 患者列表 - 內聯 */
+.mobile-patient-list-inline {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid #e5e7eb;
+  width: 100%;
+}
+
+.mobile-patient-item-inline {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 8px;
+  background: #f9fafb;
+  border-radius: 4px;
+  margin-bottom: 4px;
+}
+
+.mobile-patient-info-inline {
+  flex: 1;
+  min-width: 0;
+}
+
+.mobile-patient-name-inline {
+  font-weight: 600;
+  color: #1f2937;
+  margin-right: 8px;
+}
+
+.mobile-patient-details-inline {
+  font-size: 12px;
+  color: #6b7280;
+  display: block;
+}
+
+.mobile-patient-delete-btn-inline {
+  padding: 4px;
+  background: #fee2e2;
+  border: 1px solid #fecaca;
+  border-radius: 4px;
+  color: #dc2626;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+}
+
+.mobile-patient-delete-btn-inline:hover {
+  background: #fecaca;
+  transform: scale(1.05);
+}
+
+/* 響應式調整 */
+@media (max-width: 480px) {
+  .mobile-time-slot-inline {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 6px;
+  }
+  
+  .mobile-action-buttons-inline {
+    margin-left: 0;
+    justify-content: center;
+  }
+  
+  .mobile-time-input-inline,
+  .mobile-capacity-input-inline {
+    width: 100%;
+  }
+  
+  .mobile-booking-status-inline {
+    justify-content: center;
+  }
+}

@@ -27,15 +27,38 @@ export async function GET() {
       take: 50, // Limit to the last 50 notifications
     });
 
-    const unreadCheckInCount = await prisma.notification.count({
+    // 獲取預約詳細信息
+    const notificationsWithAppointments = await Promise.all(
+      notifications.map(async (notification) => {
+        if (notification.appointmentId) {
+          try {
+            const appointment = await prisma.appointment.findUnique({
+              where: { id: notification.appointmentId },
+              include: {
+                schedule: { select: { date: true } },
+                room: { select: { name: true } }
+              }
+            });
+            return { ...notification, appointment };
+          } catch (error) {
+            return notification;
+          }
+        }
+        return notification;
+      })
+    );
+
+    const unreadCount = await prisma.notification.count({
       where: {
         doctorId: doctorProfile.id,
-        type: 'APPOINTMENT_CHECKED_IN', // Assuming this is the type for check-ins
         isRead: false,
       },
     });
 
-    return NextResponse.json({ notifications, unreadCheckInCount });
+    return NextResponse.json({ 
+      notifications: notificationsWithAppointments, 
+      unreadCount 
+    });
 
   } catch (error) {
     console.error('Error fetching notifications:', error);

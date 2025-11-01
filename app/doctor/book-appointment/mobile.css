@@ -1,0 +1,409 @@
+/* Mobile-optimized styles for Doctor Book Appointment page */
+
+/* Container styles */
+.mobile-container {
+  padding: 1rem;
+  margin: 0 auto;
+  max-width: 100%;
+  min-height: calc(100vh - 80px);
+  padding-bottom: 100px; /* Account for bottom nav */
+}
+
+/* Header styles */
+.mobile-header {
+  font-size: 1.75rem;
+  font-weight: 700;
+  margin-bottom: 1.5rem;
+  color: var(--foreground);
+  text-align: center;
+}
+
+/* Form container */
+.mobile-form {
+  background: white;
+  border-radius: 1rem;
+  padding: 1.5rem;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  border: 1px solid #e5e7eb;
+}
+
+/* Section styles */
+.mobile-section {
+  margin-bottom: 2rem;
+}
+
+.mobile-section-title {
+  font-size: 1.25rem;
+  font-weight: 600;
+  margin-bottom: 1rem;
+  color: #1f2937;
+}
+
+/* Input styles */
+.mobile-input-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.mobile-search-group {
+  display: flex;
+  gap: 0.75rem;
+}
+
+.mobile-input {
+  padding: 0.875rem;
+  border: 2px solid #d1d5db;
+  border-radius: 0.75rem;
+  font-size: 1rem;
+  background: white;
+  transition: all 0.2s ease;
+  min-height: 48px; /* Touch-friendly height */
+}
+
+.mobile-input:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.mobile-input-flex {
+  flex: 1;
+}
+
+/* Button styles */
+.mobile-btn {
+  padding: 0.875rem 1.5rem;
+  border: none;
+  border-radius: 0.75rem;
+  font-size: 1rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  min-height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.mobile-btn-primary {
+  background-color: #3b82f6;
+  color: white;
+}
+
+.mobile-btn-primary:hover {
+  background-color: #2563eb;
+}
+
+.mobile-btn-primary:active {
+  transform: scale(0.98);
+  background-color: #1d4ed8;
+}
+
+.mobile-btn-secondary {
+  background-color: #059669;
+  color: white;
+}
+
+.mobile-btn-secondary:hover {
+  background-color: #047857;
+}
+
+.mobile-btn-secondary:active {
+  transform: scale(0.98);
+  background-color: #065f46;
+}
+
+.mobile-btn-full {
+  width: 100%;
+}
+
+.mobile-btn:disabled {
+  background-color: #d1d5db;
+  color: #9ca3af;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* Patient search results */
+.mobile-search-results {
+  margin-top: 0.75rem;
+  border: 1px solid #d1d5db;
+  border-radius: 0.75rem;
+  max-height: 200px;
+  overflow-y: auto;
+  background: #f9fafb;
+}
+
+.mobile-search-item {
+  padding: 1rem;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+  border-bottom: 1px solid #e5e7eb;
+  font-size: 0.875rem;
+}
+
+.mobile-search-item:last-child {
+  border-bottom: none;
+}
+
+.mobile-search-item:hover {
+  background-color: #f3f4f6;
+}
+
+.mobile-search-item:active {
+  background-color: #e5e7eb;
+}
+
+/* Selected patient */
+.mobile-selected-patient {
+  margin-top: 0.75rem;
+  padding: 0.75rem;
+  background-color: #d1fae5;
+  color: #059669;
+  border-radius: 0.5rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+/* Select dropdown */
+.mobile-select {
+  padding: 0.875rem;
+  border: 2px solid #d1d5db;
+  border-radius: 0.75rem;
+  font-size: 1rem;
+  background: white;
+  transition: all 0.2s ease;
+  min-height: 48px;
+  width: 100%;
+}
+
+.mobile-select:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+/* Time slots grid */
+.mobile-time-slots {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 0.75rem;
+  margin-top: 0.75rem;
+}
+
+.mobile-time-slot {
+  padding: 0.875rem 0.5rem;
+  border: 2px solid #d1d5db;
+  border-radius: 0.75rem;
+  text-align: center;
+  font-size: 0.875rem;
+  background: white;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  min-height: 48px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.mobile-time-slot:hover {
+  background-color: #f3f4f6;
+  transform: scale(1.02);
+}
+
+.mobile-time-slot:active {
+  transform: scale(0.98);
+}
+
+.mobile-time-slot-selected {
+  background-color: #3b82f6;
+  color: white;
+  border-color: #3b82f6;
+  transform: scale(1.05);
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+}
+
+.mobile-time-slot-disabled {
+  background-color: #f3f4f6;
+  color: #9ca3af;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.mobile-time-slot-disabled:hover {
+  background-color: #f3f4f6;
+  transform: none;
+}
+
+/* Alert messages */
+.mobile-alert {
+  padding: 1rem;
+  border-radius: 0.75rem;
+  margin-top: 1rem;
+  text-align: center;
+  font-size: 0.875rem;
+  line-height: 1.4;
+}
+
+.mobile-alert-success {
+  background-color: #d1fae5;
+  color: #059669;
+  border: 1px solid #a7f3d0;
+}
+
+.mobile-alert-error {
+  background-color: #fef2f2;
+  color: #dc2626;
+  border: 1px solid #fecaca;
+}
+
+/* Loading state */
+.mobile-loading {
+  text-align: center;
+  padding: 3rem 1rem;
+  font-size: 1rem;
+  color: #6b7280;
+}
+
+/* Label styles */
+.mobile-label {
+  display: block;
+  font-size: 1rem;
+  font-weight: 500;
+  color: #374151;
+  margin-bottom: 0.5rem;
+}
+
+/* No time slots message */
+.mobile-no-slots {
+  color: #9ca3af;
+  text-align: center;
+  padding: 2rem;
+  font-size: 0.875rem;
+}
+
+/* Responsive adjustments */
+@media (max-width: 480px) {
+  .mobile-container {
+    padding: 0.75rem;
+  }
+  
+  .mobile-header {
+    font-size: 1.5rem;
+    margin-bottom: 1rem;
+  }
+  
+  .mobile-form {
+    padding: 1rem;
+  }
+  
+  .mobile-search-group {
+    flex-direction: column;
+  }
+  
+  .mobile-time-slots {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  
+  .mobile-section-title {
+    font-size: 1.125rem;
+  }
+}
+
+@media (min-width: 768px) {
+  .mobile-container {
+    padding: 2rem;
+    max-width: 768px;
+  }
+  
+  .mobile-form {
+    padding: 2rem;
+  }
+  
+  .mobile-time-slots {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+/* Dark mode support */
+@media (prefers-color-scheme: dark) {
+  .mobile-form {
+    background: #1f2937;
+    border-color: #374151;
+  }
+  
+  .mobile-section-title {
+    color: #f9fafb;
+  }
+  
+  .mobile-input,
+  .mobile-select {
+    background: #374151;
+    border-color: #4b5563;
+    color: #f9fafb;
+  }
+  
+  .mobile-time-slot {
+    background: #374151;
+    border-color: #4b5563;
+    color: #f9fafb;
+  }
+  
+  .mobile-search-results {
+    background: #374151;
+    border-color: #4b5563;
+  }
+  
+  .mobile-search-item {
+    border-color: #4b5563;
+    color: #f9fafb;
+  }
+  
+  .mobile-search-item:hover {
+    background-color: #4b5563;
+  }
+}
+
+/* High contrast mode */
+@media (prefers-contrast: high) {
+  .mobile-input,
+  .mobile-select,
+  .mobile-time-slot,
+  .mobile-btn {
+    border: 2px solid #000;
+  }
+}
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  .mobile-btn,
+  .mobile-time-slot,
+  .mobile-input,
+  .mobile-select {
+    transition: none;
+  }
+  
+  .mobile-btn:active,
+  .mobile-time-slot:active,
+  .mobile-time-slot:hover {
+    transform: none;
+  }
+}
+
+/* Focus styles for accessibility */
+.mobile-btn:focus,
+.mobile-time-slot:focus {
+  outline: 2px solid #3b82f6;
+  outline-offset: 2px;
+}
+
+/* Safe area adjustments for iOS */
+@supports (padding: max(0px)) {
+  .mobile-container {
+    padding-left: max(1rem, env(safe-area-inset-left));
+    padding-right: max(1rem, env(safe-area-inset-right));
+    padding-bottom: max(100px, calc(100px + env(safe-area-inset-bottom)));
+  }
+}

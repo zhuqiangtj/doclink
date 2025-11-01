@@ -2,6 +2,7 @@
 
 import { useState, useEffect, FormEvent } from 'react';
 import { useSession, signOut } from 'next-auth/react';
+import './mobile.css';
 
 export default function SettingsPage() {
   const { data: session, status, update } = useSession();
@@ -108,72 +109,72 @@ export default function SettingsPage() {
     await signOut({ callbackUrl: '/auth/signin' });
   };
 
-  if (status === 'loading') return <div className="container mx-auto p-8 text-center">加载中...</div>;
-  if (status === 'unauthenticated') return <div className="container mx-auto p-8 text-center">访问被拒绝。</div>;
+  if (status === 'loading') return <div className="mobile-loading">加载中...</div>;
+  if (status === 'unauthenticated') return <div className="mobile-access-denied">访问被拒绝。</div>;
 
   return (
-    <div className="container mx-auto max-w-2xl p-6 md:p-10">
-      <h1 className="text-4xl font-bold mb-8 text-foreground">设置</h1>
-      {error && <div className="p-4 mb-6 text-lg text-error bg-red-100 rounded-xl">{error}</div>}
-      {success && <div className="p-4 mb-6 text-lg text-white bg-success rounded-xl">{success}</div>}
+    <div className="page-container">
+      <h1 className="mobile-header">设置</h1>
+      {error && <div className="mobile-error">{error}</div>}
+      {success && <div className="mobile-success">{success}</div>}
 
       {/* Profile Information */}
-      <div className="bg-white p-8 rounded-2xl shadow-lg mb-10">
-        <h2 className="text-2xl font-semibold mb-6">我的资料</h2>
-        <form onSubmit={handleProfileSubmit} className="space-y-6">
-          <div>
-            <label className="block text-lg font-medium">用户名</label>
-            <input type="text" value={username} onChange={e => setUsername(e.target.value)} className="input-base mt-2" />
+      <div className="mobile-section">
+        <h2 className="mobile-section-title">我的资料</h2>
+        <form onSubmit={handleProfileSubmit} className="mobile-form">
+          <div className="mobile-form-group">
+            <label className="mobile-form-label">用户名</label>
+            <input type="text" value={username} onChange={e => setUsername(e.target.value)} className="mobile-form-input" />
           </div>
-          <div>
-            <label className="block text-lg font-medium">姓名</label>
-            <input type="text" value={name} onChange={e => setName(e.target.value)} className="input-base mt-2" />
+          <div className="mobile-form-group">
+            <label className="mobile-form-label">姓名</label>
+            <input type="text" value={name} onChange={e => setName(e.target.value)} className="mobile-form-input" />
           </div>
-          <div>
-            <label className="block text-lg font-medium">联系电话</label>
-            <input type="text" value={phone} onChange={e => setPhone(e.target.value)} className="input-base mt-2" />
+          <div className="mobile-form-group">
+            <label className="mobile-form-label">联系电话</label>
+            <input type="text" value={phone} onChange={e => setPhone(e.target.value)} className="mobile-form-input" />
           </div>
-          <div>
-            <label className="block text-lg font-medium">出生日期</label>
-            <input type="date" value={dateOfBirth} onChange={e => setDateOfBirth(e.target.value)} className="input-base mt-2" />
+          <div className="mobile-form-group">
+            <label className="mobile-form-label">出生日期</label>
+            <input type="date" value={dateOfBirth} onChange={e => setDateOfBirth(e.target.value)} className="mobile-form-input" />
           </div>
-          <div>
-            <label className="block text-lg font-medium">性别</label>
-            <select value={gender} onChange={e => setGender(e.target.value)} className="input-base mt-2">
+          <div className="mobile-form-group">
+            <label className="mobile-form-label">性别</label>
+            <select value={gender} onChange={e => setGender(e.target.value)} className="mobile-form-select">
               <option value="">选择性别</option>
               <option value="Male">男</option>
               <option value="Female">女</option>
               <option value="Other">其他</option>
             </select>
           </div>
-          <button type="submit" className="w-full btn btn-primary text-lg">保存资料</button>
+          <button type="submit" className="mobile-submit-btn">保存资料</button>
         </form>
       </div>
 
       {/* Change Password */}
-      <div className="bg-white p-8 rounded-2xl shadow-lg mb-10">
-        <h2 className="text-2xl font-semibold mb-6">修改密码</h2>
-        <form onSubmit={handlePasswordSubmit} className="space-y-6">
-           <div>
-            <label className="block text-lg font-medium">当前密码</label>
-            <input type="password" value={currentPassword} onChange={e => setCurrentPassword(e.target.value)} className="input-base mt-2" required />
+      <div className="mobile-section">
+        <h2 className="mobile-section-title">修改密码</h2>
+        <form onSubmit={handlePasswordSubmit} className="mobile-form">
+           <div className="mobile-form-group">
+            <label className="mobile-form-label">当前密码</label>
+            <input type="password" value={currentPassword} onChange={e => setCurrentPassword(e.target.value)} className="mobile-form-input" required />
           </div>
-          <div>
-            <label className="block text-lg font-medium">新密码</label>
-            <input type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} className="input-base mt-2" required />
+          <div className="mobile-form-group">
+            <label className="mobile-form-label">新密码</label>
+            <input type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} className="mobile-form-input" required />
           </div>
-          <div>
-            <label className="block text-lg font-medium">确认新密码</label>
-            <input type="password" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} className="input-base mt-2" required />
+          <div className="mobile-form-group">
+            <label className="mobile-form-label">确认新密码</label>
+            <input type="password" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} className="mobile-form-input" required />
           </div>
-          <button type="submit" className="w-full btn btn-primary text-lg">更新密码</button>
+          <button type="submit" className="mobile-submit-btn">更新密码</button>
         </form>
       </div>
 
-      <div className="mt-8">
+      <div className="mobile-logout-section">
         <button 
           onClick={handleLogout} 
-          className="w-full btn bg-error text-white text-lg"
+          className="mobile-logout-btn"
         >
           登出
         </button>

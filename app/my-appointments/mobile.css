@@ -1,0 +1,270 @@
+/* Mobile-optimized styles for My Appointments page */
+
+/* Container styles */
+.mobile-container {
+  padding: 1rem;
+  margin: 0 auto;
+  max-width: 100%;
+  min-height: calc(100vh - 80px);
+  padding-bottom: 100px; /* Account for bottom nav */
+}
+
+/* Header styles */
+.mobile-header {
+  font-size: 1.75rem;
+  font-weight: 700;
+  margin-bottom: 1.5rem;
+  color: var(--foreground);
+  text-align: center;
+}
+
+/* Alert styles */
+.mobile-alert {
+  padding: 0.875rem;
+  margin-bottom: 1rem;
+  border-radius: 0.75rem;
+  font-size: 0.875rem;
+  line-height: 1.4;
+}
+
+.mobile-alert-error {
+  background-color: #fef2f2;
+  color: #dc2626;
+  border: 1px solid #fecaca;
+}
+
+.mobile-alert-success {
+  background-color: #f0fdf4;
+  color: #16a34a;
+  border: 1px solid #bbf7d0;
+}
+
+/* Appointment card styles */
+.mobile-appointments-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.mobile-appointment-card {
+  background: white;
+  border-radius: 1rem;
+  padding: 1.25rem;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  border: 1px solid #e5e7eb;
+  transition: all 0.2s ease;
+}
+
+.mobile-appointment-card:active {
+  transform: scale(0.98);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
+}
+
+/* Appointment content */
+.mobile-doctor-name {
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: #1f2937;
+  margin-bottom: 0.75rem;
+}
+
+.mobile-appointment-detail {
+  font-size: 0.875rem;
+  color: #6b7280;
+  margin-bottom: 0.5rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.mobile-appointment-detail strong {
+  color: #374151;
+  font-weight: 500;
+}
+
+.mobile-status {
+  display: inline-block;
+  padding: 0.375rem 0.75rem;
+  border-radius: 0.5rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  margin-top: 0.75rem;
+}
+
+.mobile-status-pending {
+  background-color: #fef3c7;
+  color: #d97706;
+}
+
+.mobile-status-completed {
+  background-color: #d1fae5;
+  color: #059669;
+}
+
+.mobile-status-cancelled {
+  background-color: #fee2e2;
+  color: #dc2626;
+}
+
+.mobile-status-no-show {
+  background-color: #f3f4f6;
+  color: #6b7280;
+}
+
+/* Cancel button */
+.mobile-cancel-btn {
+  width: 100%;
+  padding: 0.75rem;
+  margin-top: 1rem;
+  background-color: #dc2626;
+  color: white;
+  border: none;
+  border-radius: 0.75rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  min-height: 44px; /* Touch-friendly height */
+}
+
+.mobile-cancel-btn:hover {
+  background-color: #b91c1c;
+}
+
+.mobile-cancel-btn:active {
+  transform: scale(0.98);
+  background-color: #991b1b;
+}
+
+/* Empty state */
+.mobile-empty-state {
+  text-align: center;
+  padding: 3rem 1rem;
+}
+
+.mobile-empty-text {
+  font-size: 1rem;
+  color: #9ca3af;
+  margin-bottom: 1rem;
+}
+
+.mobile-empty-icon {
+  font-size: 3rem;
+  color: #d1d5db;
+  margin-bottom: 1rem;
+}
+
+/* Loading state */
+.mobile-loading {
+  text-align: center;
+  padding: 3rem 1rem;
+  font-size: 1rem;
+  color: #6b7280;
+}
+
+/* Responsive adjustments */
+@media (max-width: 480px) {
+  .mobile-container {
+    padding: 0.75rem;
+  }
+  
+  .mobile-header {
+    font-size: 1.5rem;
+    margin-bottom: 1rem;
+  }
+  
+  .mobile-appointment-card {
+    padding: 1rem;
+  }
+  
+  .mobile-doctor-name {
+    font-size: 1rem;
+  }
+}
+
+@media (min-width: 768px) {
+  .mobile-container {
+    padding: 2rem;
+    max-width: 768px;
+  }
+  
+  .mobile-appointments-grid {
+    gap: 1.5rem;
+  }
+  
+  .mobile-appointment-card {
+    padding: 1.5rem;
+  }
+}
+
+/* Dark mode support */
+@media (prefers-color-scheme: dark) {
+  .mobile-appointment-card {
+    background: #1f2937;
+    border-color: #374151;
+  }
+  
+  .mobile-doctor-name {
+    color: #f9fafb;
+  }
+  
+  .mobile-appointment-detail {
+    color: #d1d5db;
+  }
+  
+  .mobile-appointment-detail strong {
+    color: #f3f4f6;
+  }
+  
+  .mobile-alert-error {
+    background-color: #7f1d1d;
+    color: #fca5a5;
+    border-color: #dc2626;
+  }
+  
+  .mobile-alert-success {
+    background-color: #14532d;
+    color: #86efac;
+    border-color: #16a34a;
+  }
+}
+
+/* High contrast mode */
+@media (prefers-contrast: high) {
+  .mobile-appointment-card {
+    border: 2px solid #000;
+  }
+  
+  .mobile-cancel-btn {
+    border: 2px solid #000;
+  }
+}
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  .mobile-appointment-card,
+  .mobile-cancel-btn {
+    transition: none;
+  }
+  
+  .mobile-appointment-card:active,
+  .mobile-cancel-btn:active {
+    transform: none;
+  }
+}
+
+/* Focus styles for accessibility */
+.mobile-cancel-btn:focus {
+  outline: 2px solid #3b82f6;
+  outline-offset: 2px;
+}
+
+/* Safe area adjustments for iOS */
+@supports (padding: max(0px)) {
+  .mobile-container {
+    padding-left: max(1rem, env(safe-area-inset-left));
+    padding-right: max(1rem, env(safe-area-inset-right));
+    padding-bottom: max(100px, calc(100px + env(safe-area-inset-bottom)));
+  }
+}

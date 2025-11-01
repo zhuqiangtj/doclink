@@ -53,6 +53,7 @@ export async function GET(request: Request) {
         time: true,
         status: true,
         patient: { select: { user: { select: { name: true } } } },
+        user: { select: { name: true, role: true } }, // 添加創建者信息
         scheduleId: true,
       },
     });

@@ -1,0 +1,219 @@
+/* Mobile-optimized styles for Settings page */
+
+/* Loading state */
+.mobile-loading {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 50vh;
+  font-size: 1.1rem;
+  color: #666;
+}
+
+/* Access denied message */
+.mobile-access-denied {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 50vh;
+  padding: 1rem;
+  text-align: center;
+  color: #dc2626;
+  font-size: 1rem;
+  line-height: 1.5;
+}
+
+/* Main container */
+.mobile-container {
+  padding: 1rem;
+  max-width: 100%;
+  margin: 0 auto;
+}
+
+/* Header */
+.mobile-header {
+  font-size: 1.5rem;
+  font-weight: bold;
+  margin-bottom: 1.5rem;
+  color: #1f2937;
+  text-align: center;
+}
+
+/* Alert messages */
+.mobile-error {
+  background-color: #fef2f2;
+  color: #dc2626;
+  padding: 1rem;
+  border-radius: 0.5rem;
+  margin-bottom: 1rem;
+  font-size: 0.9rem;
+  border: 1px solid #fecaca;
+}
+
+.mobile-success {
+  background-color: #f0fdf4;
+  color: #16a34a;
+  padding: 1rem;
+  border-radius: 0.5rem;
+  margin-bottom: 1rem;
+  font-size: 0.9rem;
+  border: 1px solid #bbf7d0;
+}
+
+/* Section cards */
+.mobile-section {
+  background-color: white;
+  border-radius: 0.75rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  padding: 1.5rem;
+  margin-bottom: 1.5rem;
+}
+
+/* Section titles */
+.mobile-section-title {
+  font-size: 1.25rem;
+  font-weight: 600;
+  margin-bottom: 1.5rem;
+  color: #1f2937;
+}
+
+/* Form styles */
+.mobile-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.mobile-form-group {
+  display: flex;
+  flex-direction: column;
+}
+
+.mobile-form-label {
+  font-size: 1rem;
+  font-weight: 500;
+  color: #374151;
+  margin-bottom: 0.5rem;
+}
+
+.mobile-form-input,
+.mobile-form-select {
+  width: 100%;
+  padding: 0.75rem;
+  border: 1px solid #d1d5db;
+  border-radius: 0.5rem;
+  font-size: 1rem;
+  background-color: white;
+  transition: border-color 0.2s ease;
+}
+
+.mobile-form-input:focus,
+.mobile-form-select:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.mobile-form-input::placeholder {
+  color: #9ca3af;
+}
+
+/* Submit buttons */
+.mobile-submit-btn {
+  width: 100%;
+  padding: 0.875rem;
+  background-color: #3b82f6;
+  color: white;
+  border: none;
+  border-radius: 0.5rem;
+  font-size: 1rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+  margin-top: 0.5rem;
+}
+
+.mobile-submit-btn:hover {
+  background-color: #2563eb;
+}
+
+.mobile-submit-btn:active {
+  background-color: #1d4ed8;
+}
+
+/* Logout button */
+.mobile-logout-section {
+  margin-top: 2rem;
+}
+
+.mobile-logout-btn {
+  width: 100%;
+  padding: 0.875rem;
+  background-color: #dc2626;
+  color: white;
+  border: none;
+  border-radius: 0.5rem;
+  font-size: 1rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.mobile-logout-btn:hover {
+  background-color: #b91c1c;
+}
+
+.mobile-logout-btn:active {
+  background-color: #991b1b;
+}
+
+/* Responsive adjustments for larger screens */
+@media (min-width: 640px) {
+  .mobile-container {
+    padding: 1.5rem;
+    max-width: 640px;
+  }
+  
+  .mobile-header {
+    font-size: 1.75rem;
+    margin-bottom: 2rem;
+  }
+  
+  .mobile-section {
+    padding: 2rem;
+    margin-bottom: 2rem;
+  }
+  
+  .mobile-section-title {
+    font-size: 1.5rem;
+    margin-bottom: 2rem;
+  }
+  
+  .mobile-form {
+    gap: 1.5rem;
+  }
+  
+  .mobile-form-input,
+  .mobile-form-select {
+    padding: 1rem;
+    font-size: 1.1rem;
+  }
+  
+  .mobile-submit-btn,
+  .mobile-logout-btn {
+    padding: 1rem;
+    font-size: 1.1rem;
+  }
+}
+
+@media (min-width: 768px) {
+  .mobile-container {
+    padding: 2rem;
+    max-width: 768px;
+  }
+  
+  .mobile-header {
+    font-size: 2rem;
+    text-align: left;
+  }
+}

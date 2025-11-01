@@ -1,0 +1,404 @@
+/* Mobile-optimized styles for doctor appointments page */
+
+/* Loading state */
+.mobile-loading {
+  padding: 2rem 1rem;
+  text-align: center;
+  font-size: 1.1rem;
+  color: #666;
+}
+
+/* Main container */
+.mobile-container {
+  padding: 1rem;
+  max-width: 100%;
+  margin: 0 auto;
+}
+
+/* Header */
+.mobile-header {
+  font-size: 1.75rem;
+  font-weight: bold;
+  margin-bottom: 1rem;
+  color: #1f2937;
+  line-height: 1.3;
+}
+
+.mobile-description {
+  font-size: 0.95rem;
+  color: #6b7280;
+  margin-bottom: 1.5rem;
+  line-height: 1.5;
+}
+
+/* Alert messages */
+.mobile-error {
+  padding: 0.875rem;
+  margin-bottom: 1rem;
+  font-size: 0.9rem;
+  color: #dc2626;
+  background-color: #fef2f2;
+  border-radius: 0.5rem;
+  border-left: 4px solid #dc2626;
+}
+
+.mobile-success {
+  padding: 0.875rem;
+  margin-bottom: 1rem;
+  font-size: 0.9rem;
+  color: #059669;
+  background-color: #ecfdf5;
+  border-radius: 0.5rem;
+  border-left: 4px solid #059669;
+}
+
+/* Filters card */
+.mobile-filters-card {
+  background: white;
+  border-radius: 0.75rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  padding: 1rem;
+  margin-bottom: 1rem;
+}
+
+.mobile-filters-title {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #1f2937;
+  margin-bottom: 1rem;
+}
+
+.mobile-filters-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+@media (min-width: 640px) {
+  .mobile-filters-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+.mobile-filter-group {
+  display: flex;
+  flex-direction: column;
+}
+
+.mobile-filter-label {
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: #374151;
+  margin-bottom: 0.5rem;
+}
+
+.mobile-filter-input,
+.mobile-filter-select {
+  width: 100%;
+  padding: 0.75rem;
+  border: 1px solid #d1d5db;
+  border-radius: 0.5rem;
+  font-size: 0.95rem;
+  background: white;
+  transition: border-color 0.2s;
+}
+
+.mobile-filter-input:focus,
+.mobile-filter-select:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.mobile-filters-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.mobile-reset-filters-btn {
+  padding: 0.5rem 1rem;
+  background: #f3f4f6;
+  color: #374151;
+  border: none;
+  border-radius: 0.5rem;
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.2s;
+  touch-action: manipulation;
+}
+
+.mobile-reset-filters-btn:hover {
+  background: #e5e7eb;
+}
+
+.mobile-results-count {
+  font-size: 0.9rem;
+  color: #6b7280;
+}
+
+/* Content card */
+.mobile-content-card {
+  background: white;
+  border-radius: 0.75rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  padding: 1rem;
+}
+
+/* Appointments list */
+.mobile-appointments-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.mobile-appointment-card {
+  padding: 1rem;
+  border: 1px solid #e5e7eb;
+  border-radius: 0.75rem;
+  background: #f8fafc;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.mobile-appointment-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 1rem;
+  gap: 0.5rem;
+}
+
+.mobile-patient-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.mobile-patient-name {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #1f2937;
+  margin: 0;
+}
+
+.mobile-patient-age {
+  font-size: 0.85rem;
+  color: #6b7280;
+  background: #f3f4f6;
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.375rem;
+  align-self: flex-start;
+}
+
+.mobile-status-badge {
+  padding: 0.25rem 0.75rem;
+  border-radius: 1rem;
+  font-size: 0.8rem;
+  font-weight: 500;
+  text-align: center;
+  white-space: nowrap;
+}
+
+/* Status colors */
+.status-pending {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.status-confirmed {
+  background: #dbeafe;
+  color: #1e40af;
+}
+
+.status-checked-in {
+  background: #d1fae5;
+  color: #065f46;
+}
+
+.status-completed {
+  background: #e0e7ff;
+  color: #3730a3;
+}
+
+.status-cancelled {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.status-no-show {
+  background: #f3f4f6;
+  color: #374151;
+}
+
+.status-default {
+  background: #f3f4f6;
+  color: #6b7280;
+}
+
+.mobile-appointment-details {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.mobile-detail-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.mobile-detail-label {
+  font-size: 0.9rem;
+  color: #6b7280;
+  font-weight: 500;
+}
+
+.mobile-detail-value {
+  font-size: 0.9rem;
+  color: #1f2937;
+  font-weight: 500;
+}
+
+.mobile-appointment-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.mobile-cancel-appointment-btn {
+  flex: 1;
+  padding: 0.75rem;
+  background: #dc2626;
+  color: white;
+  border: none;
+  border-radius: 0.5rem;
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.2s;
+  touch-action: manipulation;
+}
+
+.mobile-cancel-appointment-btn:hover {
+  background: #b91c1c;
+}
+
+.mobile-cancel-appointment-btn:active {
+  background: #991b1b;
+  transform: translateY(1px);
+}
+
+/* Pagination */
+.mobile-pagination {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 1.5rem;
+  padding-top: 1rem;
+  border-top: 1px solid #e5e7eb;
+}
+
+.mobile-pagination-btn {
+  padding: 0.5rem 1rem;
+  background: #3b82f6;
+  color: white;
+  border: none;
+  border-radius: 0.5rem;
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.2s;
+  touch-action: manipulation;
+}
+
+.mobile-pagination-btn:hover:not(:disabled) {
+  background: #2563eb;
+}
+
+.mobile-pagination-btn:disabled {
+  background: #d1d5db;
+  color: #9ca3af;
+  cursor: not-allowed;
+}
+
+.mobile-pagination-info {
+  font-size: 0.9rem;
+  color: #6b7280;
+}
+
+/* Empty state */
+.mobile-empty-state {
+  text-align: center;
+  padding: 3rem 1rem;
+}
+
+.mobile-empty-text {
+  font-size: 1.1rem;
+  color: #9ca3af;
+}
+
+/* Access denied */
+.mobile-access-denied {
+  padding: 2rem 1rem;
+  text-align: center;
+}
+
+.mobile-access-title {
+  font-size: 1.5rem;
+  font-weight: bold;
+  color: #dc2626;
+  margin-bottom: 0.5rem;
+}
+
+.mobile-access-message {
+  font-size: 0.95rem;
+  color: #6b7280;
+}
+
+/* Responsive adjustments */
+@media (max-width: 480px) {
+  .mobile-container {
+    padding: 0.75rem;
+  }
+  
+  .mobile-header {
+    font-size: 1.5rem;
+  }
+  
+  .mobile-appointment-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.75rem;
+  }
+  
+  .mobile-status-badge {
+    align-self: flex-start;
+  }
+  
+  .mobile-filters-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  
+  .mobile-pagination {
+    flex-direction: column;
+    gap: 1rem;
+  }
+  
+  .mobile-pagination-info {
+    order: -1;
+  }
+}
+
+/* Touch improvements */
+@media (hover: none) and (pointer: coarse) {
+  .mobile-cancel-appointment-btn,
+  .mobile-reset-filters-btn,
+  .mobile-pagination-btn {
+    min-height: 44px;
+  }
+}

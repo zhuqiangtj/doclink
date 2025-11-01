@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { FaCheckCircle } from 'react-icons/fa';
+import './mobile.css';
 
 interface Notification {
   id: string;
@@ -12,6 +13,15 @@ interface Notification {
   message: string;
   type: string;
   isRead: boolean;
+  appointment?: {
+    time: string;
+    schedule: {
+      date: string;
+    };
+    room: {
+      name: string;
+    };
+  };
 }
 
 export default function DoctorNotificationsPage() {
@@ -37,7 +47,7 @@ export default function DoctorNotificationsPage() {
           const res = await fetch('/api/notifications');
           if (!res.ok) throw new Error('Failed to fetch notifications.');
           const data = await res.json();
-          setNotifications(data);
+          setNotifications(data.notifications || []);
         } catch (err) {
           setError(err instanceof Error ? err.message : 'An unknown error occurred');
         } finally {
@@ -60,39 +70,61 @@ export default function DoctorNotificationsPage() {
       setNotifications(prev => 
         prev.map(n => n.id === notificationId ? { ...n, isRead: true } : n)
       );
+      
+      // 觸發底部導航欄的未讀計數更新
+      window.dispatchEvent(new CustomEvent('notificationRead'));
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An unknown error occurred');
     }
   };
 
   if (isLoading || status === 'loading') {
-    return <div className="container mx-auto p-8 text-center">正在加载通知...</div>;
+    return <div className="mobile-loading">正在加载通知...</div>;
   }
 
   return (
-    <div className="container mx-auto p-6 md:p-10">
-      <h1 className="text-4xl font-bold mb-8 text-foreground">通知中心</h1>
-      {error && <div className="p-4 mb-6 text-lg text-error bg-red-100 rounded-xl">{error}</div>}
-      <div className="space-y-6">
+    <div className="mobile-container">
+      <h1 className="mobile-header">通知中心</h1>
+      {error && <div className="mobile-error">{error}</div>}
+      <div className="mobile-notifications-list">
         {notifications.length > 0 ? notifications.map(n => (
-          <div key={n.id} className={`p-6 rounded-2xl shadow-lg flex justify-between items-center transition-colors ${n.isRead ? 'bg-gray-100' : 'bg-white'}`}>
-            <div>
-              <p className={`font-semibold text-xl ${n.type === 'APPOINTMENT_CANCELLED' ? 'text-error' : 'text-success'}`}>
-                {n.type === 'APPOINTMENT_CANCELLED' ? '预约已取消' : '新预约提醒'}
+          <div key={n.id} className={`mobile-notification-card ${n.isRead ? 'mobile-notification-read' : 'mobile-notification-unread'}`}>
+            <div className="mobile-notification-content">
+              <p className={`mobile-notification-type ${n.type === 'APPOINTMENT_CANCELLED' ? 'mobile-notification-cancelled' : 'mobile-notification-appointment'}`}>
+                {n.type === 'APPOINTMENT_CANCELLED' ? '預約已取消' : 
+                 n.type === 'APPOINTMENT_CREATED' ? '新預約提醒' : '預約通知'}
               </p>
-              <p className="text-lg text-gray-800 mt-2">{n.message}</p>
-              <p className="text-base text-gray-500 mt-1">{new Date(n.createdAt).toLocaleString()}</p>
+              <div className="mobile-notification-details">
+                <p className="mobile-notification-patient">
+                  <strong>病人：</strong>{n.patientName}
+                </p>
+                {n.appointment && (
+                  <>
+                    <p className="mobile-notification-datetime">
+                      <strong>日期：</strong>{new Date(n.appointment.schedule.date).toLocaleDateString('zh-CN')}
+                    </p>
+                    <p className="mobile-notification-datetime">
+                      <strong>時間：</strong>{n.appointment.time}
+                    </p>
+                    <p className="mobile-notification-room">
+                      <strong>診室：</strong>{n.appointment.room.name}
+                    </p>
+                  </>
+                )}
+              </div>
+              <p className="mobile-notification-message">{n.message}</p>
+              <p className="mobile-notification-date">{new Date(n.createdAt).toLocaleString('zh-CN')}</p>
             </div>
             {!n.isRead && (
-              <button onClick={() => handleMarkAsRead(n.id)} className="btn btn-primary text-lg flex items-center gap-2">
-                <FaCheckCircle />
+              <button onClick={() => handleMarkAsRead(n.id)} className="mobile-mark-read-btn">
+                <FaCheckCircle className="mobile-mark-read-icon" />
                 我知道了
               </button>
             )}
           </div>
         )) : (
-          <div className="text-center py-20">
-            <p className="text-2xl text-gray-500">没有新的通知。</p>
+          <div className="mobile-empty-state">
+            <p className="mobile-empty-text">沒有新的通知。</p>
           </div>
         )}
       </div>

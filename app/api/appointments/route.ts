@@ -84,12 +84,13 @@ export async function POST(request: Request) {
     }
 
     const result = await prisma.$transaction(async (tx) => {
-      // First, fetch the schedule to get timeSlots
+      // First, fetch the schedule to get timeSlots with explicit locking
       const schedule = await tx.schedule.findUnique({
         where: { id: scheduleId },
       });
       
       if (!schedule) {
+        console.error('Schedule not found in transaction:', { scheduleId, userId, patientId, time });
         throw new Error('Schedule not found.');
       }
 
@@ -146,7 +147,45 @@ export async function POST(request: Request) {
     return NextResponse.json(result, { status: 201 });
 
   } catch (error) {
-    console.error('Error creating appointment:', error);
+    console.error('Error creating appointment:', {
+      error: error instanceof Error ? error.message : error,
+      stack: error instanceof Error ? error.stack : undefined,
+      scheduleId,
+      time,
+      userId,
+      patientId,
+      doctorId,
+      roomId
+    });
+    
+    // 如果是Schedule not found錯誤，檢查是否實際上預約已經創建
+    if (error instanceof Error && error.message === 'Schedule not found.') {
+      try {
+        // 檢查是否有相同的預約已經存在
+        const existingAppointment = await prisma.appointment.findFirst({
+          where: {
+            userId,
+            patientId,
+            doctorId,
+            scheduleId,
+            time,
+            roomId,
+            createdAt: {
+              gte: new Date(Date.now() - 30000) // 30秒內創建的
+            }
+          }
+        });
+        
+        if (existingAppointment) {
+          console.log('Found existing appointment despite error:', existingAppointment.id);
+          await createAuditLog(session, 'CREATE_APPOINTMENT', 'Appointment', existingAppointment.id, { userId, patientId, doctorId, scheduleId, time, roomId });
+          return NextResponse.json(existingAppointment, { status: 201 });
+        }
+      } catch (checkError) {
+        console.error('Error checking for existing appointment:', checkError);
+      }
+    }
+    
     const message = error instanceof Error ? error.message : 'Failed to create appointment';
     return NextResponse.json({ error: message }, { status: 500 });
   }

@@ -3,6 +3,7 @@
 import { useState, useEffect, FormEvent } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
+import './mobile.css';
 
 // --- Interfaces ---
 interface Room {
@@ -109,46 +110,50 @@ export default function DoctorRoomsPage() {
               }
             };
   // --- Render Logic ---
-    if (isLoading || status === 'loading') return <div className="container mx-auto p-8 text-center">加载中...</div>;
+    if (isLoading || status === 'loading') return <div className="mobile-loading">加载中...</div>;
     if (!session || session.user.role !== 'DOCTOR' || !doctorProfile) {
       return (
-        <div className="container mx-auto p-8 text-center">
-          <h1 className="text-2xl font-bold text-red-600">访问被拒绝</h1>
-          <p className="mt-2">{error || '您必须以医生身份登录才能查看此页面。'}</p>
+        <div className="mobile-access-denied">
+          <h1 className="mobile-access-denied-title">访问被拒绝</h1>
+          <p className="mobile-access-denied-text">{error || '您必须以医生身份登录才能查看此页面。'}</p>
         </div>
       );
     }
   
       return (
-        <div className="container mx-auto p-6 md:p-10">
-          <h1 className="text-4xl font-bold mb-8 text-foreground">我的诊室 ({doctorProfile.name})</h1>
+        <div className="page-container">
+          <h1 className="mobile-header">我的诊室 ({doctorProfile.name})</h1>
           
-          {error && <div className="p-4 mb-6 text-lg text-error bg-red-100 rounded-xl">{error}</div>}
-          {success && <div className="p-4 mb-6 text-lg text-white bg-success rounded-xl">{success}</div>}  
-        <div className="p-8 bg-white rounded-2xl shadow-lg mb-10">
-          <h2 className="text-2xl font-semibold mb-6">添加新诊室</h2>
-          <form onSubmit={handleAddRoom} className="space-y-6">
-            <div>
-              <label htmlFor="roomName" className="block text-lg font-medium text-foreground">诊室名称</label>
-              <input id="roomName" type="text" placeholder="例如：一号诊室" value={newRoomName} onChange={e => setNewRoomName(e.target.value)} className="input-base mt-2 text-lg" required />
+          {error && <div className="mobile-error">{error}</div>}
+          {success && <div className="mobile-success">{success}</div>}  
+        <div className="mobile-form-section">
+          <h2 className="mobile-form-title">添加新诊室</h2>
+          <form onSubmit={handleAddRoom} className="mobile-form">
+            <div className="mobile-form-group">
+              <label htmlFor="roomName" className="mobile-form-label">诊室名称</label>
+              <input id="roomName" type="text" placeholder="例如：一号诊室" value={newRoomName} onChange={e => setNewRoomName(e.target.value)} className="mobile-form-input" required />
             </div>
-            <div>
-              <label htmlFor="bedCount" className="block text-lg font-medium text-foreground">床位数量</label>
-              <input id="bedCount" type="number" placeholder="例如：5" value={newRoomBedCount} onChange={e => setNewRoomBedCount(parseInt(e.target.value, 10))} className="input-base mt-2 text-lg" min="1" required />
+            <div className="mobile-form-group">
+              <label htmlFor="bedCount" className="mobile-form-label">床位数量</label>
+              <input id="bedCount" type="number" placeholder="例如：5" value={newRoomBedCount} onChange={e => setNewRoomBedCount(parseInt(e.target.value, 10))} className="mobile-form-input" min="1" required />
             </div>
-            <button type="submit" className="w-full btn btn-primary text-lg">添加诊室</button>
+            <button type="submit" className="mobile-submit-btn">添加诊室</button>
           </form>
         </div>
   
-        <div className="p-8 bg-white rounded-2xl shadow-lg">
-          <h2 className="text-2xl font-semibold mb-6">现有诊室</h2>
-          <div className="space-y-4">
+        <div className="mobile-rooms-section">
+          <h2 className="mobile-rooms-title">现有诊室</h2>
+          <div className="mobile-rooms-list">
             {doctorProfile.Room && doctorProfile.Room.length > 0 ? doctorProfile.Room.map(room => (
-              <div key={room.id} className="flex items-center justify-between p-5 border rounded-xl shadow-sm">
-                <span className="text-xl">{room.name} ({room.bedCount} 床位)</span>
-                <button onClick={() => handleDeleteRoom(room.id)} className="btn bg-error text-white text-base">删除</button>
+              <div key={room.id} className="mobile-room-item">
+                <span className="mobile-room-info">{room.name} ({room.bedCount} 床位)</span>
+                <button onClick={() => handleDeleteRoom(room.id)} className="mobile-delete-btn">删除</button>
               </div>
-            )) : <p className="text-center text-2xl text-gray-500 py-10">尚未添加诊室。</p>}
+            )) : (
+              <div className="mobile-empty-state">
+                <p className="mobile-empty-text">尚未添加诊室。</p>
+              </div>
+            )}
           </div>
         </div>
       </div>

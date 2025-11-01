@@ -1,0 +1,306 @@
+/* 底部導航欄手機端優化樣式 */
+
+.bottomNav {
+  position: fixed;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 100%;
+  max-width: 1200px; /* 限制最大寬度 */
+  height: 80px; /* 增加高度以改善觸控體驗 */
+  background: white;
+  border-top: 1px solid #e5e7eb;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 50;
+  box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.1);
+  padding: 0 8px;
+  /* 防止iOS Safari底部安全區域問題 */
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+.navContainer {
+  display: flex;
+  justify-content: space-around;
+  align-items: center;
+  width: 100%;
+  max-width: 600px; /* 限制導航按鈕區域的最大寬度 */
+  margin: 0 auto;
+}
+
+.navItem {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  max-width: 120px; /* 限制最大寬度 */
+  min-width: 60px; /* 確保最小寬度 */
+  min-height: 60px; /* 確保足夠的觸控區域 */
+  padding: 8px 4px;
+  text-decoration: none;
+  transition: all 0.2s ease;
+  border-radius: 12px;
+  margin: 0 2px;
+  /* 觸控優化 */
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+}
+
+.navItem:active {
+  transform: scale(0.95);
+  background: rgba(59, 130, 246, 0.1);
+}
+
+.navItemActive {
+  color: #3b82f6;
+  background: rgba(59, 130, 246, 0.05);
+}
+
+.navItemInactive {
+  color: #6b7280;
+}
+
+.navItemInactive:hover {
+  color: #3b82f6;
+  background: rgba(59, 130, 246, 0.05);
+}
+
+.navIcon {
+  font-size: 24px;
+  margin-bottom: 4px;
+  transition: transform 0.2s ease;
+}
+
+.navItemActive .navIcon {
+  transform: scale(1.1);
+}
+
+.navLabel {
+  font-size: 11px;
+  font-weight: 500;
+  text-align: center;
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 60px;
+}
+
+.badge {
+  position: absolute;
+  top: 0px;
+  right: 4px;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 4px;
+  font-size: 11px;
+  font-weight: bold;
+  color: white;
+  background: #ef4444;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid white;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+  z-index: 10;
+}
+
+/* 響應式調整 */
+@media (max-width: 480px) {
+  .bottomNav {
+    height: 75px;
+    padding: 0 4px;
+  }
+  
+  .navContainer {
+    max-width: 100%;
+  }
+  
+  .navItem {
+    min-height: 55px;
+    padding: 6px 2px;
+    margin: 0 1px;
+    max-width: 80px;
+    min-width: 50px;
+  }
+  
+  .navIcon {
+    font-size: 22px;
+  }
+  
+  .navLabel {
+    font-size: 10px;
+    max-width: 50px;
+  }
+  
+  .badge {
+    min-width: 16px;
+    height: 16px;
+    font-size: 9px;
+    top: 2px;
+    right: 6px;
+  }
+}
+
+@media (max-width: 360px) {
+  .bottomNav {
+    height: 70px;
+    padding: 0 2px;
+  }
+  
+  .navContainer {
+    max-width: 100%;
+  }
+  
+  .navItem {
+    min-height: 50px;
+    padding: 4px 1px;
+    max-width: 70px;
+    min-width: 45px;
+  }
+  
+  .navIcon {
+    font-size: 20px;
+    margin-bottom: 2px;
+  }
+  
+  .navLabel {
+    font-size: 9px;
+    max-width: 45px;
+  }
+}
+
+/* 橫屏模式優化 */
+@media (orientation: landscape) and (max-height: 500px) {
+  .bottomNav {
+    height: 60px;
+  }
+  
+  .navItem {
+    min-height: 45px;
+    padding: 4px 2px;
+  }
+  
+  .navIcon {
+    font-size: 18px;
+    margin-bottom: 2px;
+  }
+  
+  .navLabel {
+    font-size: 9px;
+  }
+}
+
+/* 深色模式支持 */
+@media (prefers-color-scheme: dark) {
+  .bottomNav {
+    background: #1f2937;
+    border-top-color: #374151;
+    box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.3);
+  }
+  
+  .navItemActive {
+    color: #60a5fa;
+    background: rgba(96, 165, 250, 0.1);
+  }
+  
+  .navItemInactive {
+    color: #9ca3af;
+  }
+  
+  .navItemInactive:hover {
+    color: #60a5fa;
+    background: rgba(96, 165, 250, 0.1);
+  }
+  
+  .navItem:active {
+    background: rgba(96, 165, 250, 0.15);
+  }
+  
+  .badge {
+    border-color: #1f2937;
+  }
+}
+
+/* 高對比度模式 */
+@media (prefers-contrast: high) {
+  .bottomNav {
+    border-top-width: 2px;
+  }
+  
+  .navItemActive {
+    background: rgba(59, 130, 246, 0.2);
+    border: 1px solid #3b82f6;
+  }
+  
+  .badge {
+    border-width: 3px;
+    font-weight: 900;
+  }
+}
+
+/* 減少動畫模式 */
+@media (prefers-reduced-motion: reduce) {
+  .navItem,
+  .navIcon {
+    transition: none;
+  }
+  
+  .navItem:active {
+    transform: none;
+  }
+  
+  .navItemActive .navIcon {
+    transform: none;
+  }
+}
+
+/* 觸控設備優化 */
+@media (hover: none) and (pointer: coarse) {
+  .navItemInactive:hover {
+    color: #6b7280;
+    background: transparent;
+  }
+  
+  .navItem:focus {
+    outline: 2px solid #3b82f6;
+    outline-offset: 2px;
+  }
+}
+
+/* 大字體模式支持 */
+@media (prefers-reduced-data: reduce) {
+  .navIcon {
+    font-size: 20px;
+  }
+  
+  .navLabel {
+    font-size: 10px;
+  }
+}
+
+/* iOS Safari 特殊處理 */
+@supports (-webkit-touch-callout: none) {
+  .bottomNav {
+    /* iOS Safari 底部安全區域 */
+    padding-bottom: max(env(safe-area-inset-bottom), 8px);
+  }
+  
+  .navItem {
+    /* 防止iOS的觸控高亮 */
+    -webkit-tap-highlight-color: transparent;
+    -webkit-touch-callout: none;
+  }
+}
+
+/* Android Chrome 特殊處理 */
+@media screen and (-webkit-min-device-pixel-ratio: 0) {
+  .navItem:active {
+    /* Android 觸控反饋 */
+    background: rgba(59, 130, 246, 0.1);
+  }
+}

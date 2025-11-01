@@ -3,6 +3,7 @@
 import { useState, useEffect, FormEvent } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
+import './mobile.css';
 
 // --- Interfaces ---
 interface Patient {
@@ -154,54 +155,54 @@ export default function BookAppointmentPage() {
   };
 
   // --- Render Logic ---
-  if (isLoading || status === 'loading') return <div className="container mx-auto p-8 text-center">加载中...</div>;
-  if (error) return <div className="container mx-auto p-8 text-center text-red-600">{error}</div>;
+  if (isLoading || status === 'loading') return <div className="mobile-loading">加载中...</div>;
+  if (error) return <div className="mobile-loading" style={{color: '#dc2626'}}>{error}</div>;
 
   return (
-    <div className="container mx-auto p-6 md:p-10">
-      <h1 className="text-4xl font-bold mb-8 text-foreground">为病人预约</h1>
-      <form onSubmit={handleSubmit} className="max-w-2xl mx-auto bg-white p-8 rounded-2xl shadow-lg space-y-8">
+    <div className="mobile-container">
+      <h1 className="mobile-header">为病人预约</h1>
+      <form onSubmit={handleSubmit} className="mobile-form">
         
         {/* Patient Selection */}
-        <div>
-          <h2 className="text-2xl font-semibold mb-4">1. 查找病人</h2>
-          <div className="flex gap-4">
+        <div className="mobile-section">
+          <h2 className="mobile-section-title">1. 查找病人</h2>
+          <div className="mobile-search-group">
             <input
               type="text"
               value={patientSearch}
               onChange={(e) => setPatientSearch(e.target.value)}
               placeholder="按用户名或姓名搜索..."
-              className="input-base flex-grow text-lg"
+              className="mobile-input mobile-input-flex"
             />
-            <button type="button" onClick={handlePatientSearch} className="btn btn-primary text-lg">搜索</button>
+            <button type="button" onClick={handlePatientSearch} className="mobile-btn mobile-btn-primary">搜索</button>
           </div>
           {searchedPatients.length > 0 && (
-            <ul className="mt-4 border rounded-xl max-h-48 overflow-y-auto bg-gray-50">
+            <ul className="mobile-search-results">
               {searchedPatients.map(p => (
-                <li key={p.id} onClick={() => { setSelectedPatient(p); setSearchedPatients([]); setPatientSearch(p.name); }} className="p-4 hover:bg-gray-100 cursor-pointer text-lg">
+                <li key={p.id} onClick={() => { setSelectedPatient(p); setSearchedPatients([]); setPatientSearch(p.name); }} className="mobile-search-item">
                   {p.name} ({p.username})
                 </li>
               ))}
             </ul>
           )}
-          {selectedPatient && <p className="mt-4 text-xl text-success">已选择：{selectedPatient.name} ({selectedPatient.username})</p>}
+          {selectedPatient && <p className="mobile-selected-patient">已选择：{selectedPatient.name} ({selectedPatient.username})</p>}
         </div>
 
         {/* Schedule Selection */}
-        <div>
-          <h2 className="text-2xl font-semibold mb-4">2. 选择预约时段</h2>
-          <div className="space-y-6">
+        <div className="mobile-section">
+          <h2 className="mobile-section-title">2. 选择预约时段</h2>
+          <div className="mobile-input-group">
             <div>
-              <label htmlFor="schedule" className="block text-lg font-medium">日期与诊室</label>
-              <select id="schedule" value={selectedScheduleId} onChange={e => { setSelectedScheduleId(e.target.value); setSelectedTime(''); }} className="input-base mt-2 text-lg" required>
+              <label htmlFor="schedule" className="mobile-label">日期与诊室</label>
+              <select id="schedule" value={selectedScheduleId} onChange={e => { setSelectedScheduleId(e.target.value); setSelectedTime(''); }} className="mobile-select" required>
                 <option value="">-- 选择排班 --</option>
                 {schedules.map(s => <option key={s.id} value={s.id}>{s.date} ({s.roomName})</option>)}
               </select>
             </div>
             {selectedScheduleId && (
               <div>
-                <label className="block text-lg font-medium">时间段</label>
-                <div className="grid grid-cols-3 sm:grid-cols-4 gap-3 mt-2">
+                <label className="mobile-label">时间段</label>
+                <div className="mobile-time-slots">
                   {schedules.find(s => s.id === selectedScheduleId)?.timeSlots && Array.isArray(schedules.find(s => s.id === selectedScheduleId)?.timeSlots) ? 
                     schedules.find(s => s.id === selectedScheduleId)?.timeSlots.map(slot => (
                     <button
@@ -209,18 +210,17 @@ export default function BookAppointmentPage() {
                       key={slot.time}
                       onClick={() => setSelectedTime(slot.time)}
                       disabled={slot.booked >= slot.total}
-                      className={`p-3 border rounded-lg text-center text-base transition-all duration-200 transform
-                        ${selectedTime === slot.time
-                          ? 'bg-primary text-white scale-105 shadow-lg'
-                          : 'bg-white text-foreground hover:bg-gray-100 hover:scale-105'
-                        }
-                        ${slot.booked >= slot.total ? 'bg-gray-200 text-gray-400 cursor-not-allowed' : ''}
-                      `}
+                      className={`mobile-time-slot ${
+                        selectedTime === slot.time ? 'mobile-time-slot-selected' : ''
+                      } ${
+                        slot.booked >= slot.total ? 'mobile-time-slot-disabled' : ''
+                      }`}
                     >
-                      {slot.time} ({slot.booked}/{slot.total})
+                      <div>{slot.time}</div>
+                      <div>({slot.booked}/{slot.total})</div>
                     </button>
                   )) : 
-                    <p className="text-gray-500 col-span-3">暂无可用时间段</p>
+                    <p className="mobile-no-slots">暂无可用时间段</p>
                   }
                 </div>
               </div>
@@ -229,12 +229,12 @@ export default function BookAppointmentPage() {
         </div>
 
         {/* Submission */}
-        <button type="submit" className="w-full btn btn-secondary text-xl" disabled={!selectedPatient || !selectedTime}>
+        <button type="submit" className="mobile-btn mobile-btn-secondary mobile-btn-full" disabled={!selectedPatient || !selectedTime}>
           确认预约
         </button>
 
-        {success && <p className="mt-4 text-xl text-white bg-success p-4 rounded-xl text-center">{success}</p>}
-        {error && <p className="mt-4 text-xl text-error bg-red-100 p-4 rounded-xl text-center">{error}</p>}
+        {success && <div className="mobile-alert mobile-alert-success">{success}</div>}
+        {error && <div className="mobile-alert mobile-alert-error">{error}</div>}
       </form>
     </div>
   );

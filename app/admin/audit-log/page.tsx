@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
+import './mobile.css';
 
 // --- Interfaces ---
 interface AuditLog {
@@ -55,30 +56,30 @@ export default function AdminAuditLogPage() {
     fetchLogs();
   }, [status, session]);
 
-  if (status === 'loading' || isLoading) return <div className="container mx-auto p-8 text-center">加载中...</div>;
-  if (session?.user.role !== 'ADMIN') return <div className="container mx-auto p-8 text-center text-red-600">{error}</div>;
+  if (status === 'loading' || isLoading) return <div className="mobile-loading">加载中...</div>;
+  if (session?.user.role !== 'ADMIN') return <div className="mobile-access-denied">{error}</div>;
 
   return (
-    <div className="container mx-auto p-4 sm:p-6 md:p-8">
-      <h1 className="text-3xl font-bold mb-6">审计日志</h1>
-      {error && <div className="p-3 mb-4 text-sm text-red-700 bg-red-100 rounded-md">{error}</div>}
+    <div className="mobile-container">
+      <h1 className="mobile-header">审计日志</h1>
+      {error && <div className="mobile-error">{error}</div>}
 
-      <div className="bg-white p-4 border rounded-lg shadow-md">
-        <div className="space-y-4">
+      <div className="mobile-content-section">
+        <div className="mobile-logs-list">
           {logs.length > 0 ? logs.map(log => (
-            <div key={log.id} className="p-3 border rounded-md bg-gray-50 text-sm">
-              <p className="font-semibold">操作: {log.action} 于 {log.entityType} {log.entityId ? `(ID: ${log.entityId})` : ''}</p>
-              <p className="text-gray-600">执行者: {log.userName || log.userUsername} ({log.userRole}) 于 {new Date(log.timestamp).toLocaleString()}</p>
+            <div key={log.id} className="mobile-log-item">
+              <p className="mobile-log-action">操作: {log.action} 于 {log.entityType} {log.entityId ? `(ID: ${log.entityId})` : ''}</p>
+              <p className="mobile-log-metadata">执行者: {log.userName || log.userUsername} ({log.userRole}) 于 {new Date(log.timestamp).toLocaleString()}</p>
               {log.details && (
-                <details className="mt-1">
-                  <summary className="cursor-pointer text-xs text-gray-500">详情</summary>
-                  <pre className="bg-gray-100 p-2 rounded-md mt-1 overflow-x-auto text-xs">
+                <details className="mobile-log-details">
+                  <summary>详情</summary>
+                  <pre>
                     {JSON.stringify(log.details, null, 2)}
                   </pre>
                 </details>
               )}
             </div>
-          )) : <p className="text-gray-500">未找到审计日志。</p>}
+          )) : <div className="mobile-empty-state"><p className="mobile-empty-text">未找到审计日志。</p></div>}
         </div>
       </div>
     </div>

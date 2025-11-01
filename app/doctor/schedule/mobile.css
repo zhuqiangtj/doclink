@@ -1,0 +1,781 @@
+/* 手機端優化樣式 - 全面重構 */
+
+/* 基礎重置和變量 */
+:root {
+  --primary-color: #3b82f6;
+  --primary-hover: #2563eb;
+  --secondary-color: #6b7280;
+  --success-color: #10b981;
+  --danger-color: #ef4444;
+  --warning-color: #f59e0b;
+  --info-color: #0ea5e9;
+  --background-color: #f8fafc;
+  --card-background: #ffffff;
+  --border-color: #e5e7eb;
+  --text-primary: #1f2937;
+  --text-secondary: #6b7280;
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+  --border-radius: 12px;
+  --border-radius-sm: 8px;
+  --spacing-xs: 0.5rem;
+  --spacing-sm: 0.75rem;
+  --spacing-md: 1rem;
+  --spacing-lg: 1.5rem;
+  --spacing-xl: 2rem;
+}
+
+/* 全局樣式 */
+* {
+  box-sizing: border-box;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background-color: var(--background-color);
+  margin: 0;
+  padding: 0;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* 基礎容器 - 參考登錄界面的居中設計 */
+.mobile-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  min-height: 100vh;
+  padding: var(--spacing-lg);
+  background-color: var(--background-color);
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+/* 頁面標題 */
+.mobile-header {
+  margin-bottom: var(--spacing-lg);
+  text-align: center;
+  padding: var(--spacing-md) 0;
+}
+
+.mobile-header h1 {
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0 0 var(--spacing-xs) 0;
+}
+
+.mobile-header p {
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+/* 卡片容器 - 統一寬度設置 */
+.mobile-card {
+  background: var(--card-background);
+  border-radius: var(--border-radius);
+  padding: var(--spacing-lg);
+  box-shadow: var(--shadow-sm);
+  border: 1px solid var(--border-color);
+  margin-bottom: var(--spacing-md);
+  width: 100%;
+  max-width: 600px !important; /* 強制統一寬度 */
+  box-sizing: border-box; /* 確保padding不影響總寬度 */
+}
+
+/* 區段標題 */
+.mobile-section-header {
+  border-bottom: 1px solid var(--border-color);
+  padding-bottom: var(--spacing-sm);
+  margin-bottom: var(--spacing-md);
+}
+
+.mobile-section-header h3 {
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+/* 輸入框樣式 */
+.mobile-input {
+  width: 100%;
+  padding: var(--spacing-md);
+  border: 2px solid var(--border-color);
+  border-radius: var(--border-radius-sm);
+  font-size: 16px; /* 防止iOS縮放 */
+  background: var(--card-background);
+  color: var(--text-primary);
+  transition: all 0.2s ease;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.mobile-input:focus {
+  outline: none;
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.mobile-input:disabled {
+  background-color: #f9fafb;
+  color: var(--text-secondary);
+  cursor: not-allowed;
+}
+
+/* 按鈕基礎樣式 */
+.mobile-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--spacing-md) var(--spacing-lg);
+  border-radius: var(--border-radius-sm);
+  font-weight: 600;
+  font-size: 1rem;
+  transition: all 0.2s ease;
+  border: none;
+  cursor: pointer;
+  min-height: 48px; /* iOS觸控最小尺寸 */
+  text-decoration: none;
+  gap: var(--spacing-xs);
+  position: relative;
+  overflow: hidden;
+}
+
+.mobile-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none !important;
+}
+
+/* 按鈕變體 */
+.mobile-btn-primary {
+  background: var(--primary-color);
+  color: white;
+}
+
+.mobile-btn-primary:hover:not(:disabled) {
+  background: var(--primary-hover);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
+}
+
+.mobile-btn-secondary {
+  background: var(--secondary-color);
+  color: white;
+}
+
+.mobile-btn-secondary:hover:not(:disabled) {
+  background: #4b5563;
+  transform: translateY(-1px);
+}
+
+.mobile-btn-outline {
+  background: transparent;
+  color: var(--primary-color);
+  border: 2px solid var(--primary-color);
+}
+
+.mobile-btn-outline:hover:not(:disabled) {
+  background: var(--primary-color);
+  color: white;
+  transform: translateY(-1px);
+}
+
+.mobile-btn-danger {
+  background: var(--danger-color);
+  color: white;
+}
+
+.mobile-btn-danger:hover:not(:disabled) {
+  background: #dc2626;
+  transform: translateY(-1px);
+}
+
+.mobile-btn-success {
+  background: var(--success-color);
+  color: white;
+}
+
+.mobile-btn-success:hover:not(:disabled) {
+  background: #059669;
+  transform: translateY(-1px);
+}
+
+/* 圖標按鈕 */
+.mobile-icon-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--border-radius-sm);
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  background: var(--card-background);
+  border: 2px solid var(--border-color);
+}
+
+.mobile-icon-btn:hover:not(:disabled) {
+  transform: scale(1.05);
+  box-shadow: var(--shadow-sm);
+}
+
+.mobile-icon-btn-colored {
+  width: 40px;
+  height: 40px;
+  border-radius: var(--border-radius-sm);
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 40px;
+  min-height: 40px;
+}
+
+.mobile-icon-btn-success {
+  background: var(--success-color);
+  color: white;
+  box-shadow: var(--shadow-sm);
+}
+
+.mobile-icon-btn-success:hover:not(:disabled) {
+  background: #059669;
+  transform: scale(1.05);
+  box-shadow: var(--shadow-md);
+}
+
+.mobile-icon-btn-save-colored {
+  background: var(--primary-color);
+  color: white;
+  box-shadow: var(--shadow-sm);
+}
+
+.mobile-icon-btn-save-colored:hover:not(:disabled) {
+  background: var(--primary-hover);
+  transform: scale(1.05);
+  box-shadow: var(--shadow-md);
+}
+
+.mobile-icon-btn-delete-colored {
+  background: var(--danger-color);
+  color: white;
+  box-shadow: var(--shadow-sm);
+}
+
+.mobile-icon-btn-delete-colored:hover:not(:disabled) {
+  background: #dc2626;
+  transform: scale(1.05);
+  box-shadow: var(--shadow-md);
+}
+
+.mobile-icon-btn-disabled-colored {
+  background: var(--secondary-color);
+  color: white;
+  opacity: 0.6;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.mobile-icon-btn-expand {
+  background: var(--info-color);
+  color: white;
+  box-shadow: var(--shadow-sm);
+  order: 999; /* 確保展開按鈕在最後 */
+}
+
+.mobile-icon-btn-expand:hover:not(:disabled) {
+  background: #0369a1;
+  box-shadow: var(--shadow-md);
+}
+
+.mobile-icon-btn-expand-disabled {
+  background: #9ca3af; /* 灰色背景 */
+  color: #6b7280; /* 灰色文字 */
+  box-shadow: none;
+  order: 999; /* 確保展開按鈕在最後 */
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.mobile-icon-btn-expand-disabled:hover {
+  background: #9ca3af; /* 懸停時保持灰色 */
+  transform: none; /* 不放大 */
+  box-shadow: none;
+}
+
+/* 時間段樣式 */
+.mobile-time-slot {
+  background: var(--card-background);
+  border: 2px solid var(--border-color);
+  border-radius: var(--border-radius-sm);
+  padding: var(--spacing-md);
+  margin-bottom: var(--spacing-sm);
+  transition: all 0.2s ease;
+}
+
+.mobile-time-slot-single-line {
+  background: var(--card-background);
+  border: 2px solid var(--border-color);
+  border-radius: var(--border-radius-sm);
+  padding: var(--spacing-md);
+  margin-bottom: var(--spacing-sm);
+  transition: all 0.2s ease;
+}
+
+.mobile-time-slot-modified {
+  border-color: var(--warning-color);
+  background: #fef3c7;
+}
+
+.mobile-time-slot-inline {
+  display: flex;
+  flex-direction: row;
+  gap: var(--spacing-sm);
+  align-items: center;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+}
+
+.mobile-time-input-inline {
+  width: 120px;
+  padding: var(--spacing-sm);
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius-sm);
+  font-size: 1rem;
+  background: var(--card-background);
+  flex-shrink: 0;
+}
+
+.mobile-total-input-inline {
+  width: 80px;
+  padding: var(--spacing-sm);
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius-sm);
+  font-size: 1rem;
+  background: var(--card-background);
+  flex-shrink: 0;
+}
+
+.mobile-slot-info-inline {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: var(--spacing-xs);
+  background: #f8fafc;
+  border-radius: var(--border-radius-sm);
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  min-width: 60px;
+  flex-shrink: 0;
+}
+
+.mobile-slot-actions-inline {
+  display: flex;
+  gap: var(--spacing-sm);
+  align-items: center;
+  justify-content: flex-end;
+  margin-top: 0;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+/* 患者列表樣式 */
+.mobile-patient-list-inline {
+  margin-top: var(--spacing-md);
+  border-top: 1px solid var(--border-color);
+  padding-top: var(--spacing-md);
+}
+
+.mobile-patient-item-inline {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding: var(--spacing-sm);
+  background: #f0f9ff;
+  border-radius: var(--border-radius-sm);
+  margin-bottom: var(--spacing-xs);
+  border: 1px solid #bae6fd;
+}
+
+.mobile-patient-info-inline {
+  flex: 1;
+  min-width: 0;
+}
+
+.mobile-patient-name-inline {
+  display: block;
+  font-weight: 600;
+  color: var(--text-primary);
+  font-size: 0.875rem;
+  margin-bottom: 2px;
+}
+
+.mobile-patient-details-inline {
+  display: block;
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  line-height: 1.3;
+}
+
+.mobile-patient-delete-btn-inline {
+  background: var(--danger-color);
+  color: white;
+  border: none;
+  border-radius: var(--border-radius-sm);
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+  margin-left: var(--spacing-xs);
+}
+
+.mobile-patient-delete-btn-inline:hover {
+  background: #dc2626;
+  transform: scale(1.05);
+}
+
+/* 模態框樣式 */
+/* 模態對話框覆蓋層 - 優化居中和響應式設計 */
+.mobile-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: var(--spacing-lg);
+  backdrop-filter: blur(4px);
+}
+
+/* 模態對話框主體 - 改進響應式設計 */
+.mobile-modal {
+  background: var(--card-background);
+  border-radius: var(--border-radius);
+  width: 100%;
+  max-width: 500px;
+  max-height: 90vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  box-shadow: var(--shadow-lg);
+  animation: modalSlideIn 0.3s ease-out;
+  margin: auto;
+}
+
+@keyframes modalSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-20px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.mobile-modal-large {
+  max-width: 650px;
+}
+
+.mobile-modal-header {
+  padding: var(--spacing-lg);
+  border-bottom: 1px solid var(--border-color);
+  background: var(--card-background);
+}
+
+.mobile-modal-header h2 {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.mobile-modal-content {
+  padding: var(--spacing-lg);
+  flex: 1;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.mobile-modal-footer {
+  padding: var(--spacing-lg);
+  border-top: 1px solid var(--border-color);
+  display: flex;
+  gap: var(--spacing-sm);
+  background: var(--card-background);
+}
+
+/* 搜尋結果 */
+.mobile-search-results {
+  margin-top: var(--spacing-sm);
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius-sm);
+  max-height: 200px;
+  overflow-y: auto;
+  background: var(--card-background);
+  box-shadow: var(--shadow-sm);
+}
+
+.mobile-search-item {
+  width: 100%;
+  text-align: left;
+  padding: var(--spacing-md);
+  border-bottom: 1px solid var(--border-color);
+  background: var(--card-background);
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+  border: none;
+  font-size: 1rem;
+}
+
+.mobile-search-item:hover {
+  background: #f3f4f6;
+}
+
+.mobile-search-item:last-child {
+  border-bottom: none;
+}
+
+.mobile-search-item:active {
+  background: #e5e7eb;
+}
+
+/* 已選擇患者 */
+.mobile-selected-patient {
+  padding: var(--spacing-md);
+  background: #ecfdf5;
+  border: 2px solid var(--success-color);
+  border-radius: var(--border-radius-sm);
+  color: var(--text-primary);
+}
+
+/* 響應式調整 */
+@media (max-width: 640px) {
+  .mobile-container {
+    padding: var(--spacing-md);
+    max-width: 100%;
+  }
+  
+  .mobile-card {
+    padding: var(--spacing-md);
+    border-radius: var(--border-radius-sm);
+    max-width: 100% !important; /* 小屏幕下統一使用100%寬度 */
+    box-sizing: border-box;
+  }
+  
+  .mobile-btn {
+    font-size: 0.875rem;
+    padding: var(--spacing-sm) var(--spacing-md);
+    min-height: 44px;
+  }
+  
+  .mobile-modal {
+    max-width: calc(100vw - 2rem);
+    margin: 0 auto;
+  }
+  
+  .mobile-modal-overlay {
+    padding: var(--spacing-md);
+  }
+  
+  .mobile-modal-header,
+  .mobile-modal-content,
+  .mobile-modal-footer {
+    padding: var(--spacing-md);
+  }
+  
+  .mobile-header h1 {
+    font-size: 1.5rem;
+  }
+  
+  .mobile-time-slot-inline {
+    gap: var(--spacing-xs);
+  }
+  
+  .mobile-slot-actions-inline {
+    flex-wrap: wrap;
+  }
+}
+
+/* 超小屏幕優化 */
+@media (max-width: 375px) {
+  .mobile-container {
+    padding: var(--spacing-sm);
+    max-width: 100%;
+  }
+  
+  .mobile-card {
+    padding: var(--spacing-sm);
+    max-width: 100% !important; /* 超小屏幕下統一使用100%寬度 */
+    box-sizing: border-box;
+  }
+  
+  .mobile-modal {
+    max-width: calc(100vw - 1rem);
+    max-height: 80vh;
+  }
+
+  .mobile-modal-overlay {
+    padding: var(--spacing-sm);
+  }
+  
+  .mobile-btn {
+    font-size: 0.8rem;
+    padding: var(--spacing-xs) var(--spacing-sm);
+  }
+  
+  .mobile-icon-btn-colored {
+    width: 36px;
+    height: 36px;
+    min-width: 36px;
+    min-height: 36px;
+  }
+  
+  .mobile-slot-actions-inline {
+    gap: var(--spacing-xs);
+    min-width: 120px;
+  }
+}
+
+/* 觸控優化 */
+@media (hover: none) and (pointer: coarse) {
+  .mobile-btn:hover {
+    transform: none;
+  }
+  
+  .mobile-btn:active {
+    transform: scale(0.98);
+  }
+  
+  .mobile-search-item:hover {
+    background: var(--card-background);
+  }
+  
+  .mobile-search-item:active {
+    background: #f3f4f6;
+  }
+  
+  .mobile-icon-btn:hover {
+    transform: none;
+  }
+  
+  .mobile-icon-btn:active {
+    transform: scale(0.95);
+  }
+}
+
+/* 深色模式支持 */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background-color: #0f172a;
+    --card-background: #1e293b;
+    --border-color: #334155;
+    --text-primary: #f1f5f9;
+    --text-secondary: #94a3b8;
+  }
+  
+  .mobile-input {
+    background: var(--card-background);
+    border-color: var(--border-color);
+    color: var(--text-primary);
+  }
+  
+  .mobile-time-slot,
+  .mobile-time-slot-single-line {
+    background: var(--card-background);
+    border-color: var(--border-color);
+  }
+  
+  .mobile-search-results {
+    background: var(--card-background);
+    border-color: var(--border-color);
+  }
+  
+  .mobile-search-item {
+    background: var(--card-background);
+    color: var(--text-primary);
+    border-color: var(--border-color);
+  }
+  
+  .mobile-search-item:hover {
+    background: #334155;
+  }
+  
+  .mobile-search-item:active {
+    background: #475569;
+  }
+}
+
+/* 加載動畫 */
+.mobile-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--spacing-xl);
+}
+
+.mobile-loading-spinner {
+  width: 32px;
+  height: 32px;
+  border: 3px solid var(--border-color);
+  border-top: 3px solid var(--primary-color);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* 成功/錯誤消息 */
+.mobile-message {
+  padding: var(--spacing-md);
+  border-radius: var(--border-radius-sm);
+  margin-bottom: var(--spacing-md);
+  font-weight: 500;
+}
+
+.mobile-message-success {
+  background: #ecfdf5;
+  color: #065f46;
+  border: 1px solid #10b981;
+}
+
+.mobile-message-error {
+  background: #fef2f2;
+  color: #991b1b;
+  border: 1px solid #ef4444;
+}
+
+/* 空狀態 */
+.mobile-empty-state {
+  text-align: center;
+  padding: var(--spacing-xl);
+  color: var(--text-secondary);
+}
+
+.mobile-empty-state h3 {
+  font-size: 1.125rem;
+  font-weight: 600;
+  margin-bottom: var(--spacing-sm);
+  color: var(--text-primary);
+}
+
+.mobile-empty-state p {
+  font-size: 0.875rem;
+  margin: 0;
+}

@@ -1,11 +1,12 @@
 'use client';
 
-import { useState, useEffect, FormEvent } from 'react';
+import { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
-import pinyin from 'pinyin';
+import { pinyin } from 'pinyin-pro';
+import './mobile.css';
 
 // --- Interfaces ---
 
@@ -191,108 +192,137 @@ export default function AdminUsersPage() {
   });
 
   // --- Render Logic ---
-  if (status === 'loading' || isLoading) return <div className="container mx-auto p-8 text-center">加载中...</div>;
-  if (session?.user.role !== 'ADMIN') return <div className="container mx-auto p-8 text-center text-red-600">{error}</div>;
+  if (status === 'loading' || isLoading) return <div className="mobile-loading">加载中...</div>;
+  if (session?.user.role !== 'ADMIN') return <div className="mobile-access-denied">{error}</div>;
 
   return (
-    <div className="container mx-auto p-6 md:p-10">
-      <div className="flex justify-between items-center mb-8">
-        <h1 className="text-4xl font-bold text-foreground">用户管理</h1>
-        <button onClick={() => openModal('add')} className="btn btn-primary text-lg">
+    <div className="page-container">
+      <div className="mobile-header-section">
+        <h1 className="mobile-header">用户管理</h1>
+        <button onClick={() => openModal('add')} className="mobile-add-btn">
           添加用户
         </button>
       </div>
 
-      {error && <div className="p-3 mb-4 text-sm text-red-700 bg-red-100 rounded-md">{error}</div>}
-      {success && <div className="p-3 mb-4 text-sm text-green-700 bg-green-100 rounded-md">{success}</div>}
+      {error && <div className="mobile-error">{error}</div>}
+      {success && <div className="mobile-success">{success}</div>}
 
-      <div className="bg-white p-6 rounded-2xl shadow-lg">
+      <div className="mobile-content-section">
         {/* Tabs */}
-        <div className="border-b border-gray-200 mb-6">
-          <nav className="-mb-px flex space-x-8" aria-label="Tabs">
-            <button onClick={() => setActiveTab('all')} className={`whitespace-nowrap pb-4 px-1 border-b-4 font-bold text-lg ${activeTab === 'all' ? 'border-primary text-primary' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}>所有用户</button>
-            <button onClick={() => setActiveTab('doctors')} className={`whitespace-nowrap pb-4 px-1 border-b-4 font-bold text-lg ${activeTab === 'doctors' ? 'border-primary text-primary' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}>医生</button>
-            <button onClick={() => setActiveTab('patients')} className={`whitespace-nowrap pb-4 px-1 border-b-4 font-bold text-lg ${activeTab === 'patients' ? 'border-primary text-primary' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}>患者</button>
-            <button onClick={() => setActiveTab('admins')} className={`whitespace-nowrap pb-4 px-1 border-b-4 font-bold text-lg ${activeTab === 'admins' ? 'border-primary text-primary' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}>管理员</button>
+        <div className="mobile-tabs-container">
+          <nav className="mobile-tabs" aria-label="Tabs">
+            <button onClick={() => setActiveTab('all')} className={`mobile-tab ${activeTab === 'all' ? 'mobile-tab-active' : 'mobile-tab-inactive'}`}>所有用户</button>
+            <button onClick={() => setActiveTab('doctors')} className={`mobile-tab ${activeTab === 'doctors' ? 'mobile-tab-active' : 'mobile-tab-inactive'}`}>医生</button>
+            <button onClick={() => setActiveTab('patients')} className={`mobile-tab ${activeTab === 'patients' ? 'mobile-tab-active' : 'mobile-tab-inactive'}`}>患者</button>
+            <button onClick={() => setActiveTab('admins')} className={`mobile-tab ${activeTab === 'admins' ? 'mobile-tab-active' : 'mobile-tab-inactive'}`}>管理员</button>
           </nav>
         </div>
 
-        <ul className="space-y-4">
+        <ul className="mobile-users-list">
           {filteredUsers.length > 0 ? filteredUsers.map((user) => (
-            <li key={user.id} className="p-5 border rounded-xl shadow-sm flex justify-between items-center">
-              <div>
-                <p className="font-semibold text-xl">{user.username} <span className="text-base text-gray-500">({user.role})</span></p>
-                <p className="text-lg text-gray-600">姓名: {user.name}</p>
-                {user.phone && <p className="text-lg text-gray-600">电话: {user.phone}</p>}
-                {user.dateOfBirth && <p className="text-lg text-gray-600">年龄: {calculateAge(user.dateOfBirth)}</p>}
-                {user.gender && <p className="text-lg text-gray-600">性别: {genderMap[user.gender] || user.gender}</p>}
-                {user.patientProfile && <p className="text-lg text-gray-600">患者 (信誉分: {user.patientProfile.credibilityScore}, 是否暂停: {user.patientProfile.isSuspended ? '是' : '否'})</p>}
+            <li key={user.id} className="mobile-user-item">
+              <div className="mobile-user-info">
+                <p className="mobile-user-name">{user.username} <span className="mobile-user-role">({user.role})</span></p>
+                <div className="mobile-user-details">
+                  <p className="mobile-user-detail">姓名: {user.name}</p>
+                  {user.phone && <p className="mobile-user-detail">电话: {user.phone}</p>}
+                  {user.dateOfBirth && <p className="mobile-user-detail">年龄: {calculateAge(user.dateOfBirth)}</p>}
+                  {user.gender && <p className="mobile-user-detail">性别: {genderMap[user.gender] || user.gender}</p>}
+                  {user.patientProfile && <p className="mobile-user-detail">患者 (信誉分: {user.patientProfile.credibilityScore}, 是否暂停: {user.patientProfile.isSuspended ? '是' : '否'})</p>}
+                </div>
               </div>
-              <div className="flex flex-col space-y-2">
-                <button onClick={() => openModal('edit', user)} className="btn btn-primary text-base">编辑</button>
-                <button onClick={() => openModal('reset_password', user)} className="btn btn-secondary text-base">重置密码</button>
-                <button onClick={() => handleDelete(user.id)} className="btn bg-error text-white text-base">删除</button>
+              <div className="mobile-user-actions">
+                <button onClick={() => openModal('edit', user)} className="mobile-action-btn mobile-edit-btn">编辑</button>
+                <button onClick={() => openModal('reset_password', user)} className="mobile-action-btn mobile-reset-btn">重置密码</button>
+                <button onClick={() => handleDelete(user.id)} className="mobile-action-btn mobile-delete-btn">删除</button>
               </div>
             </li>
-          )) : <p className="text-center text-2xl text-gray-500 py-10">未找到该分类下的用户。</p>}
+          )) : <div className="mobile-empty-state"><p className="mobile-empty-text">未找到该分类下的用户。</p></div>}
         </ul>
       </div>
 
       {/* Modal */}
       {isModalOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4">
-          <div className="bg-white p-10 rounded-2xl shadow-2xl w-full max-w-lg">
-            <h2 className="text-3xl font-bold mb-6 capitalize">{modalMode === 'add' ? '添加用户' : modalMode === 'edit' ? '编辑用户' : '重置密码'}</h2>
-            <form onSubmit={handleSubmit} className="space-y-6">
-              <input type="text" value={name} onChange={(e) => {
-                setName(e.target.value);
-                if (modalMode === 'add') {
-                  setIsUsernameManuallyEdited(false);
-                }
-              }} placeholder="姓名" className="input-base text-lg" required />
-              <input type="text" value={username} onChange={(e) => { setUsername(e.target.value); setIsUsernameManuallyEdited(true); }} placeholder="用户名" className={`input-base text-lg ${modalMode === 'edit' ? 'bg-gray-100' : ''}`} required disabled={modalMode === 'edit'} />
-              <input type="text" value={phone} onChange={e => setPhone(e.target.value)} placeholder="电话（可选）" className="input-base text-lg" />
-                            <DatePicker
-                selected={dateOfBirth ? new Date(dateOfBirth) : null}
-                onChange={(date: Date) => setDateOfBirth(date.toISOString().split('T')[0])}
-                placeholderText="选择出生日期（可选）"
-                className="input-base text-lg"
-                dateFormat="yyyy-MM-dd"
-                showYearDropdown
-                scrollableYearDropdown
-              />
-              <select value={gender} onChange={e => setGender(e.target.value)} className="input-base text-lg">
-                <option value="">选择性别（可选）</option>
-                <option value="Male">男</option>
-                <option value="Female">女</option>
-                <option value="Other">其他</option>
-              </select>
-              <select value={role} onChange={e => setRole(e.target.value as 'PATIENT' | 'DOCTOR' | 'ADMIN')} className="input-base text-lg">
-                <option value="PATIENT">患者</option>
-                <option value="DOCTOR">医生</option>
-                <option value="ADMIN">管理员</option>
-              </select>
+        <div className="mobile-modal-overlay">
+          <div className="mobile-modal">
+            <h2 className="mobile-modal-title">{modalMode === 'add' ? '添加用户' : modalMode === 'edit' ? '编辑用户' : '重置密码'}</h2>
+            <form onSubmit={handleSubmit} className="mobile-modal-form">
+              <div className="mobile-form-group">
+                <label className="mobile-form-label">姓名</label>
+                <input type="text" value={name} onChange={(e) => {
+                  setName(e.target.value);
+                  if (modalMode === 'add') {
+                    setIsUsernameManuallyEdited(false);
+                  }
+                }} placeholder="姓名" className="mobile-form-input" required />
+              </div>
+              
+              <div className="mobile-form-group">
+                <label className="mobile-form-label">用户名</label>
+                <input type="text" value={username} onChange={(e) => { setUsername(e.target.value); setIsUsernameManuallyEdited(true); }} placeholder="用户名" className={`mobile-form-input ${modalMode === 'edit' ? 'mobile-form-input:disabled' : ''}`} required disabled={modalMode === 'edit'} />
+              </div>
+              
+              <div className="mobile-form-group">
+                <label className="mobile-form-label">电话（可选）</label>
+                <input type="text" value={phone} onChange={e => setPhone(e.target.value)} placeholder="电话（可选）" className="mobile-form-input" />
+              </div>
+              
+              <div className="mobile-form-group">
+                <label className="mobile-form-label">出生日期（可选）</label>
+                <DatePicker
+                  selected={dateOfBirth ? new Date(dateOfBirth) : null}
+                  onChange={(date: Date) => setDateOfBirth(date.toISOString().split('T')[0])}
+                  placeholderText="选择出生日期（可选）"
+                  className="mobile-form-input"
+                  dateFormat="yyyy-MM-dd"
+                  showYearDropdown
+                  scrollableYearDropdown
+                />
+              </div>
+              
+              <div className="mobile-form-group">
+                <label className="mobile-form-label">性别（可选）</label>
+                <select value={gender} onChange={e => setGender(e.target.value)} className="mobile-form-select">
+                  <option value="">选择性别（可选）</option>
+                  <option value="Male">男</option>
+                  <option value="Female">女</option>
+                  <option value="Other">其他</option>
+                </select>
+              </div>
+              
+              <div className="mobile-form-group">
+                <label className="mobile-form-label">角色</label>
+                <select value={role} onChange={e => setRole(e.target.value as 'PATIENT' | 'DOCTOR' | 'ADMIN')} className="mobile-form-select">
+                  <option value="PATIENT">患者</option>
+                  <option value="DOCTOR">医生</option>
+                  <option value="ADMIN">管理员</option>
+                </select>
+              </div>
+              
               {modalMode === 'add' && (
-                <input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="初始密码" className="input-base text-lg" required />
+                <div className="mobile-form-group">
+                  <label className="mobile-form-label">初始密码</label>
+                  <input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="初始密码" className="mobile-form-input" required />
+                </div>
               )}
 
               {/* Patient Specific Fields */}
               {selectedUser?.role === 'PATIENT' && modalMode === 'edit' && (
                 <>
-                  <div>
-                    <label className="block text-lg font-medium">信誉分</label>
-                    <input type="number" value={credibilityScore} onChange={e => setCredibilityScore(parseInt(e.target.value))} className="input-base mt-2" />
+                  <div className="mobile-form-group">
+                    <label className="mobile-form-label">信誉分</label>
+                    <input type="number" value={credibilityScore} onChange={e => setCredibilityScore(parseInt(e.target.value))} className="mobile-form-input" />
                   </div>
-                  <div className="flex items-center mt-4">
-                    <input type="checkbox" checked={isSuspended} onChange={e => setIsSuspended(e.target.checked)} id="isSuspended" className="h-5 w-5 text-primary border-gray-300 rounded" />
-                    <label htmlFor="isSuspended" className="ml-3 block text-lg text-foreground">是否暂停</label>
+                  <div className="mobile-checkbox-group">
+                    <input type="checkbox" checked={isSuspended} onChange={e => setIsSuspended(e.target.checked)} id="isSuspended" className="mobile-checkbox" />
+                    <label htmlFor="isSuspended" className="mobile-checkbox-label">是否暂停</label>
                   </div>
                 </>
               )}
 
-              <div className="flex justify-end gap-4 mt-8">
-                <button type="button" onClick={closeModal} className="btn bg-gray-200 text-gray-800 text-lg">取消</button>
-                <button type="submit" className="btn btn-primary text-lg">保存</button>
+              <div className="mobile-modal-actions">
+                <button type="button" onClick={closeModal} className="mobile-cancel-btn">取消</button>
+                <button type="submit" className="mobile-save-btn">保存</button>
               </div>
             </form>
           </div>
