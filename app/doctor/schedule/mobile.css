@@ -677,47 +677,7 @@ body {
   }
 }
 
-/* 深色模式支持 */
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background-color: #0f172a;
-    --card-background: #1e293b;
-    --border-color: #334155;
-    --text-primary: #f1f5f9;
-    --text-secondary: #94a3b8;
-  }
-  
-  .mobile-input {
-    background: var(--card-background);
-    border-color: var(--border-color);
-    color: var(--text-primary);
-  }
-  
-  .mobile-time-slot,
-  .mobile-time-slot-single-line {
-    background: var(--card-background);
-    border-color: var(--border-color);
-  }
-  
-  .mobile-search-results {
-    background: var(--card-background);
-    border-color: var(--border-color);
-  }
-  
-  .mobile-search-item {
-    background: var(--card-background);
-    color: var(--text-primary);
-    border-color: var(--border-color);
-  }
-  
-  .mobile-search-item:hover {
-    background: #334155;
-  }
-  
-  .mobile-search-item:active {
-    background: #475569;
-  }
-}
+/* 移除深色模式支持，始終使用淺色主題 */
 
 /* 加載動畫 */
 .mobile-loading {

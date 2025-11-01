@@ -31,12 +31,7 @@
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #171717; /* neutral-900 */
-    --foreground: #ededed;
-  }
-}
+/* 移除系統深色模式跟隨，始終使用自定義淺色主題 */
 
 /* 頁面主體樣式 - 為底部導航留出空間 */
 body {

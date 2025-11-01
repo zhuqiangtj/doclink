@@ -198,37 +198,7 @@
   }
 }
 
-/* Dark mode support */
-@media (prefers-color-scheme: dark) {
-  .mobile-appointment-card {
-    background: #1f2937;
-    border-color: #374151;
-  }
-  
-  .mobile-doctor-name {
-    color: #f9fafb;
-  }
-  
-  .mobile-appointment-detail {
-    color: #d1d5db;
-  }
-  
-  .mobile-appointment-detail strong {
-    color: #f3f4f6;
-  }
-  
-  .mobile-alert-error {
-    background-color: #7f1d1d;
-    color: #fca5a5;
-    border-color: #dc2626;
-  }
-  
-  .mobile-alert-success {
-    background-color: #14532d;
-    color: #86efac;
-    border-color: #16a34a;
-  }
-}
+/* 移除深色模式支持，始終使用淺色主題 */
 
 /* High contrast mode */
 @media (prefers-contrast: high) {

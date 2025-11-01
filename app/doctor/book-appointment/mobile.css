@@ -327,44 +327,7 @@
   }
 }
 
-/* Dark mode support */
-@media (prefers-color-scheme: dark) {
-  .mobile-form {
-    background: #1f2937;
-    border-color: #374151;
-  }
-  
-  .mobile-section-title {
-    color: #f9fafb;
-  }
-  
-  .mobile-input,
-  .mobile-select {
-    background: #374151;
-    border-color: #4b5563;
-    color: #f9fafb;
-  }
-  
-  .mobile-time-slot {
-    background: #374151;
-    border-color: #4b5563;
-    color: #f9fafb;
-  }
-  
-  .mobile-search-results {
-    background: #374151;
-    border-color: #4b5563;
-  }
-  
-  .mobile-search-item {
-    border-color: #4b5563;
-    color: #f9fafb;
-  }
-  
-  .mobile-search-item:hover {
-    background-color: #4b5563;
-  }
-}
+/* 移除深色模式支持，始終使用淺色主題 */
 
 /* High contrast mode */
 @media (prefers-contrast: high) {
