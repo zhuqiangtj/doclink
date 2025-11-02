@@ -11,14 +11,15 @@ interface Appointment {
   date: string;
   time: string;
   status: string;
+  reason?: string; // 添加原因字段
   doctor: { name: string };
   room: { name: string };
 }
 
 const statusTranslations: { [key: string]: string } = {
-  pending: '待就诊',
+  PENDING: '待就診',
   COMPLETED: '已完成',
-  NO_SHOW: '已爽约',
+  NO_SHOW: '未到診',
   CANCELLED: '已取消',
 };
 
@@ -59,14 +60,26 @@ export default function MyAppointmentsPage() {
     }
   }, [status]);
 
-  const handleCancel = async () => {
-    // ... (cancellation logic remains the same)
+  const handleCancel = async (appointmentId: string) => {
+    try {
+      const res = await fetch(`/api/appointments/${appointmentId}`, {
+        method: 'DELETE',
+      });
+      if (!res.ok) throw new Error('取消預約失敗');
+      
+      // 重新獲取預約列表
+      const appointmentsRes = await fetch('/api/appointments');
+      if (appointmentsRes.ok) {
+        const data = await appointmentsRes.json();
+        setAppointments(data);
+      }
+    } catch (error) {
+      setError('取消預約失敗，請稍後再試');
+    }
   };
 
   const getDisplayStatus = (apt: Appointment) => {
-    if (apt.status === 'pending' && new Date() > new Date(`${apt.date}T${apt.time}`)) {
-      return '已完成';
-    }
+    // 直接使用數據庫中的狀態，不再進行客戶端轉換
     return statusTranslations[apt.status] || apt.status;
   };
 
@@ -93,15 +106,20 @@ export default function MyAppointmentsPage() {
             <div className="mobile-appointment-detail">
               <strong>地点：</strong>{apt.room.name}
             </div>
+            {apt.reason && (
+              <div className="mobile-appointment-detail">
+                <strong>原因：</strong>{apt.reason}
+              </div>
+            )}
             <div className={`mobile-status ${
-              apt.status === 'pending' ? 'mobile-status-pending' :
+              apt.status === 'PENDING' ? 'mobile-status-pending' :
               apt.status === 'COMPLETED' ? 'mobile-status-completed' :
               apt.status === 'CANCELLED' ? 'mobile-status-cancelled' :
               'mobile-status-no-show'
             }`}>
               状态：{getDisplayStatus(apt)}
             </div>
-            {new Date(`${apt.date}T${apt.time}`) > new Date() && apt.status === 'pending' && (
+            {new Date(`${apt.date}T${apt.time}`) > new Date() && apt.status === 'PENDING' && (
               <button onClick={() => handleCancel(apt.id)} className="mobile-cancel-btn">
                 取消预约
               </button>

@@ -28,9 +28,17 @@
 
 /* Main container */
 .mobile-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  min-height: calc(100vh - 80px);
   padding: 1rem;
-  max-width: 100%;
+  background-color: var(--background);
+  width: 100%;
+  max-width: 1200px;
   margin: 0 auto;
+  padding-bottom: 100px; /* Account for bottom nav */
 }
 
 /* Header */
@@ -70,6 +78,9 @@
   border-radius: 0.75rem;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
   margin-bottom: 1.5rem;
+  width: 100%;
+  max-width: 600px;
+  box-sizing: border-box;
 }
 
 .mobile-form-title {
@@ -142,6 +153,9 @@
   padding: 1.25rem;
   border-radius: 0.75rem;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  width: 100%;
+  max-width: 600px;
+  box-sizing: border-box;
 }
 
 .mobile-rooms-title {

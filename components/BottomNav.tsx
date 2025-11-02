@@ -98,8 +98,7 @@ export default function BottomNav() {
   } else if (role === 'DOCTOR') {
     navItems = [
       { href: '/doctor/schedule', label: '排班', Icon: FaCalendarCheck },
-      { href: '/doctor/appointments', label: '预约', Icon: FaTachometerAlt },
-      { href: '/doctor/notifications', label: '通知', Icon: FaBell, badgeCount: unreadCount > 0 ? unreadCount : undefined },
+      { href: '/doctor/appointments', label: '预约', Icon: FaTachometerAlt, badgeCount: unreadCount > 0 ? unreadCount : undefined },
       { href: '/doctor/rooms', label: '诊室', Icon: FaHospital },
       { href: '/settings', label: '设置', Icon: FaCog },
     ];

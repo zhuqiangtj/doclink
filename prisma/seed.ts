@@ -117,6 +117,60 @@ async function main() {
     console.error('Error creating test patients:', e);
     process.exit(1);
   }
+
+  // 4. Create test doctor users
+  try {
+    const testDoctors = [
+      {
+        username: 'zhangru',
+        name: '張如醫生',
+        gender: 'Female',
+        dateOfBirth: new Date('1975-06-10T00:00:00.000Z'),
+        password: '123456'
+      }
+    ];
+
+    for (const doctorData of testDoctors) {
+      // Delete existing doctor if exists
+      const existingDoctor = await prisma.user.findUnique({ 
+        where: { username: doctorData.username },
+        include: { doctorProfile: true }
+      });
+      if (existingDoctor) {
+        if (existingDoctor.doctorProfile) {
+          await prisma.appointment.deleteMany({ where: { doctorId: existingDoctor.doctorProfile.id } });
+          await prisma.doctor.delete({ where: { userId: existingDoctor.id } });
+        }
+        await prisma.user.delete({ where: { username: doctorData.username } });
+      }
+
+      const hashedPassword = await bcrypt.hash(doctorData.password, 10);
+      
+      const doctorUser = await prisma.user.create({
+        data: {
+          username: doctorData.username,
+          name: doctorData.name,
+          gender: doctorData.gender,
+          dateOfBirth: doctorData.dateOfBirth,
+          password: hashedPassword,
+          role: Role.DOCTOR,
+        },
+      });
+
+      // Create doctor record
+      await prisma.doctor.create({
+        data: {
+          userId: doctorUser.id,
+        },
+      });
+
+      console.log(`Successfully created test doctor: ${doctorUser.name} (${doctorUser.username})`);
+    }
+
+  } catch (e) {
+    console.error('Error creating test doctors:', e);
+    process.exit(1);
+  }
 }
 
 main()

@@ -1,6 +1,164 @@
 /* Mobile-optimized styles for doctor appointments page */
 
-/* Loading state */
+/* 通知橫幅樣式 */
+.mobile-notifications-banner {
+  margin-bottom: 1.5rem;
+  border-radius: 0.75rem;
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.2);
+  overflow: hidden;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.mobile-notifications-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem;
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(10px);
+}
+
+.mobile-notifications-title {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: white;
+  font-weight: 600;
+  font-size: 1rem;
+}
+
+.mobile-notifications-icon {
+  font-size: 1.1rem;
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
+
+.mobile-notifications-toggle {
+  background: rgba(255, 255, 255, 0.2);
+  color: white;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 0.5rem;
+  padding: 0.5rem 1rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.mobile-notifications-toggle:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+.mobile-notifications-toggle:active {
+  transform: scale(0.95);
+}
+
+.mobile-notifications-list {
+  padding: 0 1rem 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.mobile-notification-item {
+  background: white;
+  border-radius: 0.5rem;
+  padding: 1rem;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  border-left: 4px solid #3b82f6;
+}
+
+.mobile-notification-content {
+  margin-bottom: 0.75rem;
+}
+
+.mobile-notification-type {
+  font-size: 0.875rem;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+}
+
+.mobile-notification-cancelled {
+  color: #dc2626;
+}
+
+.mobile-notification-appointment {
+  color: #059669;
+}
+
+.mobile-notification-details {
+  margin: 0.5rem 0;
+  padding: 0.5rem;
+  background-color: #f8fafc;
+  border-radius: 0.375rem;
+  border-left: 3px solid #3b82f6;
+}
+
+.mobile-notification-patient,
+.mobile-notification-datetime,
+.mobile-notification-room {
+  font-size: 0.75rem;
+  color: #374151;
+  margin-bottom: 0.25rem;
+  line-height: 1.4;
+}
+
+.mobile-notification-patient strong,
+.mobile-notification-datetime strong,
+.mobile-notification-room strong {
+  color: #1f2937;
+  font-weight: 600;
+}
+
+.mobile-notification-message {
+  font-size: 0.8rem;
+  color: #374151;
+  line-height: 1.4;
+  margin-bottom: 0.5rem;
+}
+
+.mobile-notification-date {
+  font-size: 0.7rem;
+  color: #6b7280;
+}
+
+.mobile-mark-read-btn {
+  width: 100%;
+  padding: 0.5rem;
+  background: #3b82f6;
+  color: white;
+  border: none;
+  border-radius: 0.375rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.375rem;
+}
+
+.mobile-mark-read-btn:hover {
+  background: #2563eb;
+}
+
+.mobile-mark-read-btn:active {
+  background: #1d4ed8;
+  transform: translateY(1px);
+}
+
+.mobile-mark-read-icon {
+  font-size: 0.875rem;
+}
+
+/* Container styles */
 .mobile-loading {
   padding: 2rem 1rem;
   text-align: center;
@@ -59,6 +217,8 @@
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
   padding: 1rem;
   margin-bottom: 1rem;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .mobile-filters-title {
@@ -147,6 +307,8 @@
   border-radius: 0.75rem;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
   padding: 1rem;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 /* Appointments list */
@@ -154,6 +316,8 @@
   display: flex;
   flex-direction: column;
   gap: 1rem;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .mobile-appointment-card {
@@ -162,6 +326,8 @@
   border-radius: 0.75rem;
   background: #f8fafc;
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .mobile-appointment-header {
@@ -394,11 +560,206 @@
   }
 }
 
+/* 爽約按鈕樣式 */
+.mobile-no-show-btn {
+  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+  color: white;
+  border: none;
+  border-radius: 0.5rem;
+  padding: 0.75rem 1rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 4px rgba(239, 68, 68, 0.2);
+  margin-left: 0.5rem;
+}
+
+.mobile-no-show-btn:hover {
+  background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
+  box-shadow: 0 4px 8px rgba(239, 68, 68, 0.3);
+  transform: translateY(-1px);
+}
+
+.mobile-no-show-btn:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 4px rgba(239, 68, 68, 0.2);
+}
+
+/* 過期狀態樣式 */
+.status-expired {
+  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+  color: white;
+}
+
+/* 對話框樣式 */
+.mobile-dialog-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 1rem;
+}
+
+.mobile-dialog {
+  background: white;
+  border-radius: 1rem;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  max-width: 400px;
+  width: 100%;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.mobile-dialog-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1.5rem 1.5rem 0 1.5rem;
+  border-bottom: 1px solid #e5e7eb;
+  margin-bottom: 1rem;
+}
+
+.mobile-dialog-title {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #111827;
+  margin: 0;
+}
+
+.mobile-dialog-close {
+  background: none;
+  border: none;
+  color: #6b7280;
+  cursor: pointer;
+  padding: 0.5rem;
+  border-radius: 0.5rem;
+  transition: all 0.2s ease;
+}
+
+.mobile-dialog-close:hover {
+  background: #f3f4f6;
+  color: #374151;
+}
+
+.mobile-dialog-content {
+  padding: 0 1.5rem;
+}
+
+.mobile-dialog-message {
+  font-size: 1rem;
+  color: #374151;
+  margin-bottom: 1.5rem;
+  line-height: 1.6;
+}
+
+.mobile-dialog-appointment-info {
+  background: #f9fafb;
+  border-radius: 0.75rem;
+  padding: 1rem;
+  margin-bottom: 1rem;
+}
+
+.mobile-dialog-info-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.5rem;
+}
+
+.mobile-dialog-info-row:last-child {
+  margin-bottom: 0;
+}
+
+.mobile-dialog-label {
+  font-weight: 600;
+  color: #374151;
+  font-size: 0.875rem;
+}
+
+.mobile-dialog-value {
+  color: #111827;
+  font-size: 0.875rem;
+}
+
+.mobile-dialog-warning {
+  background: #fef3c7;
+  border: 1px solid #f59e0b;
+  border-radius: 0.5rem;
+  padding: 0.75rem;
+  margin-bottom: 1.5rem;
+}
+
+.mobile-dialog-warning p {
+  margin: 0;
+  color: #92400e;
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.mobile-dialog-actions {
+  display: flex;
+  gap: 0.75rem;
+  padding: 1.5rem;
+  border-top: 1px solid #e5e7eb;
+}
+
+.mobile-dialog-cancel-btn {
+  flex: 1;
+  background: #f3f4f6;
+  color: #374151;
+  border: 1px solid #d1d5db;
+  border-radius: 0.5rem;
+  padding: 0.75rem 1rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.mobile-dialog-cancel-btn:hover {
+  background: #e5e7eb;
+  border-color: #9ca3af;
+}
+
+.mobile-dialog-confirm-btn {
+  flex: 1;
+  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+  color: white;
+  border: none;
+  border-radius: 0.5rem;
+  padding: 0.75rem 1rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 4px rgba(239, 68, 68, 0.2);
+}
+
+.mobile-dialog-confirm-btn:hover:not(:disabled) {
+  background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
+  box-shadow: 0 4px 8px rgba(239, 68, 68, 0.3);
+}
+
+.mobile-dialog-confirm-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 /* Touch improvements */
 @media (hover: none) and (pointer: coarse) {
   .mobile-cancel-appointment-btn,
+  .mobile-no-show-btn,
   .mobile-reset-filters-btn,
-  .mobile-pagination-btn {
+  .mobile-pagination-btn,
+  .mobile-dialog-cancel-btn,
+  .mobile-dialog-confirm-btn {
     min-height: 44px;
   }
 }

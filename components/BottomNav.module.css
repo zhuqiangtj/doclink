@@ -91,21 +91,20 @@
 
 .badge {
   position: absolute;
-  top: 0px;
-  right: 4px;
-  min-width: 20px;
-  height: 20px;
-  padding: 0 4px;
-  font-size: 11px;
-  font-weight: bold;
+  top: 4px;
+  right: 38px; /* 從42px調整為38px，繼續往右移動 */
+  background: #ff4444;
   color: white;
-  background: #ef4444;
-  border-radius: 10px;
+  border-radius: 8px;
+  min-width: 16px;
+  height: 16px;
   display: flex;
   align-items: center;
   justify-content: center;
-  border: 2px solid white;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+  font-size: 9px;
+  font-weight: 500;
+  padding: 0 4px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
   z-index: 10;
 }
 
@@ -142,7 +141,7 @@
     height: 16px;
     font-size: 9px;
     top: 2px;
-    right: 6px;
+    right: 35px; /* 從39px調整為35px，繼續往右移動 */
   }
 }
 
@@ -172,6 +171,14 @@
     font-size: 9px;
     max-width: 45px;
   }
+  
+  .badge {
+    min-width: 14px;
+    height: 14px;
+    font-size: 8px;
+    top: 1px;
+    right: 33px; /* 從37px調整為33px，繼續往右移動 */
+  }
 }
 
 /* 橫屏模式優化 */
@@ -195,36 +202,7 @@
   }
 }
 
-/* 深色模式支持 */
-@media (prefers-color-scheme: dark) {
-  .bottomNav {
-    background: #1f2937;
-    border-top-color: #374151;
-    box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.3);
-  }
-  
-  .navItemActive {
-    color: #60a5fa;
-    background: rgba(96, 165, 250, 0.1);
-  }
-  
-  .navItemInactive {
-    color: #9ca3af;
-  }
-  
-  .navItemInactive:hover {
-    color: #60a5fa;
-    background: rgba(96, 165, 250, 0.1);
-  }
-  
-  .navItem:active {
-    background: rgba(96, 165, 250, 0.15);
-  }
-  
-  .badge {
-    border-color: #1f2937;
-  }
-}
+/* 移除深色模式支持，始終使用淺色主題 */
 
 /* 高對比度模式 */
 @media (prefers-contrast: high) {

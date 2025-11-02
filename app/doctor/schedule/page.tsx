@@ -68,6 +68,7 @@ export default function DoctorSchedulePage() {
   const [newTimeSlotData, setNewTimeSlotData] = useState({ time: '', total: '' });
   const [collapsedSlots, setCollapsedSlots] = useState<{[key: string]: boolean}>({});
   const [editingSlots, setEditingSlots] = useState<{[key: string]: any}>({});
+  const [deletingSlots, setDeletingSlots] = useState<Set<string>>(new Set());
 
   const getSlotValue = (scheduleId: string, slotIndex: number, field: 'time' | 'total' | 'roomId', originalValue: any) => {
     const key = `${scheduleId}-${slotIndex}`;
@@ -426,8 +427,8 @@ export default function DoctorSchedulePage() {
     }
   };
 
-  const handleDeleteAppointment = async (appointmentId: string, scheduleId: string, slotIndex: number) => {
-    if (!confirm('Are you sure you want to delete this appointment?')) {
+  const handleDeleteAppointment = async (appointmentId: string, scheduleId: string, slotIndex: number, patientName: string) => {
+    if (!confirm(`確定要取消 ${patientName} 的預約嗎？`)) {
       return;
     }
 
@@ -438,7 +439,7 @@ export default function DoctorSchedulePage() {
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to delete appointment');
+        throw new Error(errorData.error || '取消預約失敗');
       }
 
       setSchedulesForSelectedDay(
@@ -458,10 +459,10 @@ export default function DoctorSchedulePage() {
           })
       );
 
-      setSuccess('Appointment deleted successfully!');
+      setSuccess(`已成功取消 ${patientName} 的預約`);
       setTimeout(() => setSuccess(null), 3000);
     } catch (error) {
-      setError(error instanceof Error ? error.message : 'Failed to delete appointment');
+      setError(error instanceof Error ? error.message : '取消預約失敗');
     }
   };
 
@@ -619,14 +620,14 @@ export default function DoctorSchedulePage() {
                   <div key={index} className={`mobile-time-slot-single-line ${
                     isModified ? 'mobile-time-slot-modified' : ''
                   }`}>
-                    {/* 單行顯示所有時間點信息 */}
-                    <div className="mobile-time-slot-inline">
+                    {/* 第一行：時間點信息 */}
+                    <div className="mobile-time-slot-info-row">
                       {/* 時間輸入 */}
                       <input
                         type="time"
-                        value={slot.time}
+                        value={getSlotValue(schedule.id, index, 'time', slot.time)}
                         onChange={(e) => {
-                          // 處理時間變更
+                          updateSlotEdit(schedule.id, index, 'time', e.target.value);
                           setModifiedTimeSlots(prev => new Set(prev).add(key));
                         }}
                         className="mobile-time-input-inline"
@@ -636,9 +637,9 @@ export default function DoctorSchedulePage() {
                       <input
                         type="number"
                         min="1"
-                        value={slot.total}
+                        value={getSlotValue(schedule.id, index, 'total', slot.total)}
                         onChange={(e) => {
-                          // 處理床位變更
+                          updateSlotEdit(schedule.id, index, 'total', parseInt(e.target.value));
                           setModifiedTimeSlots(prev => new Set(prev).add(key));
                         }}
                         className="mobile-total-input-inline"
@@ -653,110 +654,93 @@ export default function DoctorSchedulePage() {
                           {slot.appointments.length}/{slot.total}
                         </span>
                       </div>
+                    </div>
 
-                      {/* 操作按鈕 */}
-                      <div className="mobile-slot-actions-inline">
-                        {/* 新增按鈕 */}
-                        <button
-                          onClick={() => handleAddAppointment(schedule, index)}
-                          className={`mobile-icon-btn-colored ${
-                            slot.appointments.length >= slot.total 
-                              ? 'mobile-icon-btn-disabled-colored' 
-                              : 'mobile-icon-btn-success'
-                          }`}
-                          disabled={slot.appointments.length >= slot.total}
-                          title="新增預約"
-                        >
-                          <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                            <path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" />
+                    {/* 第二行：操作按鈕 */}
+                    <div className="mobile-slot-actions-row">
+                      {/* 新增按鈕 */}
+                      <button
+                        onClick={() => handleAddAppointment(schedule, index)}
+                        className={`mobile-icon-btn-colored ${
+                          slot.appointments.length >= slot.total 
+                            ? 'mobile-icon-btn-disabled-colored' 
+                            : 'mobile-icon-btn-success'
+                        }`}
+                        disabled={slot.appointments.length >= slot.total}
+                        title="新增預約"
+                      >
+                        <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" />
+                        </svg>
+                      </button>
+
+                      {/* 儲存按鈕 */}
+                      <button
+                        onClick={() => handleSaveTimeSlot(schedule.id, index)}
+                        disabled={!isModified || isSaving}
+                        className={`mobile-icon-btn-colored ${
+                          isModified && !isSaving
+                            ? 'mobile-icon-btn-save-colored'
+                            : 'mobile-icon-btn-disabled-colored'
+                        }`}
+                        title={isModified ? "儲存變更" : "無變更"}
+                      >
+                        {isSaving ? (
+                          <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                            <path className="opacity-75" fill="currentColor" d="m4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                           </svg>
-                        </button>
-
-                        {/* 儲存按鈕 */}
-                        <button
-                          onClick={() => {
-                            // 處理儲存
-                            setSavingTimeSlots(prev => new Set(prev).add(key));
-                            // 模擬儲存完成
-                            setTimeout(() => {
-                              setSavingTimeSlots(prev => {
-                                const newSet = new Set(prev);
-                                newSet.delete(key);
-                                return newSet;
-                              });
-                              setModifiedTimeSlots(prev => {
-                                const newSet = new Set(prev);
-                                newSet.delete(key);
-                                return newSet;
-                              });
-                            }, 1000);
-                          }}
-                          disabled={!isModified || isSaving}
-                          className={`mobile-icon-btn-colored ${
-                            isModified && !isSaving
-                              ? 'mobile-icon-btn-save-colored'
-                              : 'mobile-icon-btn-disabled-colored'
-                          }`}
-                          title={isModified ? "儲存變更" : "無變更"}
-                        >
-                          {isSaving ? (
-                            <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
-                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                              <path className="opacity-75" fill="currentColor" d="m4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                            </svg>
-                          ) : (
-                            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                              <path d="M7.707 10.293a1 1 0 10-1.414 1.414l2 2a1 1 0 001.414 0l4-4a1 1 0 00-1.414-1.414L9 11.586l-1.293-1.293z"/>
-                            </svg>
-                          )}
-                        </button>
-
-                        {/* 刪除按鈕 */}
-                        <button
-                          onClick={() => handleDeleteTimeSlot(schedule.id, slot.time)}
-                          disabled={isSaving}
-                          className={`mobile-icon-btn-colored mobile-icon-btn-delete-colored ${
-                            isSaving ? 'mobile-icon-btn-disabled-colored' : ''
-                          }`}
-                          title="刪除時段"
-                        >
+                        ) : (
                           <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                            <path fillRule="evenodd" d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z" clipRule="evenodd" />
-                            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                            <path d="M7.707 10.293a1 1 0 10-1.414 1.414l2 2a1 1 0 001.414 0l4-4a1 1 0 00-1.414-1.414L9 11.586l-1.293-1.293z"/>
                           </svg>
-                        </button>
+                        )}
+                      </button>
 
-                        {/* 展開患者列表按鈕 */}
-                        {/* 展開按鈕 - 始終顯示，但沒有預約時為灰色不可點擊 */}
-                        <button
-                          onClick={() => {
-                            if (slot.appointments.length > 0) {
-                              const newExpanded = new Set(expandedTimeSlots);
-                              if (isExpanded) {
-                                newExpanded.delete(key);
-                              } else {
-                                newExpanded.add(key);
-                              }
-                              setExpandedTimeSlots(newExpanded);
+                      {/* 刪除按鈕 */}
+                      <button
+                        onClick={() => handleDeleteTimeSlot(schedule.id, slot.time)}
+                        disabled={isSaving}
+                        className={`mobile-icon-btn-colored mobile-icon-btn-delete-colored ${
+                          isSaving ? 'mobile-icon-btn-disabled-colored' : ''
+                        }`}
+                        title="刪除時段"
+                      >
+                        <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z" clipRule="evenodd" />
+                          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                        </svg>
+                      </button>
+
+                      {/* 展開患者列表按鈕 */}
+                      <button
+                        onClick={() => {
+                          if (slot.appointments.length > 0) {
+                            const newExpanded = new Set(expandedTimeSlots);
+                            if (isExpanded) {
+                              newExpanded.delete(key);
+                            } else {
+                              newExpanded.add(key);
                             }
-                          }}
-                          className={`mobile-icon-btn-colored ${
-                            slot.appointments.length > 0 
-                              ? 'mobile-icon-btn-expand' 
-                              : 'mobile-icon-btn-expand-disabled'
-                          }`}
-                          disabled={slot.appointments.length === 0}
-                          title={
-                            slot.appointments.length === 0 
-                              ? '暫無預約患者' 
-                              : (isExpanded ? '收合患者列表' : '展開患者列表')
+                            setExpandedTimeSlots(newExpanded);
                           }
-                        >
-                          <svg className={`w-4 h-4 transition-transform ${isExpanded ? 'rotate-180' : ''}`} fill="currentColor" viewBox="0 0 20 20">
-                            <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
-                          </svg>
-                        </button>
-                      </div>
+                        }}
+                        className={`mobile-icon-btn-colored ${
+                          slot.appointments.length > 0 
+                            ? 'mobile-icon-btn-expand' 
+                            : 'mobile-icon-btn-expand-disabled'
+                        }`}
+                        disabled={slot.appointments.length === 0}
+                        title={
+                          slot.appointments.length === 0 
+                            ? '暫無預約患者' 
+                            : (isExpanded ? '收合患者列表' : '展開患者列表')
+                        }
+                      >
+                        <svg className={`w-4 h-4 transition-transform ${isExpanded ? 'rotate-180' : ''}`} fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
+                        </svg>
+                      </button>
                     </div>
 
                     {/* 已預約患者列表 - 下拉顯示 */}
@@ -770,16 +754,18 @@ export default function DoctorSchedulePage() {
                                 預約者: {appointment.user.name} ({appointment.user.role === 'DOCTOR' ? '醫生' : '患者'}) | 狀態: {appointment.status}
                               </span>
                             </div>
-                            <button
-                              onClick={() => handleDeleteAppointment(appointment.id, schedule.id, index)}
-                              className="mobile-patient-delete-btn-inline"
-                              title="刪除預約"
-                            >
-                              <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-                                <path fillRule="evenodd" d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z" clipRule="evenodd" />
-                                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-                              </svg>
-                            </button>
+                            {appointment.status === 'PENDING' && (
+                              <button
+                                onClick={() => handleDeleteAppointment(appointment.id, schedule.id, index, appointment.patient.user.name)}
+                                className="mobile-patient-delete-btn-inline"
+                                title="取消預約"
+                              >
+                                <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                                  <path fillRule="evenodd" d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z" clipRule="evenodd" />
+                                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                                </svg>
+                              </button>
+                            )}
                           </div>
                         ))}
                       </div>

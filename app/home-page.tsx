@@ -36,11 +36,6 @@ interface Appointment {
   time: string;
 }
 
-interface Appointment {
-  date: string;
-  time: string;
-}
-
 // --- Component ---
 export default function HomePage({ session }: { session: Session | null }) {
   const router = useRouter();

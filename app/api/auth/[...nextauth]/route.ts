@@ -20,22 +20,27 @@ const authOptions = {
           return null;
         }
 
-        const user = await prisma.user.findUnique({
-          where: { username: credentials.username }
-        });
+        try {
+          const user = await prisma.user.findUnique({
+            where: { username: credentials.username }
+          });
 
-        if (!user || !user.password) {
-          console.error(`[AUTH] User not found or no password for: ${credentials.username}`);
-          return null;
-        }
+          if (!user || !user.password) {
+            console.error(`[AUTH] User not found or no password for: ${credentials.username}`);
+            return null;
+          }
 
-        const isValid = await bcrypt.compare(credentials.password, user.password);
+          const isValid = await bcrypt.compare(credentials.password, user.password);
 
-        if (isValid) {
-          console.log(`[AUTH] Success for: ${user.username}, Role: ${user.role}`);
-          return user;
-        } else {
-          console.error(`[AUTH] Invalid password for: ${credentials.username}`);
+          if (isValid) {
+            console.log(`[AUTH] Success for: ${user.username}, Role: ${user.role}`);
+            return user;
+          } else {
+            console.error(`[AUTH] Invalid password for: ${credentials.username}`);
+            return null;
+          }
+        } catch (error) {
+          console.error('[AUTH] Database error:', error);
           return null;
         }
       }

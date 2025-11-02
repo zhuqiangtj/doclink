@@ -40,7 +40,10 @@ export async function POST(request: NextRequest, context: { params: { id: string
 
     const updatedAppointment = await prisma.appointment.update({
       where: { id: appointmentId },
-      data: { status: 'CHECKED_IN' },
+      data: { 
+        status: 'CHECKED_IN',
+        reason: '病人已報到'
+      },
     });
 
     await createAuditLog(session, 'PATIENT_CHECK_IN', 'Appointment', appointmentId);

@@ -166,7 +166,7 @@ main {
   padding: var(--mobile-padding);
   background-color: var(--background);
   width: 100%;
-  max-width: 1200px;
+  max-width: 600px !important;
   margin: 0 auto;
   padding-bottom: 100px; /* Account for bottom nav */
 }

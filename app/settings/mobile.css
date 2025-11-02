@@ -23,11 +23,19 @@
   line-height: 1.5;
 }
 
-/* Main container */
+/* Main container - 統一使用與排班頁面相同的寬度設置 */
 .mobile-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  min-height: calc(100vh - 80px);
   padding: 1rem;
-  max-width: 100%;
+  background-color: var(--background);
+  width: 100%;
+  max-width: 1200px;
   margin: 0 auto;
+  padding-bottom: 100px; /* Account for bottom nav */
 }
 
 /* Header */
@@ -67,6 +75,9 @@
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
   padding: 1.5rem;
   margin-bottom: 1.5rem;
+  width: 100%;
+  max-width: 600px !important; /* 強制統一寬度 */
+  box-sizing: border-box; /* 確保padding不影響總寬度 */
 }
 
 /* Section titles */

@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
+import { FaCalendarAlt, FaHospital, FaFilter, FaChevronLeft, FaChevronRight, FaTimes, FaCheckCircle, FaBell } from 'react-icons/fa';
 import './mobile.css';
 
 // --- Interfaces ---
@@ -25,10 +26,29 @@ interface Appointment {
   date: string;
   time: string;
   status: string;
+  reason?: string; // 添加原因字段
   patient: Patient;
   doctor: Doctor;
   room: Room;
   createTime: string;
+}
+
+interface Notification {
+  id: string;
+  createdAt: string;
+  patientName: string;
+  message: string;
+  type: string;
+  isRead: boolean;
+  appointment?: {
+    time: string;
+    schedule: {
+      date: string;
+    };
+    room: {
+      name: string;
+    };
+  };
 }
 
 interface DoctorProfile {
@@ -44,6 +64,11 @@ export default function DoctorAppointmentsPage() {
   // --- Data States ---
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [doctorProfile, setDoctorProfile] = useState<DoctorProfile | null>(null);
+
+  // --- Notification States ---
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [unreadNotifications, setUnreadNotifications] = useState<Notification[]>([]);
+  const [showNotifications, setShowNotifications] = useState(false);
 
   // --- Filter States ---
   const getCurrentDateInChina = () => {
@@ -63,14 +88,55 @@ export default function DoctorAppointmentsPage() {
   const [success, setSuccess] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(10);
+  const [showNoShowDialog, setShowNoShowDialog] = useState(false);
+  const [selectedAppointmentForNoShow, setSelectedAppointmentForNoShow] = useState<Appointment | null>(null);
+  const [noShowLoading, setNoShowLoading] = useState(false);
 
   // --- Effects ---
   useEffect(() => {
     if (status === 'unauthenticated') router.push('/auth/signin');
-    if (status === 'authenticated' && session.user.role !== 'DOCTOR') {
+    if (status === 'authenticated' && session?.user?.role !== 'DOCTOR') {
       setError('訪問被拒絕');
     }
-  }, [status, session, router]);
+  }, [status, session?.user?.role, router]);
+
+  // 獲取通知數據
+  useEffect(() => {
+    if (status === 'authenticated') {
+      const fetchNotifications = async () => {
+        try {
+          const res = await fetch('/api/notifications');
+          if (!res.ok) throw new Error('Failed to fetch notifications.');
+          const data = await res.json();
+          const allNotifications = data.notifications || [];
+          setNotifications(allNotifications);
+          
+          // 只顯示最近的未讀通知（最多5條）
+          const unread = allNotifications.filter((n: Notification) => !n.isRead).slice(0, 5);
+          setUnreadNotifications(unread);
+        } catch (err) {
+          console.error('Failed to fetch notifications:', err);
+        }
+      };
+      fetchNotifications();
+      
+      // 每分鐘檢查一次新通知
+      const interval = setInterval(fetchNotifications, 60000);
+      return () => clearInterval(interval);
+    }
+  }, [status]);
+
+  // 獨立的獲取預約函數
+  const fetchAppointments = async () => {
+    try {
+      const appointmentsRes = await fetch('/api/appointments');
+      if (!appointmentsRes.ok) throw new Error('獲取預約失敗');
+      const appointmentsData = await appointmentsRes.json();
+      setAppointments(appointmentsData);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '獲取預約失敗');
+    }
+  };
 
   useEffect(() => {
     if (status !== 'authenticated' || !session?.user?.id) return;
@@ -86,10 +152,7 @@ export default function DoctorAppointmentsPage() {
         setDoctorProfile(userData.doctorProfile);
 
         // Fetch appointments
-        const appointmentsRes = await fetch('/api/appointments');
-        if (!appointmentsRes.ok) throw new Error('獲取預約失敗');
-        const appointmentsData = await appointmentsRes.json();
-        setAppointments(appointmentsData);
+        await fetchAppointments();
       } catch (err) {
         setError(err instanceof Error ? err.message : '發生未知錯誤');
       } finally {
@@ -98,7 +161,7 @@ export default function DoctorAppointmentsPage() {
     };
 
     fetchData();
-  }, [status, session]);
+  }, [status, session?.user?.id]);
 
   // --- Computed Values ---
   const filteredAppointments = useMemo(() => {
@@ -127,6 +190,68 @@ export default function DoctorAppointmentsPage() {
   const totalPages = Math.ceil(sortedAppointments.length / itemsPerPage);
 
   // --- Handlers ---
+  // 標記通知為已讀
+  const handleMarkAsRead = async (notificationId: string) => {
+    try {
+      const res = await fetch('/api/notifications', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ notificationIds: [notificationId] }),
+      });
+      if (!res.ok) throw new Error('Failed to mark as read.');
+      
+      // 更新本地狀態
+      setNotifications(prev => 
+        prev.map(n => n.id === notificationId ? { ...n, isRead: true } : n)
+      );
+      setUnreadNotifications(prev => 
+        prev.filter(n => n.id !== notificationId)
+      );
+      
+      // 觸發底部導航欄的未讀計數更新
+      window.dispatchEvent(new CustomEvent('notificationRead'));
+    } catch (err) {
+      console.error('Failed to mark notification as read:', err);
+    }
+  };
+
+  // 標記所有通知為已讀（當點擊預約頁面時）
+  const handleMarkAllAsRead = async () => {
+    if (unreadNotifications.length === 0) return;
+    
+    try {
+      const unreadIds = unreadNotifications.map(n => n.id);
+      const res = await fetch('/api/notifications', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ notificationIds: unreadIds }),
+      });
+      if (!res.ok) throw new Error('Failed to mark notifications as read.');
+      
+      // 更新本地狀態
+      setNotifications(prev => 
+        prev.map(n => unreadIds.includes(n.id) ? { ...n, isRead: true } : n)
+      );
+      setUnreadNotifications([]);
+      
+      // 觸發底部導航欄的未讀計數更新
+      window.dispatchEvent(new CustomEvent('notificationRead'));
+    } catch (err) {
+      console.error('Failed to mark all notifications as read:', err);
+    }
+  };
+
+  // 當用戶點擊預約頁面時，自動標記通知為已讀
+  useEffect(() => {
+    if (unreadNotifications.length > 0) {
+      const timer = setTimeout(() => {
+        handleMarkAllAsRead();
+      }, 10000); // 10秒後自動標記為已讀，給用戶足夠時間查看
+      
+      return () => clearTimeout(timer);
+    }
+  }, [unreadNotifications]);
+
   const handleCancelAppointment = async (appointmentId: string, patientName: string) => {
     if (!confirm(`確定要取消 ${patientName} 的預約嗎？`)) {
       return;
@@ -142,7 +267,10 @@ export default function DoctorAppointmentsPage() {
         throw new Error(errorData.error || '取消預約失敗');
       }
 
-      setAppointments(prev => prev.filter(apt => apt.id !== appointmentId));
+      const result = await response.json();
+
+      // 重新獲取預約列表以確保數據同步
+      await fetchAppointments();
       setSuccess(`已成功取消 ${patientName} 的預約`);
       setTimeout(() => setSuccess(null), 3000);
     } catch (error) {
@@ -157,6 +285,59 @@ export default function DoctorAppointmentsPage() {
     setCurrentPage(1);
   };
 
+  // 標記爽約
+  const handleMarkNoShow = async (appointmentId: string) => {
+    try {
+      setNoShowLoading(true);
+      const res = await fetch('/api/appointments/no-show', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ appointmentId }),
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.error || '標記爽約失敗');
+      }
+
+      const result = await res.json();
+      setSuccess('已成功標記為爽約，病人已扣除5分');
+      
+      // 直接更新本地狀態，不重新獲取數據
+      setAppointments(prev => 
+        prev.map(apt => 
+          apt.id === appointmentId 
+            ? { ...apt, status: 'NO_SHOW' as const }
+            : apt
+        )
+      );
+      
+      // 關閉對話框
+      setShowNoShowDialog(false);
+      setSelectedAppointmentForNoShow(null);
+      
+      // 3秒後清除成功消息
+      setTimeout(() => setSuccess(null), 3000);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '標記爽約時發生錯誤');
+      setTimeout(() => setError(null), 3000);
+    } finally {
+      setNoShowLoading(false);
+    }
+  };
+
+  // 打開爽約確認對話框
+  const openNoShowDialog = (appointment: Appointment) => {
+    setSelectedAppointmentForNoShow(appointment);
+    setShowNoShowDialog(true);
+  };
+
+  // 關閉爽約確認對話框
+  const closeNoShowDialog = () => {
+    setShowNoShowDialog(false);
+    setSelectedAppointmentForNoShow(null);
+  };
+
   const calculateAge = (birthDate?: string): string => {
     if (!birthDate) return '未知';
     const today = new Date();
@@ -169,13 +350,25 @@ export default function DoctorAppointmentsPage() {
     return `${age}歲`;
   };
 
+  // 判斷預約是否過期
+  const isAppointmentExpired = (date: string, time: string): boolean => {
+    const now = new Date();
+    const chinaTime = new Date(now.getTime() + (8 * 60 * 60 * 1000));
+    const appointmentDateTime = new Date(`${date}T${time}`);
+    return appointmentDateTime < chinaTime;
+  };
+
+  // 獲取預約的實際狀態（考慮過期情況）
+  const getActualStatus = (appointment: Appointment): string => {
+    // 直接返回數據庫中的狀態，不再進行客戶端狀態轉換
+    return appointment.status;
+  };
+
   const getStatusText = (status: string): string => {
     const statusMap: { [key: string]: string } = {
-      'pending': '待就診',
-      'CONFIRMED': '已確認',
-      'CHECKED_IN': '已簽到',
-      'COMPLETED': '已完成',
+      'PENDING': '待就診',
       'CANCELLED': '已取消',
+      'COMPLETED': '已完成',
       'NO_SHOW': '未到診'
     };
     return statusMap[status] || status;
@@ -183,11 +376,9 @@ export default function DoctorAppointmentsPage() {
 
   const getStatusColor = (status: string): string => {
     const colorMap: { [key: string]: string } = {
-      'pending': 'status-pending',
-      'CONFIRMED': 'status-confirmed',
-      'CHECKED_IN': 'status-checked-in',
-      'COMPLETED': 'status-completed',
+      'PENDING': 'status-pending',
       'CANCELLED': 'status-cancelled',
+      'COMPLETED': 'status-completed',
       'NO_SHOW': 'status-no-show'
     };
     return colorMap[status] || 'status-default';
@@ -211,6 +402,68 @@ export default function DoctorAppointmentsPage() {
     <div className="page-container">
       <h1 className="mobile-header">預約管理</h1>
       <p className="mobile-description">管理您的所有病人預約信息</p>
+      
+      {/* 通知區域 */}
+      {unreadNotifications.length > 0 && (
+        <div className="mobile-notifications-banner">
+          <div className="mobile-notifications-header">
+            <div className="mobile-notifications-title">
+              <FaBell className="mobile-notifications-icon" />
+              <span>新通知 ({unreadNotifications.length})</span>
+            </div>
+            <button 
+              onClick={() => setShowNotifications(!showNotifications)}
+              className="mobile-notifications-toggle"
+            >
+              {showNotifications ? '收起' : '展開'}
+            </button>
+          </div>
+          
+          {showNotifications && (
+            <div className="mobile-notifications-list">
+              {unreadNotifications.map(notification => (
+                <div key={notification.id} className="mobile-notification-item">
+                  <div className="mobile-notification-content">
+                    <p className={`mobile-notification-type ${
+                      notification.type === 'APPOINTMENT_CANCELLED' ? 'mobile-notification-cancelled' : 'mobile-notification-appointment'
+                    }`}>
+                      {notification.type === 'APPOINTMENT_CANCELLED' ? '預約已取消' : 
+                       notification.type === 'APPOINTMENT_CREATED' ? '新預約提醒' : '預約通知'}
+                    </p>
+                    <div className="mobile-notification-details">
+                      <p className="mobile-notification-patient">
+                        <strong>病人：</strong>{notification.patientName}
+                      </p>
+                      {notification.appointment && (
+                        <>
+                          <p className="mobile-notification-datetime">
+                            <strong>日期：</strong>{new Date(notification.appointment.schedule.date).toLocaleDateString('zh-CN')}
+                          </p>
+                          <p className="mobile-notification-datetime">
+                            <strong>時間：</strong>{notification.appointment.time}
+                          </p>
+                          <p className="mobile-notification-room">
+                            <strong>診室：</strong>{notification.appointment.room.name}
+                          </p>
+                        </>
+                      )}
+                    </div>
+                    <p className="mobile-notification-message">{notification.message}</p>
+                    <p className="mobile-notification-date">{new Date(notification.createdAt).toLocaleString('zh-CN')}</p>
+                  </div>
+                  <button 
+                    onClick={() => handleMarkAsRead(notification.id)} 
+                    className="mobile-mark-read-btn"
+                  >
+                    <FaCheckCircle className="mobile-mark-read-icon" />
+                    我知道了
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
       
       {error && <div className="mobile-error">{error}</div>}
       {success && <div className="mobile-success">{success}</div>}
@@ -264,9 +517,7 @@ export default function DoctorAppointmentsPage() {
               className="mobile-filter-select"
             >
               <option value="">所有狀態</option>
-              <option value="pending">待就診</option>
-              <option value="CONFIRMED">已確認</option>
-              <option value="CHECKED_IN">已簽到</option>
+              <option value="PENDING">待就診</option>
               <option value="COMPLETED">已完成</option>
               <option value="CANCELLED">已取消</option>
               <option value="NO_SHOW">未到診</option>
@@ -296,8 +547,8 @@ export default function DoctorAppointmentsPage() {
                     {calculateAge(apt.patient.birthDate)}
                   </span>
                 </div>
-                <span className={`mobile-status-badge ${getStatusColor(apt.status)}`}>
-                  {getStatusText(apt.status)}
+                <span className={`mobile-status-badge ${getStatusColor(getActualStatus(apt))}`}>
+                  {getStatusText(getActualStatus(apt))}
                 </span>
               </div>
               
@@ -314,18 +565,33 @@ export default function DoctorAppointmentsPage() {
                   <span className="mobile-detail-label">時間：</span>
                   <span className="mobile-detail-value">{apt.time}</span>
                 </div>
+                {apt.reason && (
+                  <div className="mobile-detail-row">
+                    <span className="mobile-detail-label">原因：</span>
+                    <span className="mobile-detail-value">{apt.reason}</span>
+                  </div>
+                )}
               </div>
 
-              {(apt.status === 'pending' || apt.status === 'CONFIRMED') && (
-                <div className="mobile-appointment-actions">
+              <div className="mobile-appointment-actions">
+                {apt.status === 'PENDING' && (
                   <button 
                     onClick={() => handleCancelAppointment(apt.id, apt.patient.user.name)}
                     className="mobile-cancel-appointment-btn"
                   >
                     取消預約
                   </button>
-                </div>
-              )}
+                )}
+                
+                {apt.status === 'COMPLETED' && (
+                  <button 
+                    onClick={() => openNoShowDialog(apt)}
+                    className="mobile-no-show-btn"
+                  >
+                    標記爽約
+                  </button>
+                )}
+              </div>
             </div>
           )) : (
             <div className="mobile-empty-state">
@@ -361,6 +627,68 @@ export default function DoctorAppointmentsPage() {
           </div>
         )}
       </div>
+
+      {/* 爽約確認對話框 */}
+      {showNoShowDialog && selectedAppointmentForNoShow && (
+        <div className="mobile-dialog-overlay">
+          <div className="mobile-dialog">
+            <div className="mobile-dialog-header">
+              <h3 className="mobile-dialog-title">確認標記爽約</h3>
+              <button 
+                onClick={closeNoShowDialog}
+                className="mobile-dialog-close"
+              >
+                <FaTimes />
+              </button>
+            </div>
+            
+            <div className="mobile-dialog-content">
+              <p className="mobile-dialog-message">
+                您確定要將以下預約標記為爽約嗎？
+              </p>
+              
+              <div className="mobile-dialog-appointment-info">
+                <div className="mobile-dialog-info-row">
+                  <span className="mobile-dialog-label">病人：</span>
+                  <span className="mobile-dialog-value">{selectedAppointmentForNoShow.patient.user.name}</span>
+                </div>
+                <div className="mobile-dialog-info-row">
+                  <span className="mobile-dialog-label">日期：</span>
+                  <span className="mobile-dialog-value">{selectedAppointmentForNoShow.date}</span>
+                </div>
+                <div className="mobile-dialog-info-row">
+                  <span className="mobile-dialog-label">時間：</span>
+                  <span className="mobile-dialog-value">{selectedAppointmentForNoShow.time}</span>
+                </div>
+                <div className="mobile-dialog-info-row">
+                  <span className="mobile-dialog-label">診室：</span>
+                  <span className="mobile-dialog-value">{selectedAppointmentForNoShow.room.name}</span>
+                </div>
+              </div>
+              
+              <div className="mobile-dialog-warning">
+                <p>⚠️ 標記爽約後，該病人將被扣除5分</p>
+              </div>
+            </div>
+            
+            <div className="mobile-dialog-actions">
+              <button 
+                onClick={closeNoShowDialog}
+                className="mobile-dialog-cancel-btn"
+              >
+                取消
+              </button>
+              <button 
+                onClick={() => handleMarkNoShow(selectedAppointmentForNoShow.id)}
+                className="mobile-dialog-confirm-btn"
+                disabled={noShowLoading}
+              >
+                {noShowLoading ? '處理中...' : '確認標記'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

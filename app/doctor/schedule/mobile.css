@@ -335,6 +335,26 @@ body {
   background: #fef3c7;
 }
 
+/* 第一行：時間點信息 */
+.mobile-time-slot-info-row {
+  display: flex;
+  flex-direction: row;
+  gap: var(--spacing-sm);
+  align-items: center;
+  margin-bottom: var(--spacing-md);
+  flex-wrap: nowrap;
+}
+
+/* 第二行：操作按鈕 */
+.mobile-slot-actions-row {
+  display: flex;
+  gap: var(--spacing-sm);
+  align-items: center;
+  justify-content: flex-start;
+  flex-wrap: wrap;
+}
+
+/* 保留原有的inline樣式作為備用 */
 .mobile-time-slot-inline {
   display: flex;
   flex-direction: row;
