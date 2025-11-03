@@ -3,7 +3,9 @@
 import { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
+import { FaHistory } from 'react-icons/fa';
 import './mobile.css';
+import AppointmentHistoryModal from '../../components/AppointmentHistoryModal';
 
 // --- Interfaces ---
 interface Appointment {
@@ -32,6 +34,10 @@ export default function MyAppointmentsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [success, ] = useState<string | null>(null);
+  
+  // --- History Modal States ---
+  const [showHistoryModal, setShowHistoryModal] = useState(false);
+  const [selectedAppointmentId, setSelectedAppointmentId] = useState<string | null>(null);
 
   useEffect(() => {
     if (status === 'unauthenticated') {
@@ -83,6 +89,18 @@ export default function MyAppointmentsPage() {
     return statusTranslations[apt.status] || apt.status;
   };
 
+  // 打開歷史記錄模態框
+  const openHistoryModal = (appointmentId: string) => {
+    setSelectedAppointmentId(appointmentId);
+    setShowHistoryModal(true);
+  };
+
+  // 關閉歷史記錄模態框
+  const closeHistoryModal = () => {
+    setShowHistoryModal(false);
+    setSelectedAppointmentId(null);
+  };
+
   if (isLoading || status === 'loading') {
     return <div className="mobile-loading">正在加载预约...</div>;
   }
@@ -119,11 +137,23 @@ export default function MyAppointmentsPage() {
             }`}>
               状态：{getDisplayStatus(apt)}
             </div>
-            {new Date(`${apt.date}T${apt.time}`) > new Date() && apt.status === 'PENDING' && (
-              <button onClick={() => handleCancel(apt.id)} className="mobile-cancel-btn">
-                取消预约
+            
+            <div className="mobile-appointment-actions">
+              <button 
+                onClick={() => openHistoryModal(apt.id)}
+                className="mobile-history-btn"
+                title="查看歷史記錄"
+              >
+                <FaHistory className="mr-1" />
+                歷史記錄
               </button>
-            )}
+              
+              {new Date(`${apt.date}T${apt.time}`) > new Date() && apt.status === 'PENDING' && (
+                <button onClick={() => handleCancel(apt.id)} className="mobile-cancel-btn">
+                  取消预约
+                </button>
+              )}
+            </div>
           </div>
         )) : (
           <div className="mobile-empty-state">
@@ -132,6 +162,15 @@ export default function MyAppointmentsPage() {
           </div>
         )}
       </div>
+
+      {/* 歷史記錄模態框 */}
+      {showHistoryModal && selectedAppointmentId && (
+        <AppointmentHistoryModal
+          appointmentId={selectedAppointmentId}
+          isOpen={showHistoryModal}
+          onClose={closeHistoryModal}
+        />
+      )}
     </div>
   );
 }

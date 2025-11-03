@@ -1,9 +1,9 @@
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '../../../auth/[...nextauth]/route';
-import { createAuditLog } from '@/lib/audit';
-import { prisma } from '@/lib/prisma';
-import { createAppointmentHistoryInTransaction } from '@/lib/appointment-history';
+import { createAuditLog } from '../../../../../lib/audit';
+import { prisma } from '../../../../../lib/prisma';
+import { createAppointmentHistoryInTransaction } from '../../../../../lib/appointment-history';
 
 export async function POST(request: Request, { params }: { params: { id: string } }) {
   const session = await getServerSession(authOptions);

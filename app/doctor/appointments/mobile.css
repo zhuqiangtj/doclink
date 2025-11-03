@@ -171,6 +171,8 @@
   padding: 1rem;
   max-width: 100%;
   margin: 0 auto;
+  /* 為底部導航欄預留空間 */
+  padding-bottom: 100px;
 }
 
 /* Header */
@@ -433,6 +435,35 @@
 .mobile-appointment-actions {
   display: flex;
   gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+/* 歷史記錄按鈕樣式 */
+.mobile-history-btn {
+  background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+  color: white;
+  border: none;
+  border-radius: 0.5rem;
+  padding: 0.75rem 1rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 4px rgba(99, 102, 241, 0.2);
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.mobile-history-btn:hover {
+  background: linear-gradient(135deg, #4f46e5 0%, #4338ca 100%);
+  box-shadow: 0 4px 8px rgba(99, 102, 241, 0.3);
+  transform: translateY(-1px);
+}
+
+.mobile-history-btn:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 4px rgba(99, 102, 241, 0.2);
 }
 
 .mobile-cancel-appointment-btn {
@@ -592,19 +623,17 @@
   color: white;
 }
 
-/* 對話框樣式 */
+/* 對話框樣式 - 優化居中和緊湊設計 */
 .mobile-dialog-overlay {
   position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 1000;
-  padding: 1rem;
+  padding: 16px;
+  backdrop-filter: blur(4px);
 }
 
 .mobile-dialog {
@@ -613,21 +642,36 @@
   box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
   max-width: 400px;
   width: 100%;
-  max-height: 90vh;
-  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  animation: modalSlideIn 0.3s ease-out;
+  /* 確保居中並只佔用必要空間 */
+  align-self: center;
+  justify-self: center;
+}
+
+@keyframes modalSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-20px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }
 
 .mobile-dialog-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 1.5rem 1.5rem 0 1.5rem;
+  padding: 8px 12px;
   border-bottom: 1px solid #e5e7eb;
-  margin-bottom: 1rem;
+  flex: none;
 }
 
 .mobile-dialog-title {
-  font-size: 1.25rem;
+  font-size: 0.9rem;
   font-weight: 700;
   color: #111827;
   margin: 0;
@@ -649,28 +693,31 @@
 }
 
 .mobile-dialog-content {
-  padding: 0 1.5rem;
+  padding: 8px 12px;
+  flex: none;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .mobile-dialog-message {
-  font-size: 1rem;
+  font-size: 0.875rem;
   color: #374151;
-  margin-bottom: 1.5rem;
+  margin-bottom: 1rem;
   line-height: 1.6;
 }
 
 .mobile-dialog-appointment-info {
   background: #f9fafb;
   border-radius: 0.75rem;
-  padding: 1rem;
-  margin-bottom: 1rem;
+  padding: 0.75rem;
+  margin-bottom: 0.75rem;
 }
 
 .mobile-dialog-info-row {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 0.5rem;
+  margin-bottom: 0.25rem;
 }
 
 .mobile-dialog-info-row:last-child {
@@ -680,34 +727,35 @@
 .mobile-dialog-label {
   font-weight: 600;
   color: #374151;
-  font-size: 0.875rem;
+  font-size: 0.75rem;
 }
 
 .mobile-dialog-value {
   color: #111827;
-  font-size: 0.875rem;
+  font-size: 0.75rem;
 }
 
 .mobile-dialog-warning {
   background: #fef3c7;
   border: 1px solid #f59e0b;
   border-radius: 0.5rem;
-  padding: 0.75rem;
-  margin-bottom: 1.5rem;
+  padding: 0.5rem;
+  margin-bottom: 1rem;
 }
 
 .mobile-dialog-warning p {
   margin: 0;
   color: #92400e;
-  font-size: 0.875rem;
+  font-size: 0.75rem;
   font-weight: 500;
 }
 
 .mobile-dialog-actions {
   display: flex;
-  gap: 0.75rem;
-  padding: 1.5rem;
+  gap: 8px;
+  padding: 8px 12px;
   border-top: 1px solid #e5e7eb;
+  flex: none;
 }
 
 .mobile-dialog-cancel-btn {

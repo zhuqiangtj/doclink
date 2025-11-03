@@ -3,8 +3,9 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
-import { FaCalendarAlt, FaHospital, FaFilter, FaChevronLeft, FaChevronRight, FaTimes, FaCheckCircle, FaBell } from 'react-icons/fa';
+import { FaCalendarAlt, FaHospital, FaFilter, FaChevronLeft, FaChevronRight, FaTimes, FaCheckCircle, FaBell, FaHistory } from 'react-icons/fa';
 import './mobile.css';
+import AppointmentHistoryModal from '../../../components/AppointmentHistoryModal';
 
 // --- Interfaces ---
 interface Patient {
@@ -78,7 +79,7 @@ export default function DoctorAppointmentsPage() {
     return chinaTime.toISOString().split('T')[0];
   };
 
-  const [selectedDate, setSelectedDate] = useState<string>(getCurrentDateInChina());
+  const [selectedDate, setSelectedDate] = useState<string>('');
   const [selectedRoomId, setSelectedRoomId] = useState<string>('');
   const [selectedStatus, setSelectedStatus] = useState<string>('');
 
@@ -91,6 +92,10 @@ export default function DoctorAppointmentsPage() {
   const [showNoShowDialog, setShowNoShowDialog] = useState(false);
   const [selectedAppointmentForNoShow, setSelectedAppointmentForNoShow] = useState<Appointment | null>(null);
   const [noShowLoading, setNoShowLoading] = useState(false);
+  
+  // --- History Modal States ---
+  const [showHistoryModal, setShowHistoryModal] = useState(false);
+  const [selectedAppointmentId, setSelectedAppointmentId] = useState<string | null>(null);
 
   // --- Effects ---
   useEffect(() => {
@@ -338,6 +343,18 @@ export default function DoctorAppointmentsPage() {
     setSelectedAppointmentForNoShow(null);
   };
 
+  // 打開歷史記錄模態框
+  const openHistoryModal = (appointmentId: string) => {
+    setSelectedAppointmentId(appointmentId);
+    setShowHistoryModal(true);
+  };
+
+  // 關閉歷史記錄模態框
+  const closeHistoryModal = () => {
+    setShowHistoryModal(false);
+    setSelectedAppointmentId(null);
+  };
+
   const calculateAge = (birthDate?: string): string => {
     if (!birthDate) return '未知';
     const today = new Date();
@@ -574,6 +591,15 @@ export default function DoctorAppointmentsPage() {
               </div>
 
               <div className="mobile-appointment-actions">
+                <button 
+                  onClick={() => openHistoryModal(apt.id)}
+                  className="mobile-history-btn"
+                  title="查看歷史記錄"
+                >
+                  <FaHistory className="mr-1" />
+                  歷史記錄
+                </button>
+                
                 {apt.status === 'PENDING' && (
                   <button 
                     onClick={() => handleCancelAppointment(apt.id, apt.patient.user.name)}
@@ -688,6 +714,15 @@ export default function DoctorAppointmentsPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* 歷史記錄模態框 */}
+      {showHistoryModal && selectedAppointmentId && (
+        <AppointmentHistoryModal
+          appointmentId={selectedAppointmentId}
+          isOpen={showHistoryModal}
+          onClose={closeHistoryModal}
+        />
       )}
     </div>
   );

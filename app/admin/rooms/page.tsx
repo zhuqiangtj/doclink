@@ -205,7 +205,20 @@ export default function AdminRoomsPage() {
               
               <div className="mobile-form-group">
                 <label className="mobile-form-label">床位数量</label>
-                <input type="number" value={bedCount} onChange={e => setBedCount(parseInt(e.target.value, 10))} placeholder="床位数量" className="mobile-form-input" min="1" required />
+                <input 
+                  type="number" 
+                  value={bedCount} 
+                  onChange={e => setBedCount(parseInt(e.target.value, 10))} 
+                  placeholder="床位数量" 
+                  className={`mobile-form-input ${modalMode === 'edit' ? 'mobile-form-input-disabled' : ''}`}
+                  min="1" 
+                  required 
+                  disabled={modalMode === 'edit'}
+                  readOnly={modalMode === 'edit'}
+                />
+                {modalMode === 'edit' && (
+                  <p className="mobile-form-help-text">編輯時無法修改床位數量</p>
+                )}
               </div>
               
               <div className="mobile-form-group">

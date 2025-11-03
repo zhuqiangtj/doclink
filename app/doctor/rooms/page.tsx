@@ -114,11 +114,10 @@ export default function DoctorRoomsPage() {
         setDoctorProfile(prev => prev ? { ...prev, Room: [...prev.Room, newRoom] } : null);
         setSuccess('诊室添加成功！');
       } else if (modalMode === 'edit' && selectedRoom) {
-        const response = await fetch('/api/rooms', {
+        const response = await fetch(`/api/rooms?roomId=${selectedRoom.id}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            roomId: selectedRoom.id,
             name: roomName,
             // 編輯時不傳送 bedCount，保持原有床位數量
           }),

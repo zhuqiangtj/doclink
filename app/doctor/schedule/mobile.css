@@ -52,6 +52,8 @@ body {
   width: 100%;
   max-width: 1200px;
   margin: 0 auto;
+  /* 為底部導航欄預留空間 */
+  padding-bottom: 100px;
 }
 
 /* 頁面標題 */
@@ -172,6 +174,17 @@ body {
 .mobile-btn-secondary:hover:not(:disabled) {
   background: #4b5563;
   transform: translateY(-1px);
+}
+
+.mobile-btn-disabled {
+  background: #e5e7eb;
+  color: #9ca3af;
+  cursor: not-allowed;
+}
+
+.mobile-btn-disabled:hover {
+  background: #e5e7eb;
+  transform: none;
 }
 
 .mobile-btn-outline {
@@ -476,7 +489,7 @@ body {
   align-items: center;
   justify-content: center;
   z-index: 1000;
-  padding: var(--spacing-lg);
+  padding: 16px;
   backdrop-filter: blur(4px);
 }
 
@@ -485,14 +498,14 @@ body {
   background: var(--card-background);
   border-radius: var(--border-radius);
   width: 100%;
-  max-width: 500px;
-  max-height: 90vh;
-  overflow: hidden;
+  max-width: 320px;
   display: flex;
   flex-direction: column;
   box-shadow: var(--shadow-lg);
   animation: modalSlideIn 0.3s ease-out;
-  margin: auto;
+  /* 確保居中並只佔用必要空間 */
+  align-self: center;
+  justify-self: center;
 }
 
 @keyframes modalSlideIn {
@@ -511,31 +524,34 @@ body {
 }
 
 .mobile-modal-header {
-  padding: var(--spacing-lg);
+  padding: 8px 12px;
   border-bottom: 1px solid var(--border-color);
   background: var(--card-background);
+  flex: none; /* 確保header不會拉伸 */
 }
 
 .mobile-modal-header h2 {
-  font-size: 1.25rem;
+  font-size: 0.9rem;
   font-weight: 700;
   color: var(--text-primary);
   margin: 0;
 }
 
 .mobile-modal-content {
-  padding: var(--spacing-lg);
-  flex: 1;
+  padding: 8px 12px;
+  /* 確保內容區域不會自動拉伸 */
+  flex: none;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
 }
 
 .mobile-modal-footer {
-  padding: var(--spacing-lg);
+  padding: 8px 12px;
   border-top: 1px solid var(--border-color);
   display: flex;
-  gap: var(--spacing-sm);
+  gap: 8px;
   background: var(--card-background);
+  flex: none; /* 確保footer不會拉伸 */
 }
 
 /* 搜尋結果 */

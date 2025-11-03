@@ -184,7 +184,7 @@ main {
   box-sizing: border-box; /* 確保padding不影響總寬度 */
 }
 
-/* 手機端模態框優化 */
+/* Mobile Modal - 優化居中和緊湊設計 */
 .mobile-modal {
   position: fixed;
   top: 0;
@@ -193,27 +193,34 @@ main {
   bottom: 0;
   background: rgba(0, 0, 0, 0.5);
   display: flex;
-  align-items: flex-end;
+  align-items: center;
   justify-content: center;
   z-index: 1000;
+  padding: 1rem;
 }
 
 .mobile-modal-content {
   background: white;
-  border-radius: var(--mobile-border-radius) var(--mobile-border-radius) 0 0;
-  padding: var(--mobile-padding);
+  border-radius: 0.75rem;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.25);
   width: 100%;
-  max-height: 80vh;
+  max-width: 400px;
+  display: flex;
+  flex-direction: column;
+  animation: modalSlideIn 0.3s ease-out;
   overflow-y: auto;
-  animation: slideUp 0.3s ease-out;
+  -webkit-overflow-scrolling: touch;
+  max-height: 90vh;
 }
 
-@keyframes slideUp {
+@keyframes modalSlideIn {
   from {
-    transform: translateY(100%);
+    opacity: 0;
+    transform: translateY(-20px) scale(0.95);
   }
   to {
-    transform: translateY(0);
+    opacity: 1;
+    transform: translateY(0) scale(1);
   }
 }
 

@@ -5,6 +5,8 @@
   padding: 1rem;
   max-width: 100%;
   margin: 0 auto;
+  /* 為底部導航欄預留空間 */
+  padding-bottom: 100px;
 }
 
 /* Header */
@@ -165,7 +167,7 @@
   font-size: 1rem;
 }
 
-/* Modal */
+/* Modal - 優化居中和緊湊設計 */
 .mobile-modal-overlay {
   position: fixed;
   inset: 0;
@@ -174,36 +176,59 @@
   align-items: center;
   justify-content: center;
   z-index: 50;
-  padding: 1rem;
+  padding: 16px;
+  backdrop-filter: blur(4px);
 }
 
 .mobile-modal {
   background: white;
-  padding: 1.5rem;
   border-radius: 1rem;
   box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
   width: 100%;
-  max-width: 24rem;
+  max-width: 320px;
+  display: flex;
+  flex-direction: column;
+  animation: modalSlideIn 0.3s ease-out;
+  /* 確保居中並只佔用必要空間 */
+  align-self: center;
+  justify-self: center;
+}
+
+@keyframes modalSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-20px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }
 
 .mobile-modal-title {
-  font-size: 1.5rem;
-  font-weight: bold;
-  margin-bottom: 1rem;
+  font-size: 0.9rem;
+  font-weight: 700;
+  margin: 0;
+  padding: 8px 12px;
   color: #1f2937;
+  border-bottom: 1px solid #e5e7eb;
+  flex: none;
 }
 
 .mobile-modal-info {
-  font-size: 1rem;
-  margin-bottom: 0.5rem;
+  font-size: 0.875rem;
+  margin-bottom: 0.25rem;
   color: #1f2937;
+  padding: 0 12px;
 }
 
 .mobile-modal-actions {
   display: flex;
   justify-content: flex-end;
-  gap: 0.75rem;
-  margin-top: 1.5rem;
+  gap: 8px;
+  padding: 8px 12px;
+  border-top: 1px solid #e5e7eb;
+  flex: none;
 }
 
 .mobile-modal-btn {

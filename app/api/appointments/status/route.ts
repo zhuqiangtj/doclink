@@ -1,8 +1,9 @@
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '../../auth/[...nextauth]/route';
-import { prisma } from '@/lib/prisma';
-import { createAuditLog } from '@/lib/audit';
+import { prisma } from '../../../../lib/prisma';
+import { createAuditLog } from '../../../../lib/audit';
+import { createAppointmentHistoryInTransaction } from '../../../../lib/appointment-history';
 
 // PUT - 更新預約狀態
 export async function PUT(request: Request) {
@@ -92,6 +93,16 @@ export async function PUT(request: Request) {
           status: status as any,
           reason: finalReason 
         }
+      });
+
+      // 創建預約歷史記錄
+      await createAppointmentHistoryInTransaction(tx, {
+        appointmentId: appointmentId,
+        operatorName: session.user.name || session.user.username || 'Unknown',
+        operatorId: session.user.id,
+        status: status as any,
+        reason: finalReason,
+        action: `UPDATE_STATUS_TO_${status}`,
       });
 
       // 如果需要扣分，更新病人信用分數

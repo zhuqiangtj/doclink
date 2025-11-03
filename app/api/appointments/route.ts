@@ -2,7 +2,8 @@ import { PrismaClient } from '@prisma/client';
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '../auth/[...nextauth]/route';
-import { createAuditLog } from '@/lib/audit'; // Import from shared utility
+import { createAuditLog } from '../../../lib/audit'; // Import from shared utility
+import { createAppointmentHistoryInTransaction } from '../../../lib/appointment-history';
 
 const prisma = new PrismaClient();
 
@@ -118,6 +119,16 @@ export async function POST(request: Request) {
           status: 'PENDING', 
           reason: session.user.role === 'DOCTOR' ? '醫生預約' : '病人預約'
         }, // Set bedId to 0 initially
+      });
+
+      // 創建預約歷史記錄
+      await createAppointmentHistoryInTransaction(tx, {
+        appointmentId: newAppointment.id,
+        operatorName: session.user.name || session.user.username || 'Unknown',
+        operatorId: session.user.id,
+        status: 'PENDING',
+        reason: session.user.role === 'DOCTOR' ? '醫生預約' : '病人預約',
+        action: 'CREATE',
       });
 
       // Create a notification for the doctor

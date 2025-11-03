@@ -130,6 +130,22 @@ model Appointment {
   status     AppointmentStatus @default(PENDING)
   reason     String?           // 原因字段：記錄狀態變更的原因
   createTime DateTime          @default(now())
+  history    AppointmentHistory[] // 一對多關係：預約變更歷史記錄
+}
+
+model AppointmentHistory {
+  id            String            @id @default(cuid())
+  appointment   Appointment       @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+  appointmentId String
+  operatorName  String            // 操作人姓名
+  operatorId    String?           // 操作人ID（可選，用於關聯）
+  operatedAt    DateTime          @default(now()) // 操作時間
+  status        AppointmentStatus // 變更後的預約狀態
+  reason        String?           // 變更後的原因
+  action        String            // 操作類型：CREATE, UPDATE_STATUS, CANCEL, CHECKIN, NO_SHOW等
+  
+  @@index([appointmentId])
+  @@index([operatedAt])
 }
 
 model Patient {

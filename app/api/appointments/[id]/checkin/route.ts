@@ -1,8 +1,9 @@
 import { NextResponse, NextRequest } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '../../../auth/[...nextauth]/route';
-import { createAuditLog } from '@/lib/audit'; // Adjust path as needed
-import { prisma } from '@/lib/prisma';
+import { createAuditLog } from '../../../../../lib/audit'; // Adjust path as needed
+import { prisma } from '../../../../../lib/prisma';
+import { createAppointmentHistory } from '../../../../../lib/appointment-history';
 
 export async function POST(request: NextRequest, context: { params: { id: string } }) {
   const { params } = context;
@@ -44,6 +45,16 @@ export async function POST(request: NextRequest, context: { params: { id: string
         status: 'CHECKED_IN',
         reason: '病人已報到'
       },
+    });
+
+    // 創建預約歷史記錄
+    await createAppointmentHistory({
+      appointmentId: appointmentId,
+      operatorName: session.user.name || session.user.username || 'Unknown',
+      operatorId: session.user.id,
+      status: 'CHECKED_IN',
+      reason: '病人已報到',
+      action: 'CHECKIN',
     });
 
     await createAuditLog(session, 'PATIENT_CHECK_IN', 'Appointment', appointmentId);

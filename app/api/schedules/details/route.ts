@@ -38,6 +38,16 @@ export async function GET(request: Request) {
       },
       include: {
         room: true,
+        doctor: {
+          include: {
+            user: {
+              select: {
+                name: true,
+                role: true
+              }
+            }
+          }
+        }
       },
     });
 
@@ -55,6 +65,17 @@ export async function GET(request: Request) {
         patient: { select: { user: { select: { name: true } } } },
         user: { select: { name: true, role: true } }, // 添加創建者信息
         scheduleId: true,
+        history: {
+          select: {
+            operatedAt: true,
+            operatorName: true,
+            action: true,
+          },
+          orderBy: {
+            operatedAt: 'desc'
+          },
+          take: 1 // 只取最新的一條歷史記錄
+        },
       },
     });
 
