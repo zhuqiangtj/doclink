@@ -1,0 +1,348 @@
+/* Enhanced Date Picker - Ultra Compact Version */
+.enhanced-date-picker {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-radius: 20px;
+  padding: 12px;
+  color: white;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  max-width: 600px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+/* Combined Header with Month Navigation and Selected Date */
+.combined-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+  padding: 8px 12px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.month-navigation {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+/* Selected Date Inline */
+.selected-date-inline {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+}
+
+.selected-date-inline .selected-date-text {
+  font-size: 14px;
+  font-weight: 600;
+  color: #ffd700;
+}
+
+.schedule-summary-inline {
+  font-size: 11px;
+  opacity: 0.9;
+}
+
+.selected-date-inline .past-notice {
+  color: #fca5a5;
+}
+
+.selected-date-inline .appointment-notice {
+  color: #fed7aa;
+}
+
+.selected-date-inline .available-notice {
+  color: #bbf7d0;
+}
+
+.selected-date-inline .no-schedule {
+  color: #d1d5db;
+  font-style: italic;
+}
+
+.nav-button {
+  background: rgba(255, 255, 255, 0.2);
+  border: none;
+  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.nav-button:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.3);
+  transform: scale(1.1);
+}
+
+.nav-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.current-month {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 120px;
+}
+
+.month-name {
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.year {
+  font-size: 14px;
+  opacity: 0.8;
+}
+
+/* Calendar Container */
+.calendar-container {
+  position: relative;
+  background: rgba(255, 255, 255, 0.95);
+  border-radius: 16px;
+  padding: 12px;
+  color: #374151;
+}
+
+.loading-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(255, 255, 255, 0.9);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  border-radius: 16px;
+  z-index: 10;
+}
+
+.loading-spinner {
+  width: 32px;
+  height: 32px;
+  border: 3px solid #e5e7eb;
+  border-top: 3px solid #667eea;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-bottom: 8px;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* Weekday Header */
+.weekday-header {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+  margin-bottom: 8px;
+}
+
+.weekday-cell {
+  text-align: center;
+  font-weight: 600;
+  font-size: 14px;
+  color: #6b7280;
+  padding: 8px 4px;
+}
+
+/* Calendar Grid */
+.calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+}
+
+.enhanced-date-cell {
+  position: relative;
+  min-height: 36px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  border: 2px solid transparent;
+  background: #f9fafb;
+  min-height: 48px;
+}
+
+.enhanced-date-cell:hover {
+  transform: scale(1.05);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.date-number {
+  font-size: 16px;
+  font-weight: 500;
+  margin-bottom: 2px;
+}
+
+/* Date Status Styles */
+.enhanced-date-cell.other-month {
+  opacity: 0.3;
+  cursor: default;
+}
+
+.enhanced-date-cell.other-month:hover {
+  transform: none;
+  box-shadow: none;
+}
+
+.enhanced-date-cell.today {
+  border-color: #22c55e;
+  background: linear-gradient(135deg, #dcfce7, #bbf7d0);
+  color: #166534;
+  font-weight: 700;
+}
+
+.enhanced-date-cell.selected {
+  border-color: #667eea;
+  background: linear-gradient(135deg, #e0e7ff, #c7d2fe);
+  color: #3730a3;
+  font-weight: 700;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.3);
+}
+
+.enhanced-date-cell.past-with-schedule {
+  background: linear-gradient(135deg, #f3f4f6, #e5e7eb);
+  color: #6b7280;
+  border-color: #d1d5db;
+}
+
+.enhanced-date-cell.future-with-schedule {
+  background: linear-gradient(135deg, #dbeafe, #bfdbfe);
+  color: #1e40af;
+  border-color: #3b82f6;
+}
+
+.enhanced-date-cell.future-with-appointments {
+  background: linear-gradient(135deg, #fed7aa, #fdba74);
+  color: #c2410c;
+  border-color: #f97316;
+}
+
+/* Status Indicators */
+.date-status-indicator {
+  position: absolute;
+  bottom: 2px;
+  right: 2px;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.status-icon {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 8px;
+}
+
+.status-icon.past {
+  background: rgba(156, 163, 175, 0.8);
+  color: white;
+}
+
+.status-icon.available {
+  background: rgba(59, 130, 246, 0.8);
+  color: white;
+}
+
+.status-icon.appointments {
+  background: rgba(249, 115, 22, 0.8);
+  color: white;
+}
+
+.status-info {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.appointment-count {
+  font-size: 10px;
+  font-weight: 600;
+  color: #c2410c;
+  background: rgba(255, 255, 255, 0.9);
+  padding: 1px 4px;
+  border-radius: 6px;
+  line-height: 1;
+}
+
+/* Responsive Design */
+@media (max-width: 640px) {
+  .enhanced-date-picker {
+    padding: 10px;
+    margin: 0 8px;
+  }
+  
+  .combined-header {
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 10px;
+    padding: 8px;
+  }
+  
+  .month-navigation {
+    justify-content: center;
+    gap: 12px;
+  }
+  
+  .selected-date-inline {
+    align-items: center;
+  }
+  
+  .enhanced-date-cell {
+    min-height: 32px;
+  }
+  
+  .date-number {
+    font-size: 14px;
+  }
+}
+
+@media (max-width: 480px) {
+  .enhanced-date-picker {
+    padding: 8px;
+  }
+  
+  .calendar-container {
+    padding: 8px;
+  }
+  
+  .combined-header {
+    padding: 6px;
+  }
+  
+  .enhanced-date-cell {
+    min-height: 28px;
+  }
+  
+  .date-number {
+    font-size: 12px;
+  }
+  
+  .appointment-count {
+    font-size: 8px;
+  }
+}

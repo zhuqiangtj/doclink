@@ -6,6 +6,8 @@ import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 import './mobile.css';
 import { FaTrash, FaSave, FaUserPlus, FaPlusCircle } from 'react-icons/fa';
+import EnhancedDatePicker, { DateStatus } from '../../../components/EnhancedDatePicker';
+import { fetchDateStatusesForMonth } from '../../../utils/dateStatusUtils';
 
 // --- Interfaces ---
 interface Room { id: string; name: string; bedCount: number; }
@@ -41,11 +43,39 @@ const fromYYYYMMDD = (dateString: string): Date => {
   return new Date(parts[0], parts[1] - 1, parts[2]);
 };
 
+// 判斷時間點是否已過
+const isTimeSlotPast = (date: Date, time: string): boolean => {
+  // 檢查 time 參數是否有效
+  if (!time || typeof time !== 'string') {
+    return false; // 如果時間無效，默認不禁用
+  }
+  
+  const now = new Date();
+  const slotDateTime = new Date(date);
+  
+  // 檢查時間格式是否正確
+  if (!time.includes(':')) {
+    return false;
+  }
+  
+  const [hours, minutes] = time.split(':').map(Number);
+  
+  // 檢查解析的時間是否有效
+  if (isNaN(hours) || isNaN(minutes)) {
+    return false;
+  }
+  
+  slotDateTime.setHours(hours, minutes, 0, 0);
+  
+  return slotDateTime < now;
+};
+
 // --- Component ---
 export default function DoctorSchedulePage() {
   const { data: session, status } = useSession();
   const [doctorProfile, setDoctorProfile] = useState<DoctorProfile | null>(null);
   const [highlightedDates, setHighlightedDates] = useState<Date[]>([]);
+  const [dateStatuses, setDateStatuses] = useState<DateStatus[]>([]);
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [schedulesForSelectedDay, setSchedulesForSelectedDay] = useState<Schedule[]>([]);
   const [currentMonth, setCurrentMonth] = useState(new Date());
@@ -69,6 +99,7 @@ export default function DoctorSchedulePage() {
   const [collapsedSlots, setCollapsedSlots] = useState<{[key: string]: boolean}>({});
   const [editingSlots, setEditingSlots] = useState<{[key: string]: any}>({});
   const [deletingSlots, setDeletingSlots] = useState<Set<string>>(new Set());
+  const [savingSlots, setSavingSlots] = useState<Set<string>>(new Set());
 
   const getSlotValue = (scheduleId: string, slotIndex: number, field: 'time' | 'total' | 'roomId', originalValue: any) => {
     const key = `${scheduleId}-${slotIndex}`;
@@ -124,6 +155,14 @@ export default function DoctorSchedulePage() {
       if (!highlightsRes.ok) throw new Error('Failed to fetch highlighted dates.');
       const highlightsData = await highlightsRes.json();
       setHighlightedDates(highlightsData.scheduledDates.map((dateStr: string) => fromYYYYMMDD(dateStr)));
+
+      // 獲取日期狀態數據
+      const dateStatusData = await fetchDateStatusesForMonth(
+        date.getFullYear(),
+        date.getMonth(),
+        userData.doctorProfile.id
+      );
+      setDateStatuses(dateStatusData);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred while fetching data');
     } finally {
@@ -136,6 +175,26 @@ export default function DoctorSchedulePage() {
       fetchAllDataForDate(selectedDate);
     }
   }, [selectedDate, status, fetchAllDataForDate]);
+
+  // 監聽月份變化，重新獲取日期狀態數據
+  useEffect(() => {
+    const fetchDateStatusesForCurrentMonth = async () => {
+      if (status === 'authenticated' && doctorProfile) {
+        try {
+          const dateStatusData = await fetchDateStatusesForMonth(
+            selectedDate.getFullYear(),
+            selectedDate.getMonth(),
+            doctorProfile.id
+          );
+          setDateStatuses(dateStatusData);
+        } catch (error) {
+          console.error('Error fetching date statuses:', error);
+        }
+      }
+    };
+
+    fetchDateStatusesForCurrentMonth();
+  }, [selectedDate.getFullYear(), selectedDate.getMonth(), status, doctorProfile]);
 
   const handleApplyTemplate = async () => {
     if (!selectedRoomIdForTemplate) return;
@@ -207,7 +266,7 @@ export default function DoctorSchedulePage() {
     setError(null);
 
     try {
-      // 由於診室選擇已被禁用，我們不再處理房間變更的情況
+      // 由於診室選擇已被禁用，我們不再處理診室變更的情況
       // 直接更新現有的時間段
       const url = `/api/schedules?scheduleId=${scheduleId}&time=${schedule.timeSlots[slotIndex].time}`;
       const response = await fetch(url, {
@@ -521,7 +580,13 @@ export default function DoctorSchedulePage() {
   };
 
   const uniqueRooms = useMemo(() => {
-    return Array.from(new Set(schedulesForSelectedDay.map(s => s.room)));
+    const roomMap = new Map();
+    schedulesForSelectedDay.forEach(schedule => {
+      if (!roomMap.has(schedule.room.id)) {
+        roomMap.set(schedule.room.id, schedule.room);
+      }
+    });
+    return Array.from(roomMap.values());
   }, [schedulesForSelectedDay]);
 
   const activeSchedules = useMemo(() => {
@@ -555,15 +620,14 @@ export default function DoctorSchedulePage() {
         </p>
       </div>
       
-      <div className="mobile-card space-y-4">
-        <div className="flex flex-col space-y-3">
-          <label className="text-sm font-medium text-gray-700">選擇日期</label>
-          <DatePicker
-            selected={selectedDate}
-            onChange={(date: Date | null) => date && setSelectedDate(date)}
-            highlightDates={highlightedDates}
-            className="mobile-input w-full"
-            dateFormat="yyyy/MM/dd"
+      <div className="mobile-card">
+        <div style={{ marginBottom: '24px' }}>
+          <EnhancedDatePicker
+            selectedDate={selectedDate}
+            onDateChange={setSelectedDate}
+            dateStatuses={dateStatuses}
+            isLoading={isLoading}
+            className="w-full"
           />
         </div>
         
@@ -588,9 +652,9 @@ export default function DoctorSchedulePage() {
         </div>
       ) : (
         <div className="space-y-4 w-full flex flex-col items-center">
-          {/* 手機端房間選擇 - 使用下拉選單而非標籤頁 */}
+          {/* 手機端診室選擇 - 使用下拉選單而非標籤頁 */}
           <div className="mobile-card">
-            <label className="block text-sm font-medium text-gray-700 mb-2">選擇房間</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">選擇診室</label>
             <select
               value={activeRoomTab}
               onChange={(e) => setActiveRoomTab(e.target.value)}
@@ -607,7 +671,7 @@ export default function DoctorSchedulePage() {
           {activeSchedules.map(schedule => (
             <div key={schedule.id} className="mobile-card space-y-4">
               <div className="mobile-section-header">
-                <h3 className="text-lg font-semibold">房間: {schedule.room.name}</h3>
+                <h3 className="text-lg font-semibold">診室: {schedule.room.name}</h3>
               </div>
               
               {schedule.timeSlots && Array.isArray(schedule.timeSlots) ? schedule.timeSlots.map((slot, index) => {
@@ -662,12 +726,16 @@ export default function DoctorSchedulePage() {
                       <button
                         onClick={() => handleAddAppointment(schedule, index)}
                         className={`mobile-icon-btn-colored ${
-                          slot.appointments.length >= slot.total 
+                          slot.appointments.length >= slot.total || isTimeSlotPast(selectedDate, slot.time)
                             ? 'mobile-icon-btn-disabled-colored' 
                             : 'mobile-icon-btn-success'
                         }`}
-                        disabled={slot.appointments.length >= slot.total}
-                        title="新增預約"
+                        disabled={slot.appointments.length >= slot.total || isTimeSlotPast(selectedDate, slot.time)}
+                        title={
+                          isTimeSlotPast(selectedDate, slot.time) 
+                            ? "時間已過，無法預約" 
+                            : (slot.appointments.length >= slot.total ? "已滿額" : "新增預約")
+                        }
                       >
                         <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
                           <path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" />
@@ -751,7 +819,22 @@ export default function DoctorSchedulePage() {
                             <div className="mobile-patient-info-inline">
                               <span className="mobile-patient-name-inline">{appointment.patient.user.name}</span>
                               <span className="mobile-patient-details-inline">
-                                預約者: {appointment.user.name} ({appointment.user.role === 'DOCTOR' ? '醫生' : '患者'}) | 狀態: {appointment.status}
+                                操作時間：{appointment.history && appointment.history.length > 0 
+                                  ? new Date(appointment.history[0].operatedAt).toLocaleString('zh-TW', {
+                                      hour: '2-digit',
+                                      minute: '2-digit'
+                                    })
+                                  : appointment.time
+                                } 操作員：{
+                                  // 優先使用醫生的真實姓名
+                                  appointment.history && appointment.history.length > 0 
+                                    ? (doctorProfile?.name || appointment.history[0].operatorName)
+                                    : appointment.user.name
+                                } 角色：{
+                                  appointment.history && appointment.history.length > 0 
+                                    ? (doctorProfile?.name ? '醫生' : (appointment.history[0].operatorName.includes('醫生') || appointment.history[0].operatorName.includes('張') ? '醫生' : '患者'))
+                                    : (appointment.user.role === 'DOCTOR' ? '醫生' : '患者')
+                                } 狀態：{appointment.status === 'PENDING' ? '待就診' : appointment.status === 'CONFIRMED' ? '待就診' : appointment.status === 'COMPLETED' ? '已完成' : appointment.status === 'CANCELLED' ? '已取消' : appointment.status}
                               </span>
                             </div>
                             {appointment.status === 'PENDING' && (
@@ -798,22 +881,30 @@ export default function DoctorSchedulePage() {
         <div className="mobile-modal-overlay">
           <div className="mobile-modal">
             <div className="mobile-modal-header">
-              <h2 className="text-xl font-bold">選擇房間套用模板</h2>
+              <h2>選擇診室套用模板</h2>
             </div>
             <div className="mobile-modal-content space-y-4">
-              <div>
-                <label htmlFor="room-template" className="block text-sm font-medium mb-2">房間</label>
-                <select
-                  id="room-template"
-                  value={selectedRoomIdForTemplate}
-                  onChange={(e) => setSelectedRoomIdForTemplate(e.target.value)}
-                  className="mobile-input w-full"
-                >
-                  {doctorProfile.Room.map(room => (
-                    <option key={room.id} value={room.id}>{room.name}</option>
-                  ))}
-                </select>
-              </div>
+              {doctorProfile?.Room && doctorProfile.Room.length > 0 ? (
+                <div>
+                  <label htmlFor="room-template" className="block text-sm font-medium mb-2">診室</label>
+                  <select
+                    id="room-template"
+                    value={selectedRoomIdForTemplate}
+                    onChange={(e) => setSelectedRoomIdForTemplate(e.target.value)}
+                    className="mobile-input w-full"
+                  >
+                    {doctorProfile.Room.map(room => (
+                      <option key={room.id} value={room.id}>{room.name}</option>
+                    ))}
+                  </select>
+                </div>
+              ) : (
+                <div className="text-center py-4">
+                  <div className="text-gray-400 text-lg mb-2">🏥</div>
+                  <p className="text-gray-500 text-sm">醫生名下沒有診室</p>
+                  <p className="text-gray-400 text-xs mt-1">請聯繫管理員分配診室</p>
+                </div>
+              )}
             </div>
             <div className="mobile-modal-footer">
               <button 
@@ -825,7 +916,12 @@ export default function DoctorSchedulePage() {
               </button>
               <button 
                 onClick={handleApplyTemplate} 
-                className="mobile-btn mobile-btn-primary flex-1"
+                className={`mobile-btn flex-1 ${
+                  doctorProfile?.Room && doctorProfile.Room.length > 0 
+                    ? 'mobile-btn-primary' 
+                    : 'mobile-btn-disabled'
+                }`}
+                disabled={!doctorProfile?.Room || doctorProfile.Room.length === 0}
               >
                 套用
               </button>
