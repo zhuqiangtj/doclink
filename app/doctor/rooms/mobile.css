@@ -1,5 +1,127 @@
 /* Mobile-optimized styles for doctor rooms page */
 
+/* 基礎重置和變量 */
+:root {
+  --primary-color: #3b82f6;
+  --primary-hover: #2563eb;
+  --secondary-color: #6b7280;
+  --success-color: #10b981;
+  --danger-color: #ef4444;
+  --warning-color: #f59e0b;
+  --info-color: #0ea5e9;
+  --background-color: #f8fafc;
+  --card-background: #ffffff;
+  --border-color: #e5e7eb;
+  --text-primary: #1f2937;
+  --text-secondary: #6b7280;
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+  --border-radius: 12px;
+  --border-radius-sm: 8px;
+  --spacing-xs: 0.5rem;
+  --spacing-sm: 0.75rem;
+  --spacing-md: 1rem;
+  --spacing-lg: 1.5rem;
+  --spacing-xl: 2rem;
+}
+
+/* 全局樣式 */
+* {
+  box-sizing: border-box;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background-color: var(--background-color);
+  margin: 0;
+  padding: 0;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* 基礎容器 - 與排班頁面保持一致 */
+.page-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  min-height: 100vh;
+  padding: var(--spacing-lg);
+  background-color: var(--background-color);
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+  /* 為底部導航欄預留空間 */
+  padding-bottom: 100px;
+}
+
+/* 頁面標題 */
+.mobile-header {
+  margin-bottom: var(--spacing-lg);
+  text-align: center;
+  padding: var(--spacing-md) 0;
+}
+
+.mobile-header h1 {
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0 0 var(--spacing-xs) 0;
+}
+
+.mobile-header p {
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+/* 卡片容器 - 統一寬度設置 */
+.mobile-card {
+  background: var(--card-background);
+  border-radius: var(--border-radius);
+  padding: var(--spacing-lg);
+  box-shadow: var(--shadow-sm);
+  border: 1px solid var(--border-color);
+  margin-bottom: var(--spacing-md);
+  width: 100%;
+  max-width: 600px !important; /* 強制統一寬度 */
+  box-sizing: border-box; /* 確保padding不影響總寬度 */
+}
+
+/* 按鈕樣式 - 與排班頁面保持一致 */
+.mobile-btn {
+  padding: var(--spacing-sm) var(--spacing-md);
+  border: none;
+  border-radius: var(--border-radius-sm);
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+  min-height: 44px;
+  touch-action: manipulation;
+}
+
+.mobile-btn-primary {
+  background-color: var(--primary-color);
+  color: white;
+}
+
+.mobile-btn-primary:hover {
+  background-color: var(--primary-hover);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
+}
+
+.mobile-btn-primary:active {
+  transform: translateY(0);
+  box-shadow: var(--shadow-sm);
+}
+
 /* Loading state */
 .mobile-loading {
   padding: 2rem 1rem;
@@ -26,149 +148,38 @@
   color: #6b7280;
 }
 
-/* Main container */
-.mobile-container {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: flex-start;
-  min-height: calc(100vh - 80px);
-  padding: 1rem;
-  background-color: var(--background);
-  width: 100%;
-  max-width: 1200px;
-  margin: 0 auto;
-  padding-bottom: 100px; /* Account for bottom nav */
-}
-
-/* Header */
-.mobile-header {
-  font-size: 1.75rem;
-  font-weight: bold;
-  margin-bottom: 1.5rem;
-  color: #1f2937;
-  line-height: 1.3;
-}
-
 /* Alert messages */
 .mobile-error {
-  padding: 0.875rem;
+  padding: 0.75rem;
   margin-bottom: 1rem;
-  font-size: 0.9rem;
+  font-size: 0.875rem;
   color: #dc2626;
   background-color: #fef2f2;
-  border-radius: 0.5rem;
+  border-radius: 0.375rem;
   border-left: 4px solid #dc2626;
+  max-width: 600px;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .mobile-success {
-  padding: 0.875rem;
+  padding: 0.75rem;
   margin-bottom: 1rem;
-  font-size: 0.9rem;
+  font-size: 0.875rem;
   color: #059669;
   background-color: #f0fdf4;
-  border-radius: 0.5rem;
+  border-radius: 0.375rem;
   border-left: 4px solid #059669;
-}
-
-/* Form section */
-.mobile-form-section {
-  background: white;
-  padding: 1.25rem;
-  border-radius: 0.75rem;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-  margin-bottom: 1.5rem;
-  width: 100%;
   max-width: 600px;
+  width: 100%;
   box-sizing: border-box;
 }
 
-.mobile-form-title {
-  font-size: 1.25rem;
-  font-weight: 600;
-  margin-bottom: 1rem;
-  color: #1f2937;
-}
-
-.mobile-form {
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-}
-
-.mobile-form-group {
-  display: flex;
-  flex-direction: column;
-}
-
-.mobile-form-label {
-  font-size: 0.9rem;
-  font-weight: 500;
-  color: #374151;
-  margin-bottom: 0.5rem;
-}
-
-.mobile-form-input {
-  padding: 0.75rem;
-  border: 1px solid #d1d5db;
-  border-radius: 0.5rem;
-  font-size: 1rem;
-  background: white;
-  transition: border-color 0.2s;
-}
-
-.mobile-form-input:focus {
-  outline: none;
-  border-color: #3b82f6;
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
-}
-
-.mobile-submit-btn {
-  width: 100%;
-  padding: 0.875rem;
-  background: #3b82f6;
-  color: white;
-  border: none;
-  border-radius: 0.5rem;
-  font-size: 1rem;
-  font-weight: 500;
-  cursor: pointer;
-  transition: background-color 0.2s;
-  touch-action: manipulation;
-  min-height: 44px;
-}
-
-.mobile-submit-btn:hover {
-  background: #2563eb;
-}
-
-.mobile-submit-btn:active {
-  background: #1d4ed8;
-  transform: translateY(1px);
-}
-
-/* Rooms list section */
-.mobile-rooms-section {
-  background: white;
-  padding: 1.25rem;
-  border-radius: 0.75rem;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-  width: 100%;
-  max-width: 600px;
-  box-sizing: border-box;
-}
-
-.mobile-rooms-title {
-  font-size: 1.25rem;
-  font-weight: 600;
-  margin-bottom: 1rem;
-  color: #1f2937;
-}
-
+/* Rooms list */
 .mobile-rooms-list {
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
+  gap: 1rem;
 }
 
 .mobile-room-item {
@@ -182,79 +193,321 @@
 }
 
 .mobile-room-info {
-  font-size: 1rem;
-  color: #374151;
-  font-weight: 500;
+  flex: 1;
 }
 
-.mobile-delete-btn {
-  padding: 0.625rem 1rem;
-  background: #dc2626;
-  color: white;
+.mobile-room-name {
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: #1f2937;
+  margin: 0 0 0.25rem 0;
+}
+
+.mobile-room-details {
+  font-size: 0.875rem;
+  color: #6b7280;
+  margin: 0;
+}
+
+.mobile-room-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.mobile-action-btn {
+  flex: 1;
+  padding: 0.5rem 1rem;
   border: none;
   border-radius: 0.375rem;
   font-size: 0.875rem;
   font-weight: 500;
   cursor: pointer;
-  transition: background-color 0.2s;
+  transition: all 0.2s;
   touch-action: manipulation;
-  min-height: 40px;
-  align-self: flex-start;
+  min-height: 36px;
+}
+
+.mobile-edit-btn {
+  background: #f59e0b;
+  color: white;
+}
+
+.mobile-edit-btn:hover {
+  background: #d97706;
+}
+
+.mobile-delete-btn {
+  background: #ef4444;
+  color: white;
 }
 
 .mobile-delete-btn:hover {
-  background: #b91c1c;
+  background: #dc2626;
 }
 
-.mobile-delete-btn:active {
-  background: #991b1b;
+.mobile-action-btn:active {
   transform: translateY(1px);
 }
 
 /* Empty state */
 .mobile-empty-state {
   text-align: center;
-  padding: 2rem 1rem;
+  padding: 2rem;
+  color: #6b7280;
 }
 
 .mobile-empty-text {
   font-size: 1rem;
-  color: #9ca3af;
+  margin: 0;
+}
+
+/* Modal styles */
+.mobile-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: var(--spacing-md);
+  backdrop-filter: blur(4px);
+}
+
+.mobile-modal {
+  background: var(--card-background);
+  border-radius: var(--border-radius);
+  box-shadow: var(--shadow-lg);
+  border: 1px solid var(--border-color);
+  width: 100%;
+  max-width: 400px;
+  max-height: 90vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  animation: modalSlideIn 0.3s ease-out;
+}
+
+@keyframes modalSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-20px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.mobile-modal-header {
+  margin-bottom: var(--spacing-lg);
+  text-align: center;
+  padding: var(--spacing-lg) var(--spacing-lg) 0;
+}
+
+.mobile-modal-title {
+  font-size: 1.25rem;
+  font-weight: 600;
+  margin: 0;
+  color: var(--text-primary);
+}
+
+.mobile-modal-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
+  padding: 0 var(--spacing-lg);
+  overflow-y: auto;
+  flex: 1;
+}
+
+.mobile-form-group {
+  display: flex;
+  flex-direction: column;
+}
+
+.mobile-form-label {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--text-primary);
+  margin-bottom: var(--spacing-xs);
+}
+
+.mobile-form-input {
+  padding: var(--spacing-sm) var(--spacing-md);
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius-sm);
+  font-size: 1rem;
+  background: var(--card-background);
+  color: var(--text-primary);
+  transition: all 0.2s ease;
+  box-sizing: border-box;
+  min-height: 44px;
+}
+
+.mobile-form-input:focus {
+  outline: none;
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.mobile-form-input-disabled {
+  background-color: #f9fafb;
+  color: #6b7280;
+  cursor: not-allowed;
+  border-color: #d1d5db;
+}
+
+.mobile-form-input-disabled:focus {
+  border-color: #d1d5db;
+  box-shadow: none;
+}
+
+.mobile-form-help-text {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  margin-top: 0.25rem;
+  font-style: italic;
+}
+
+.mobile-modal-actions {
+  display: flex;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-lg);
+  border-top: 1px solid var(--border-color);
+  margin-top: auto;
+}
+
+.mobile-cancel-btn {
+  flex: 1;
+  padding: var(--spacing-sm) var(--spacing-md);
+  background: #f3f4f6;
+  color: var(--text-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius-sm);
+  font-size: 1rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  touch-action: manipulation;
+  min-height: 44px;
+}
+
+.mobile-cancel-btn:hover {
+  background: #e5e7eb;
+  color: var(--text-primary);
+}
+
+.mobile-save-btn {
+  flex: 1;
+  padding: var(--spacing-sm) var(--spacing-md);
+  background: var(--primary-color);
+  color: white;
+  border: none;
+  border-radius: var(--border-radius-sm);
+  font-size: 1rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  touch-action: manipulation;
+  min-height: 44px;
+}
+
+.mobile-save-btn:hover {
+  background: var(--primary-hover);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
+}
+
+.mobile-cancel-btn:active,
+.mobile-save-btn:active {
+  transform: translateY(0);
+  box-shadow: var(--shadow-sm);
 }
 
 /* Responsive adjustments */
-@media (max-width: 480px) {
-  .mobile-container {
-    padding: 0.75rem;
+@media (max-width: 640px) {
+  .page-container {
+    padding: var(--spacing-md);
+    padding-bottom: 100px;
   }
   
-  .mobile-header {
+  .mobile-card {
+    padding: var(--spacing-md);
+    margin-bottom: var(--spacing-sm);
+  }
+  
+  .mobile-modal {
+    margin: var(--spacing-sm);
+    max-width: calc(100vw - 2rem);
+  }
+  
+  .mobile-modal-actions {
+    flex-direction: column;
+  }
+  
+  .mobile-room-actions {
+    flex-direction: column;
+  }
+  
+  .mobile-action-btn {
+    width: 100%;
+  }
+}
+
+@media (max-width: 480px) {
+  .page-container {
+    padding: var(--spacing-sm);
+    padding-bottom: 100px;
+  }
+  
+  .mobile-header h1 {
     font-size: 1.5rem;
   }
   
-  .mobile-form-section,
-  .mobile-rooms-section {
-    padding: 1rem;
+  .mobile-card {
+    padding: var(--spacing-sm);
+  }
+  
+  .mobile-modal {
+    margin: var(--spacing-xs);
+    max-width: calc(100% - 1rem);
   }
 }
 
 /* Touch improvements */
 @media (hover: none) and (pointer: coarse) {
-  .mobile-submit-btn,
-  .mobile-delete-btn {
+  .mobile-add-btn,
+  .mobile-action-btn,
+  .mobile-save-btn,
+  .mobile-cancel-btn {
     min-height: 44px;
   }
 }
 
-/* Larger screens - maintain mobile-first approach but allow some expansion */
+/* Larger screens */
 @media (min-width: 768px) {
-  .mobile-room-item {
+  .mobile-header-section {
     flex-direction: row;
     align-items: center;
     justify-content: space-between;
   }
   
-  .mobile-delete-btn {
-    align-self: auto;
+  .mobile-add-btn {
+    width: auto;
+    min-width: 120px;
+  }
+  
+  .mobile-room-item {
+    flex-direction: row;
+    align-items: center;
+  }
+  
+  .mobile-room-actions {
+    flex-shrink: 0;
+    margin-left: 1rem;
   }
 }
