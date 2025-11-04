@@ -254,8 +254,8 @@
 /* Status Indicators */
 .date-status-indicator {
   position: absolute;
-  bottom: 2px;
-  right: 2px;
+  bottom: -2px;
+  right: -8px;
   display: flex;
   align-items: center;
   gap: 2px;
@@ -332,6 +332,12 @@
   
   .date-number {
     font-size: 14px;
+  }
+  
+  /* Move status indicator slightly further out on small screens to avoid overlap */
+  .date-status-indicator {
+    bottom: -4px;
+    right: -6px;
   }
 }
 
