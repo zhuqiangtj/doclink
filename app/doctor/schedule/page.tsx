@@ -730,7 +730,7 @@ export default function DoctorSchedulePage() {
   );
 
   return (
-    <div className="page-container space-y-4">
+    <div className="page-container space-y-2">
       <div className="mobile-card">
         <div className="w-full flex justify-between items-center mb-2">
           <p className="text-xs text-gray-500">{doctorProfile.name}</p>
@@ -774,7 +774,7 @@ export default function DoctorSchedulePage() {
           <p>請選擇其他日期或新增排程</p>
         </div>
       ) : (
-        <div className="space-y-4 w-full flex flex-col items-center">
+        <div className="space-y-2 w-full flex flex-col items-center">
           {/* 手機端診室選擇 - 使用下拉選單而非標籤頁 */}
           <div className="mobile-card">
             <label className="block text-sm font-medium text-gray-700 mb-2">選擇診室</label>
@@ -792,7 +792,7 @@ export default function DoctorSchedulePage() {
           </div>
 
           {activeSchedules.map(schedule => (
-            <div key={schedule.id} className="mobile-card space-y-4">
+            <div key={schedule.id} className="mobile-card space-y-2">
               <div className="mobile-section-header">
                 <h3 className="text-lg font-semibold">診室: {schedule.room.name}</h3>
               </div>
@@ -967,7 +967,8 @@ export default function DoctorSchedulePage() {
                                 操作時間：{appointment.history && appointment.history.length > 0 
                                   ? new Date(appointment.history[0].operatedAt).toLocaleString('zh-TW', {
                                       hour: '2-digit',
-                                      minute: '2-digit'
+                                      minute: '2-digit',
+                                      hour12: false
                                     })
                                   : appointment.time
                                 } 操作員：{

@@ -2,8 +2,8 @@
 /* 首行控件使用網格，讓四個區塊按比例填滿整行 */
 .mobile-time-slot-info-row-grid {
   display: grid;
-  grid-template-columns: 2fr 2fr 1.2fr 1fr; /* 開始時間、結束時間、床位、占用 */
-  gap: var(--spacing-sm);
+  grid-template-columns: auto auto 1fr 1fr; /* 開始時間、結束時間用自適應，整體更緊湊 */
+  gap: 4px;
   align-items: center;
   width: 100%;
 }
@@ -13,6 +13,11 @@
 .mobile-total-input-fluid {
   width: 100%;
   box-sizing: border-box;
+}
+
+/* 讓時間輸入在自適應的同時保持較小寬度上限 */
+.mobile-time-input-inline.mobile-time-input-fluid {
+  max-width: 110px;
 }
 
 /* 占用顯示自適應且置中 */
@@ -33,7 +38,7 @@
 .mobile-slot-actions-row-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr); /* 新增、保存、刪除、展開 */
-  gap: var(--spacing-sm);
+  gap: 4px;
   width: 100%;
 }
 .mobile-slot-actions-row-grid .mobile-icon-btn-colored {

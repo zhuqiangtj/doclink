@@ -7,7 +7,7 @@
   transform: translateX(-50%);
   width: 100%;
   max-width: 1200px; /* 限制最大寬度 */
-  height: 80px; /* 增加高度以改善觸控體驗 */
+  height: 72px; /* 略微降低高度以釋放垂直空間 */
   background: white;
   border-top: 1px solid #e5e7eb;
   display: flex;
@@ -25,7 +25,7 @@
   justify-content: space-around;
   align-items: center;
   width: 100%;
-  max-width: 600px; /* 限制導航按鈕區域的最大寬度 */
+  max-width: 100%; /* 允許導航按鈕橫向分布至全寬 */
   margin: 0 auto;
 }
 

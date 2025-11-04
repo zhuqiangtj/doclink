@@ -13,10 +13,10 @@
   --error: #ef4444; /* red-500 */
   
   /* 手機端專用變數 */
-  --mobile-padding: 1rem;
-  --mobile-margin: 0.75rem;
+  --mobile-padding: 0.5rem;
+  --mobile-margin: 0.5rem;
   --touch-target-min: 44px; /* iOS 建議的最小觸控目標 */
-  --mobile-border-radius: 12px;
+  --mobile-border-radius: 8px;
 }
 
 @theme inline {
@@ -173,7 +173,7 @@ main {
   padding: var(--mobile-padding);
   background-color: var(--background);
   width: 100%;
-  max-width: 600px !important;
+  max-width: 100% !important;
   margin: 0 auto;
   padding-bottom: 100px; /* Account for bottom nav */
 }
@@ -187,7 +187,7 @@ main {
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   border: 1px solid #e5e7eb;
   width: 100%;
-  max-width: 600px !important; /* 強制統一寬度 */
+  max-width: 100% !important; /* 使用全寬以顯示更多橫向內容 */
   box-sizing: border-box; /* 確保padding不影響總寬度 */
 }
 

@@ -85,7 +85,7 @@ body {
   border: 1px solid var(--border-color);
   margin-bottom: var(--spacing-md);
   width: 100%;
-  max-width: 600px !important; /* 強制統一寬度 */
+  max-width: 100% !important; /* 使用全寬以顯示更多橫向內容 */
   box-sizing: border-box; /* 確保padding不影響總寬度 */
 }
 

@@ -47,7 +47,7 @@ body {
   align-items: center;
   justify-content: flex-start;
   min-height: 100vh;
-  padding: var(--spacing-lg);
+  padding: var(--spacing-md);
   background-color: var(--background-color);
   width: 100%;
   max-width: 1200px;
@@ -80,12 +80,12 @@ body {
 .mobile-card {
   background: var(--card-background);
   border-radius: var(--border-radius);
-  padding: var(--spacing-lg);
+  padding: var(--spacing-sm);
   box-shadow: var(--shadow-sm);
   border: 1px solid var(--border-color);
-  margin-bottom: var(--spacing-md);
+  margin-bottom: var(--spacing-sm);
   width: 100%;
-  max-width: 600px !important; /* 強制統一寬度 */
+  max-width: 100% !important; /* 使用全寬以顯示更多橫向內容 */
   box-sizing: border-box; /* 確保padding不影響總寬度 */
 }
 
@@ -329,8 +329,8 @@ body {
   background: var(--card-background);
   border: 2px solid var(--border-color);
   border-radius: var(--border-radius-sm);
-  padding: var(--spacing-md);
-  margin-bottom: var(--spacing-sm);
+  padding: var(--spacing-sm);
+  margin-bottom: var(--spacing-xs);
   transition: all 0.2s ease;
 }
 
@@ -338,8 +338,8 @@ body {
   background: var(--card-background);
   border: 2px solid var(--border-color);
   border-radius: var(--border-radius-sm);
-  padding: var(--spacing-md);
-  margin-bottom: var(--spacing-sm);
+  padding: var(--spacing-xs);
+  margin-bottom: 4px;
   transition: all 0.2s ease;
 }
 
@@ -369,7 +369,7 @@ body {
   flex-direction: row;
   gap: var(--spacing-sm);
   align-items: center;
-  margin-bottom: var(--spacing-md);
+  margin-bottom: 4px;
   flex-wrap: nowrap;
 }
 
@@ -393,21 +393,21 @@ body {
 }
 
 .mobile-time-input-inline {
-  width: 120px;
-  padding: var(--spacing-sm);
+  width: 100px;
+  padding: var(--spacing-xs);
   border: 1px solid var(--border-color);
   border-radius: var(--border-radius-sm);
-  font-size: 1rem;
+  font-size: 0.95rem;
   background: var(--card-background);
   flex-shrink: 0;
 }
 
 .mobile-total-input-inline {
   width: 80px;
-  padding: var(--spacing-sm);
+  padding: var(--spacing-xs);
   border: 1px solid var(--border-color);
   border-radius: var(--border-radius-sm);
-  font-size: 1rem;
+  font-size: 0.95rem;
   background: var(--card-background);
   flex-shrink: 0;
 }

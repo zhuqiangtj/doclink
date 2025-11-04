@@ -155,11 +155,12 @@ const EnhancedDatePicker: React.FC<EnhancedDatePickerProps> = ({
     }
   };
 
-  // Get status indicator for a date
+  // Get status indicator for a date (remove orange person icon, keep compact count)
   const getStatusIndicator = (date: Date) => {
     const status = getDateStatus(date);
     if (!status || !status.hasSchedule) return null;
 
+    // Past days keep a subtle clock icon; future days show only counts
     return (
       <div className="date-status-indicator">
         {status.isPast ? (
@@ -168,9 +169,6 @@ const EnhancedDatePicker: React.FC<EnhancedDatePickerProps> = ({
           </div>
         ) : (
           <div className="status-info">
-            <div className="status-icon appointments">
-              <FaUsers size={8} />
-            </div>
             <span className="appointment-count">{status.bookedBeds}/{status.totalBeds}</span>
           </div>
         )}
