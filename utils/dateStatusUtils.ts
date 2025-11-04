@@ -1,20 +1,23 @@
 import { DateStatus } from '../components/EnhancedDatePicker';
 
+interface Appointment {
+  id: string;
+  // minimal shape used here
+}
+
+interface TimeSlot {
+  startTime: string; // HH:MM
+  endTime: string;   // HH:MM
+  bedCount: number;
+  availableBeds: number;
+  appointments: Appointment[];
+}
+
 interface Schedule {
   id: string;
-  date: string;
+  date: string; // YYYY-MM-DD
   room: { id: string; name: string; bedCount: number };
-  timeSlots: {
-    time: string;
-    total: number;
-    appointments: Array<{
-      id: string;
-      patient: { user: { name: string } };
-      user: { name: string; role: string };
-      status: string;
-      time: string;
-    }>;
-  }[];
+  timeSlots: TimeSlot[];
 }
 
 /**
@@ -28,40 +31,51 @@ export function convertToDateStatuses(
   schedulesData?: { [dateString: string]: Schedule[] }
 ): DateStatus[] {
   const today = new Date();
+  const now = new Date();
   today.setHours(0, 0, 0, 0);
 
   return highlightedDates.map(date => {
     const dateStr = formatDateToYYYYMMDD(date);
-    const isPast = date < today;
-    
+    const isDateBeforeToday = date < today;
+
     // 獲取該日期的排班數據
     const daySchedules = schedulesData?.[dateStr] || [];
     
-    // 計算總時段數和預約數
-    let totalSlots = 0;
-    let appointmentCount = 0;
-    let hasAppointments = false;
-
-    daySchedules.forEach(schedule => {
-      schedule.timeSlots.forEach(slot => {
-        totalSlots++;
-        const slotAppointments = slot.appointments.filter(apt => 
-          apt.status !== 'CANCELLED' && apt.status !== 'REJECTED'
-        );
-        appointmentCount += slotAppointments.length;
-        if (slotAppointments.length > 0) {
-          hasAppointments = true;
+    // 只統計「未過期」的時段：若為今天，要求時段的結束時間晚於現在；若為未來日期，統計全部活躍時段
+    const futureSlots: TimeSlot[] = [];
+    for (const schedule of daySchedules) {
+      for (const slot of schedule.timeSlots) {
+        // 合成該槽位的結束時間為 Date
+        const slotEnd = new Date(`${dateStr}T${slot.endTime}:00`);
+        const isFutureOrOngoing = date > today || (!isDateBeforeToday && slotEnd > now);
+        if (isFutureOrOngoing) {
+          futureSlots.push(slot);
         }
-      });
-    });
+      }
+    }
+
+    // 計算總床位與已預約床位（以 availableBeds 反推）
+    let totalBeds = 0;
+    let bookedBeds = 0;
+    for (const slot of futureSlots) {
+      totalBeds += Number(slot.bedCount) || 0;
+      const bookedForSlot = (Number(slot.bedCount) || 0) - (Number(slot.availableBeds) || 0);
+      bookedBeds += Math.max(0, bookedForSlot);
+    }
+
+    const hasAppointments = bookedBeds > 0;
+    // 若今日所有時段均已結束，或日期早於今天，視為「已過期」
+    const isPast = isDateBeforeToday || (date.toDateString() === today.toDateString() && futureSlots.length === 0);
 
     return {
       date: dateStr,
-      hasSchedule: true, // 因為這些都是有排班的日期
+      // 僅在仍有未過期時段時視為「有排班」
+      hasSchedule: futureSlots.length > 0,
       hasAppointments,
-      appointmentCount,
-      totalSlots,
-      isPast
+      // 將右下角標示為 已預約床位/總床位
+      bookedBeds,
+      totalBeds,
+      isPast,
     };
   });
 }
@@ -89,9 +103,10 @@ export async function fetchDateStatusesForMonth(
     const schedulesData = await schedulesRes.json();
     
     // 轉換日期字符串為Date對象
-    const highlightedDates = schedulesData.scheduledDates.map((dateStr: string) => 
-      new Date(dateStr + 'T00:00:00')
-    );
+    const highlightedDates = schedulesData.scheduledDates.map((dateStr: string) => {
+      const [y, m, d] = dateStr.split('-').map(Number);
+      return new Date(y || 0, (m || 1) - 1, d || 1);
+    });
 
     // 獲取每個日期的詳細排班和預約信息
     const detailedSchedulesData: { [dateString: string]: Schedule[] } = {};
@@ -123,14 +138,18 @@ export async function fetchDateStatusesForMonth(
  * 格式化日期為 YYYY-MM-DD 字符串
  */
 export function formatDateToYYYYMMDD(date: Date): string {
-  return date.toISOString().split('T')[0];
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
 }
 
 /**
  * 從 YYYY-MM-DD 字符串創建Date對象
  */
 export function parseDateFromYYYYMMDD(dateString: string): Date {
-  return new Date(dateString + 'T00:00:00');
+  const [y, m, d] = dateString.split('-').map(Number);
+  return new Date(y || 0, (m || 1) - 1, d || 1);
 }
 
 /**

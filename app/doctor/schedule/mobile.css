@@ -348,6 +348,21 @@ body {
   background: #fef3c7;
 }
 
+/* 已過期的時間段 - 整體暗色且不可編輯的視覺表現 */
+.mobile-time-slot-past {
+  background: #f3f4f6; /* 灰色背景 */
+  border-color: #d1d5db; /* 边框更淡 */
+}
+.mobile-time-slot-past .mobile-time-input-inline,
+.mobile-time-slot-past .mobile-total-input-inline {
+  background: #e5e7eb;
+  color: #9ca3af;
+}
+.mobile-time-slot-past .mobile-slot-info-inline {
+  background: #e5e7eb;
+  color: #6b7280;
+}
+
 /* 第一行：時間點信息 */
 .mobile-time-slot-info-row {
   display: flex;
@@ -521,6 +536,11 @@ body {
 
 .mobile-modal-large {
   max-width: 650px;
+}
+
+/* 緊湊模態，寬度剛好容納控件 */
+.mobile-modal-compact {
+  max-width: 420px;
 }
 
 .mobile-modal-header {
@@ -708,9 +728,9 @@ body {
     transform: none;
   }
   
-  .mobile-icon-btn:active {
-    transform: scale(0.95);
-  }
+.mobile-icon-btn:active {
+  transform: scale(0.95);
+}
 }
 
 /* 移除深色模式支持，始終使用淺色主題 */

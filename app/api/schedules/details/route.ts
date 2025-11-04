@@ -5,12 +5,6 @@ import { authOptions } from '../../auth/[...nextauth]/route';
 
 const prisma = new PrismaClient();
 
-interface TimeSlot { 
-  time: string; 
-  total: number; 
-  booked: number; 
-}
-
 // GET detailed schedule for a specific date
 export async function GET(request: Request) {
   const session = await getServerSession(authOptions);
@@ -47,50 +41,40 @@ export async function GET(request: Request) {
               }
             }
           }
-        }
-      },
-    });
-
-    const appointments = await prisma.appointment.findMany({
-      where: {
-        doctorId: doctorProfile.id,
-        schedule: {
-          date: date,
-        }
-      },
-      select: {
-        id: true,
-        time: true,
-        status: true,
-        patient: { select: { user: { select: { name: true } } } },
-        user: { select: { name: true, role: true } }, // 添加創建者信息
-        scheduleId: true,
-        history: {
-          select: {
-            operatedAt: true,
-            operatorName: true,
-            action: true,
+        },
+        timeSlots: {
+          where: { isActive: true },
+          include: {
+            appointments: {
+              include: {
+                patient: { 
+                  select: { 
+                    user: { select: { name: true } } 
+                  } 
+                },
+                user: { select: { name: true, role: true } },
+                history: {
+                  select: {
+                    operatedAt: true,
+                    operatorName: true,
+                    action: true,
+                  },
+                  orderBy: {
+                    operatedAt: 'desc'
+                  },
+                  take: 1
+                },
+              }
+            }
           },
           orderBy: {
-            operatedAt: 'desc'
-          },
-          take: 1 // 只取最新的一條歷史記錄
-        },
+            startTime: 'asc'
+          }
+        }
       },
     });
 
-    // Manually merge appointments into their respective time slots
-    const schedulesWithAppointments = schedules.map(schedule => {
-      const timeSlotsWithAppointments = (schedule.timeSlots && Array.isArray(schedule.timeSlots) ? schedule.timeSlots as TimeSlot[] : []).map(slot => {
-        return {
-          ...slot,
-          appointments: appointments.filter(apt => apt.scheduleId === schedule.id && apt.time === slot.time),
-        };
-      });
-      return { ...schedule, timeSlots: timeSlotsWithAppointments };
-    });
-
-    return NextResponse.json(schedulesWithAppointments);
+    return NextResponse.json(schedules);
 
   } catch (error) {
     console.error('Error fetching schedule details:', error);

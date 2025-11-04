@@ -2,9 +2,13 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 
 interface TimeSlot {
-  time: string;
-  total: number;
-  booked: number;
+  id: string;
+  startTime: string;
+  endTime: string;
+  bedCount: number;
+  availableBeds: number;
+  type: 'MORNING' | 'AFTERNOON';
+  isActive: boolean;
 }
 
 // This is a public endpoint to get available schedules for a specific doctor
@@ -31,7 +35,18 @@ export async function GET(request: Request) {
         room: {
           select: { id: true, name: true }
         },
-        timeSlots: true,
+        timeSlots: {
+          where: { isActive: true },
+          select: {
+            id: true,
+            startTime: true,
+            endTime: true,
+            bedCount: true,
+            availableBeds: true,
+            type: true,
+            isActive: true,
+          }
+        },
       },
       orderBy: {
         date: 'asc',
@@ -40,7 +55,7 @@ export async function GET(request: Request) {
 
     // Filter out time slots that are fully booked
     const availableSchedules = schedules.map(schedule => {
-      const availableTimeSlots = (schedule.timeSlots as unknown as TimeSlot[]).filter(slot => slot.booked < slot.total);
+      const availableTimeSlots = schedule.timeSlots.filter(slot => slot.availableBeds > 0);
       return {
         ...schedule,
         timeSlots: availableTimeSlots,

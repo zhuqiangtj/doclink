@@ -28,7 +28,15 @@ export default function SettingsPage() {
       setUsername(session.user.username || '');
       setName(session.user.name || '');
       setPhone(session.user.phone || '');
-      setDateOfBirth(session.user.dateOfBirth ? new Date(session.user.dateOfBirth).toISOString().split('T')[0] : '');
+      if (session.user.dateOfBirth) {
+        const d = new Date(session.user.dateOfBirth);
+        const y = d.getFullYear();
+        const m = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        setDateOfBirth(`${y}-${m}-${day}`);
+      } else {
+        setDateOfBirth('');
+      }
       setGender(session.user.gender || '');
     }
   }, [status, session]);

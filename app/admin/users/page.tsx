@@ -105,7 +105,15 @@ export default function AdminUsersPage() {
     setUsername(user?.username || '');
     setName(user?.name || '');
     setPhone(user?.phone || '');
-    setDateOfBirth(user?.dateOfBirth ? new Date(user.dateOfBirth).toISOString().split('T')[0] : '');
+    if (user?.dateOfBirth) {
+      const d = new Date(user.dateOfBirth);
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      setDateOfBirth(`${y}-${m}-${day}`);
+    } else {
+      setDateOfBirth('');
+    }
     setGender(user?.gender || '');
     let defaultRole: 'PATIENT' | 'DOCTOR' | 'ADMIN' = 'PATIENT';
     if (activeTab === 'doctors') defaultRole = 'DOCTOR';
@@ -271,7 +279,13 @@ export default function AdminUsersPage() {
                 <label className="mobile-form-label">出生日期（可选）</label>
                 <DatePicker
                   selected={dateOfBirth ? new Date(dateOfBirth) : null}
-                  onChange={(date: Date) => setDateOfBirth(date.toISOString().split('T')[0])}
+                  onChange={(date: Date) => {
+                    if (!date) { setDateOfBirth(''); return; }
+                    const y = date.getFullYear();
+                    const m = String(date.getMonth() + 1).padStart(2, '0');
+                    const day = String(date.getDate()).padStart(2, '0');
+                    setDateOfBirth(`${y}-${m}-${day}`);
+                  }}
                   placeholderText="选择出生日期（可选）"
                   className="mobile-form-input"
                   dateFormat="yyyy-MM-dd"

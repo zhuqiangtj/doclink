@@ -6,11 +6,11 @@ import './EnhancedDatePicker.css';
 
 export interface DateStatus {
   date: string; // YYYY-MM-DD format
-  hasSchedule: boolean;
-  hasAppointments: boolean;
-  appointmentCount: number;
-  totalSlots: number;
-  isPast: boolean;
+  hasSchedule: boolean; // 僅代表此日期仍有未過期時段
+  hasAppointments: boolean; // 已預約床位數是否大於 0
+  bookedBeds: number; // 已預約床位總數（未來時段）
+  totalBeds: number; // 總床位數（未來時段）
+  isPast: boolean; // 日期早於今天，或今日但所有時段已結束
 }
 
 interface EnhancedDatePickerProps {
@@ -37,9 +37,12 @@ const EnhancedDatePicker: React.FC<EnhancedDatePickerProps> = ({
 }) => {
   const [currentMonth, setCurrentMonth] = useState(new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1));
   
-  // Helper function to format date as YYYY-MM-DD
+  // Helper function to format date as YYYY-MM-DD (timezone-safe, local)
   const formatDate = (date: Date): string => {
-    return date.toISOString().split('T')[0];
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, '0');
+    const d = String(date.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
   };
 
   // Get status for a specific date
@@ -163,16 +166,12 @@ const EnhancedDatePicker: React.FC<EnhancedDatePickerProps> = ({
           <div className="status-icon past">
             <FaClock size={8} />
           </div>
-        ) : status.hasAppointments ? (
+        ) : (
           <div className="status-info">
             <div className="status-icon appointments">
               <FaUsers size={8} />
             </div>
-            <span className="appointment-count">{status.appointmentCount}/{status.totalSlots}</span>
-          </div>
-        ) : (
-          <div className="status-icon available">
-            <FaUserMd size={8} />
+            <span className="appointment-count">{status.bookedBeds}/{status.totalBeds}</span>
           </div>
         )}
       </div>
@@ -219,12 +218,10 @@ const EnhancedDatePicker: React.FC<EnhancedDatePickerProps> = ({
                   <div className="schedule-summary-inline">
                     {status.isPast ? (
                       <span className="past-notice">已過期</span>
-                    ) : status.hasAppointments ? (
-                      <span className="appointment-notice">
-                        {status.appointmentCount}/{status.totalSlots}
-                      </span>
                     ) : (
-                      <span className="available-notice">可預約</span>
+                      <span className="appointment-notice">
+                        {status.bookedBeds}/{status.totalBeds}
+                      </span>
                     )}
                   </div>
                 );

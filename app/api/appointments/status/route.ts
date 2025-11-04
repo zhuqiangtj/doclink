@@ -146,7 +146,10 @@ export async function PUT(request: Request) {
 export async function POST() {
   try {
     const now = new Date();
-    const today = now.toISOString().split('T')[0];
+    const y = now.getFullYear();
+    const m = String(now.getMonth() + 1).padStart(2, '0');
+    const d = String(now.getDate()).padStart(2, '0');
+    const today = `${y}-${m}-${d}`;
     const currentTime = now.toTimeString().split(' ')[0].substring(0, 5); // HH:MM format
     
     // 查找所有待就診且已過期的預約

@@ -5,6 +5,7 @@ import { useSession } from 'next-auth/react';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 import './mobile.css';
+import './mobile-overrides.css';
 import { FaTrash, FaSave, FaUserPlus, FaPlusCircle } from 'react-icons/fa';
 import EnhancedDatePicker, { DateStatus } from '../../../components/EnhancedDatePicker';
 import { fetchDateStatusesForMonth } from '../../../utils/dateStatusUtils';
@@ -17,9 +18,20 @@ interface Appointment {
   patient: { user: { name: string } }; 
   user: { name: string; role: string }; 
   status: string; 
-  time: string; 
+  time: string;
+  timeSlot?: { startTime: string; endTime: string; };
+  history?: Array<{ operatedAt: string; operatorName: string; }>;
 }
-interface TimeSlot { time: string; total: number; appointments: Appointment[]; }
+interface TimeSlot { 
+  id: string;
+  startTime: string; 
+  endTime: string;
+  bedCount: number;
+  availableBeds: number;
+  type: 'MORNING' | 'AFTERNOON';
+  isActive: boolean;
+  appointments: Appointment[]; 
+}
 interface Schedule {
   id: string;
   date: string;
@@ -29,6 +41,16 @@ interface Schedule {
 interface PatientSearchResult { id: string; userId: string; name: string; username: string; }
 
 const DEFAULT_TIMES = ["08:00", "09:00", "10:00", "11:00", "14:00", "15:00", "16:00"];
+
+const DEFAULT_TEMPLATE = [
+  { startTime: "08:00", endTime: "09:00", bedCount: 4, type: "MORNING" },
+  { startTime: "09:00", endTime: "10:00", bedCount: 4, type: "MORNING" },
+  { startTime: "10:00", endTime: "10:30", bedCount: 3, type: "MORNING" },
+  { startTime: "10:30", endTime: "11:00", bedCount: 2, type: "MORNING" },
+  { startTime: "13:30", endTime: "14:30", bedCount: 4, type: "AFTERNOON" },
+  { startTime: "14:30", endTime: "15:30", bedCount: 4, type: "AFTERNOON" },
+  { startTime: "15:30", endTime: "16:00", bedCount: 3, type: "AFTERNOON" }
+];
 
 // --- Timezone-Safe Helper Functions ---
 const toYYYYMMDD = (date: Date): string => {
@@ -95,18 +117,18 @@ export default function DoctorSchedulePage() {
   const [searchedPatients, setSearchedPatients] = useState<PatientSearchResult[]>([]);
   const [selectedPatient, setSelectedPatient] = useState<PatientSearchResult | null>(null);
   const [isAddTimeSlotModalOpen, setIsAddTimeSlotModalOpen] = useState(false);
-  const [newTimeSlotData, setNewTimeSlotData] = useState({ time: '', total: '' });
+  const [newTimeSlotData, setNewTimeSlotData] = useState({ startTime: '', endTime: '', bedCount: '' });
   const [collapsedSlots, setCollapsedSlots] = useState<{[key: string]: boolean}>({});
   const [editingSlots, setEditingSlots] = useState<{[key: string]: any}>({});
   const [deletingSlots, setDeletingSlots] = useState<Set<string>>(new Set());
   const [savingSlots, setSavingSlots] = useState<Set<string>>(new Set());
 
-  const getSlotValue = (scheduleId: string, slotIndex: number, field: 'time' | 'total' | 'roomId', originalValue: any) => {
+  const getSlotValue = (scheduleId: string, slotIndex: number, field: 'startTime' | 'endTime' | 'bedCount' | 'type' | 'roomId', originalValue: any) => {
     const key = `${scheduleId}-${slotIndex}`;
     return editingSlots[key]?.[field] ?? originalValue;
   };
 
-  const updateSlotEdit = (scheduleId: string, slotIndex: number, field: 'time' | 'total' | 'roomId', value: string | number) => {
+  const updateSlotEdit = (scheduleId: string, slotIndex: number, field: 'startTime' | 'endTime' | 'bedCount' | 'type' | 'roomId', value: string | number) => {
     const key = `${scheduleId}-${slotIndex}`;
     setEditingSlots(prev => ({
       ...prev,
@@ -204,48 +226,95 @@ export default function DoctorSchedulePage() {
     
     try {
       const selectedRoom = doctorProfile?.Room.find(room => room.id === selectedRoomIdForTemplate);
+      const isToday = toYYYYMMDD(selectedDate) === toYYYYMMDD(new Date());
+      const existingSchedule = schedulesForSelectedDay.find(s => s.room.id === selectedRoomIdForTemplate);
+      const existingSlots = existingSchedule?.timeSlots || [];
+
+      // 槽位过滤：
+      // 1) 如果是今天，过滤掉開始時間已過的模板時段
+      // 2) 过滤掉與當前日期已有時段開始/結束時間完全相同的模板時段
+      const templateToAdd = DEFAULT_TEMPLATE.filter(tpl => {
+        const isPastStart = isToday && isTimeSlotPast(selectedDate, tpl.startTime);
+        const isDuplicate = existingSlots.some(s => s.startTime === tpl.startTime && s.endTime === tpl.endTime);
+        return !isPastStart && !isDuplicate;
+      });
+      const skippedCount = DEFAULT_TEMPLATE.length - templateToAdd.length;
       
-      for (const time of DEFAULT_TIMES) {
+      for (const tpl of templateToAdd) {
         const response = await fetch('/api/schedules', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             date: toYYYYMMDD(selectedDate),
-            time,
-            total: selectedRoom?.bedCount || 1,
-            roomId: selectedRoomIdForTemplate
+            roomId: selectedRoomIdForTemplate,
+            startTime: tpl.startTime,
+            endTime: tpl.endTime,
+            bedCount: tpl.bedCount,
+            type: tpl.type
           })
         });
         
-        if (response.ok) {
-          const newSchedule = await response.json();
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(errorData.error || 'Template time slot creation failed');
+        }
+
+        const newTimeSlot = await response.json();
+
+        setSchedulesForSelectedDay(prev => {
+          const existingScheduleIndex = prev.findIndex(s => s.room.id === selectedRoomIdForTemplate);
           
-          setSchedulesForSelectedDay(prev => {
-            const existingSchedule = prev.find(s => s.room.id === selectedRoomIdForTemplate);
-            
-            if (existingSchedule) {
-              return prev.map(s => 
-                s.id === existingSchedule.id 
-                  ? { ...s, timeSlots: [...s.timeSlots, { time, total: selectedRoom?.bedCount || 1, appointments: [] }] }
-                  : s
-              );
-            } else {
-              const room = doctorProfile?.Room.find(r => r.id === selectedRoomIdForTemplate);
-              if (room) {
-                return [...prev, {
-                  id: newSchedule.id,
+          if (existingScheduleIndex !== -1) {
+            const updated = [...prev];
+            updated[existingScheduleIndex] = {
+              ...updated[existingScheduleIndex],
+              timeSlots: [
+                ...updated[existingScheduleIndex].timeSlots,
+                {
+                  id: newTimeSlot.id,
+                  startTime: newTimeSlot.startTime,
+                  endTime: newTimeSlot.endTime,
+                  bedCount: newTimeSlot.bedCount,
+                  availableBeds: newTimeSlot.availableBeds,
+                  type: newTimeSlot.type,
+                  isActive: newTimeSlot.isActive,
+                  appointments: []
+                }
+              ]
+            };
+            return updated;
+          } else {
+            const room = doctorProfile?.Room.find(r => r.id === selectedRoomIdForTemplate);
+            if (room) {
+              return [
+                ...prev,
+                {
+                  id: newTimeSlot.scheduleId,
                   date: toYYYYMMDD(selectedDate),
                   room,
-                  timeSlots: [{ time, total: selectedRoom?.bedCount || 1, appointments: [] }]
-                }];
-              }
-              return prev;
+                  timeSlots: [
+                    {
+                      id: newTimeSlot.id,
+                      startTime: newTimeSlot.startTime,
+                      endTime: newTimeSlot.endTime,
+                      bedCount: newTimeSlot.bedCount,
+                      availableBeds: newTimeSlot.availableBeds,
+                      type: newTimeSlot.type,
+                      isActive: newTimeSlot.isActive,
+                      appointments: []
+                    }
+                  ]
+                }
+              ];
             }
-          });
-        }
+            return prev;
+          }
+        });
       }
       
-      setSuccess('Template applied successfully!');
+      setSuccess(skippedCount > 0 
+        ? `模板已應用，已跳過 ${skippedCount} 個過期或重複時段`
+        : '模板已應用');
       setIsTemplateModalOpen(false);
     } catch (err) {
       setError('Error applying template.');
@@ -262,20 +331,40 @@ export default function DoctorSchedulePage() {
     const schedule = schedulesForSelectedDay.find(s => s.id === scheduleId);
     if (!schedule) return;
 
+    // 前端校驗：結束時間必須大於開始時間，床位數必須大於 0
+    const currentSlot = schedule.timeSlots[slotIndex];
+    const nextStart = editedSlot?.startTime ?? currentSlot.startTime;
+    const nextEnd = editedSlot?.endTime ?? currentSlot.endTime;
+    const nextBedCount = editedSlot?.bedCount !== undefined ? Number(editedSlot.bedCount) : currentSlot.bedCount;
+
+    if (!nextStart || !nextEnd) {
+      setError('開始時間與結束時間不可為空');
+      return;
+    }
+    if (nextEnd <= nextStart) {
+      setError('結束時間必須大於開始時間');
+      return;
+    }
+    if (isNaN(nextBedCount) || nextBedCount <= 0) {
+      setError('床位數必須大於 0');
+      return;
+    }
+
     setSavingSlots(prev => new Set([...prev, key]));
     setError(null);
 
     try {
-      // 由於診室選擇已被禁用，我們不再處理診室變更的情況
-      // 直接更新現有的時間段
-      const url = `/api/schedules?scheduleId=${scheduleId}&time=${schedule.timeSlots[slotIndex].time}`;
+      // 直接更新現有的時間段（使用新的 TimeSlot 模型字段）
+      const url = `/api/schedules?timeSlotId=${currentSlot.id}`;
       const response = await fetch(url, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          time: editedSlot.time || schedule.timeSlots[slotIndex].time,
-          total: editedSlot.total || schedule.timeSlots[slotIndex].total,
-          roomId: schedule.room.id // 直接使用原始的 roomId，因為診室選擇已被禁用
+          startTime: nextStart,
+          endTime: nextEnd,
+          bedCount: nextBedCount,
+          type: editedSlot?.type ?? currentSlot.type,
+          isActive: currentSlot.isActive
         })
       });
 
@@ -283,6 +372,8 @@ export default function DoctorSchedulePage() {
         const errorData = await response.json();
         throw new Error(errorData.error || 'Failed to save time slot');
       }
+
+      const updatedTimeSlot = await response.json();
 
       setSchedulesForSelectedDay(prev => 
         prev.map(s => 
@@ -293,8 +384,7 @@ export default function DoctorSchedulePage() {
                   idx === slotIndex 
                     ? {
                         ...slot,
-                        time: editedSlot.time || slot.time,
-                        total: editedSlot.total || slot.total
+                        ...updatedTimeSlot
                       }
                     : slot
                 )
@@ -349,14 +439,24 @@ export default function DoctorSchedulePage() {
   };
 
   const handleAddTimeSlot = async () => {
-    if (!selectedRoomIdForTemplate || !newTimeSlotData.time || !newTimeSlotData.total) {
+    if (!selectedRoomIdForTemplate || !newTimeSlotData.startTime || !newTimeSlotData.endTime || !newTimeSlotData.bedCount) {
       setError('請填寫所有必需字段');
       return;
     }
 
+    // 基本時間校驗：結束時間不可早於或等於開始時間
+    if (newTimeSlotData.endTime <= newTimeSlotData.startTime) {
+      setError('結束時間不能早於或等於開始時間');
+      return;
+    }
+
+    let addedOk = false;
     try {
       setIsLoading(true);
       setError(null);
+
+      // 自動推斷時段類型：12:00 之前為上午，之後為下午
+      const inferredType: 'MORNING' | 'AFTERNOON' = (newTimeSlotData.startTime < '12:00') ? 'MORNING' : 'AFTERNOON';
 
       const response = await fetch('/api/schedules', {
         method: 'POST',
@@ -364,8 +464,9 @@ export default function DoctorSchedulePage() {
         body: JSON.stringify({
           date: toYYYYMMDD(selectedDate),
           roomId: selectedRoomIdForTemplate,
-          time: newTimeSlotData.time,
-          total: parseInt(newTimeSlotData.total)
+          startTime: newTimeSlotData.startTime,
+          endTime: newTimeSlotData.endTime,
+          bedCount: parseInt(newTimeSlotData.bedCount)
         })
       });
 
@@ -374,7 +475,7 @@ export default function DoctorSchedulePage() {
         throw new Error(errorData.error || '新增時段失敗');
       }
 
-      const newScheduleData = await response.json();
+      const newTimeSlot = await response.json();
 
       // 更新本地狀態
       setSchedulesForSelectedDay(prev => {
@@ -388,8 +489,13 @@ export default function DoctorSchedulePage() {
             timeSlots: [
               ...updated[existingScheduleIndex].timeSlots,
               {
-                time: newTimeSlotData.time,
-                total: parseInt(newTimeSlotData.total),
+                id: newTimeSlot.id,
+                startTime: newTimeSlot.startTime,
+                endTime: newTimeSlot.endTime,
+                bedCount: newTimeSlot.bedCount,
+                availableBeds: newTimeSlot.availableBeds,
+                type: newTimeSlot.type,
+                isActive: newTimeSlot.isActive,
                 appointments: []
               }
             ]
@@ -400,12 +506,17 @@ export default function DoctorSchedulePage() {
           const selectedRoom = doctorProfile?.Room.find(r => r.id === selectedRoomIdForTemplate);
           if (selectedRoom) {
             return [...prev, {
-              id: newScheduleData.id,
+              id: newTimeSlot.scheduleId,
               date: toYYYYMMDD(selectedDate),
               room: selectedRoom,
               timeSlots: [{
-                time: newTimeSlotData.time,
-                total: parseInt(newTimeSlotData.total),
+                id: newTimeSlot.id,
+                startTime: newTimeSlot.startTime,
+                endTime: newTimeSlot.endTime,
+                bedCount: newTimeSlot.bedCount,
+                availableBeds: newTimeSlot.availableBeds,
+                type: newTimeSlot.type,
+                isActive: newTimeSlot.isActive,
                 appointments: []
               }]
             }];
@@ -415,8 +526,9 @@ export default function DoctorSchedulePage() {
       });
 
       // 關閉模態框並重置表單
+      addedOk = true;
       setIsAddTimeSlotModalOpen(false);
-      setNewTimeSlotData({ time: '', total: '' });
+      setNewTimeSlotData({ startTime: '', endTime: '', bedCount: '' });
       
       setSuccess('時段新增成功');
       setTimeout(() => setSuccess(null), 3000);
@@ -424,6 +536,11 @@ export default function DoctorSchedulePage() {
       setError(error instanceof Error ? error.message : '新增時段失敗');
     } finally {
       setIsLoading(false);
+      // 保險措施：如成功，確保模態框已關閉且表單重置
+      if (addedOk) {
+        setIsAddTimeSlotModalOpen(false);
+        setNewTimeSlotData({ startTime: '', endTime: '', bedCount: '' });
+      }
     }
   };
 
@@ -436,6 +553,8 @@ export default function DoctorSchedulePage() {
     }
     
     try {
+      const selectedTimeSlot = selectedScheduleForBooking.timeSlots[selectedSlotIndexForBooking];
+      
       const response = await fetch('/api/appointments', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -443,8 +562,7 @@ export default function DoctorSchedulePage() {
           userId: selectedPatient.userId,
           patientId: selectedPatient.id,
           doctorId: doctorProfile.id,
-          scheduleId: selectedScheduleForBooking.id,
-          time: selectedScheduleForBooking.timeSlots[selectedSlotIndexForBooking].time,
+          timeSlotId: selectedTimeSlot.id,
           roomId: selectedScheduleForBooking.room.id
         })
       });
@@ -461,6 +579,7 @@ export default function DoctorSchedulePage() {
               const updatedTimeSlots = [...schedule.timeSlots];
               updatedTimeSlots[selectedSlotIndexForBooking] = {
                 ...updatedTimeSlots[selectedSlotIndexForBooking],
+                availableBeds: updatedTimeSlots[selectedSlotIndexForBooking].availableBeds - 1,
                 appointments: [
                   ...updatedTimeSlots[selectedSlotIndexForBooking].appointments,
                   {
@@ -468,7 +587,7 @@ export default function DoctorSchedulePage() {
                     patient: { user: { name: selectedPatient.name } },
                     user: { name: doctorProfile?.name || 'Doctor', role: 'DOCTOR' },
                     status: 'CONFIRMED',
-                    time: selectedScheduleForBooking.timeSlots[selectedSlotIndexForBooking].time
+                    time: selectedTimeSlot.startTime
                   }
                 ]
               };
@@ -508,6 +627,7 @@ export default function DoctorSchedulePage() {
               const updatedTimeSlots = [...schedule.timeSlots];
               updatedTimeSlots[slotIndex] = {
                 ...updatedTimeSlots[slotIndex],
+                availableBeds: updatedTimeSlots[slotIndex].availableBeds + 1,
                 appointments: updatedTimeSlots[slotIndex].appointments.filter(
                   appointment => appointment.id !== appointmentId
                 )
@@ -533,17 +653,17 @@ export default function DoctorSchedulePage() {
     }));
   };
 
-  const handleDeleteTimeSlot = async (scheduleId: string, time: string) => {
+  const handleDeleteTimeSlot = async (scheduleId: string, timeSlotId: string) => {
     if (!confirm('Are you sure you want to delete this time slot?')) {
       return;
     }
 
-    const key = `${scheduleId}-${time}`;
+    const key = `${scheduleId}-${timeSlotId}`;
     setDeletingSlots(prev => new Set([...prev, key]));
     setError(null);
 
     try {
-      const deleteUrl = `/api/schedules?scheduleId=${scheduleId}&time=${time}`;
+      const deleteUrl = `/api/schedules?timeSlotId=${timeSlotId}`;
       const response = await fetch(deleteUrl, {
         method: 'DELETE'
       });
@@ -559,7 +679,7 @@ export default function DoctorSchedulePage() {
             if (schedule.id === scheduleId) {
               return {
                 ...schedule,
-                timeSlots: schedule.timeSlots.filter(slot => slot.time !== time)
+                timeSlots: schedule.timeSlots.filter(slot => slot.id !== timeSlotId)
               };
             }
             return schedule;
@@ -611,34 +731,37 @@ export default function DoctorSchedulePage() {
 
   return (
     <div className="page-container space-y-4">
-      <div className="mobile-header">
-        <h1 className="text-2xl md:text-4xl font-bold text-foreground">
-          醫生排程
-        </h1>
-        <p className="text-sm text-gray-600 mt-1">
-          {doctorProfile.name}
-        </p>
-      </div>
-      
       <div className="mobile-card">
-        <div style={{ marginBottom: '24px' }}>
+        <div className="w-full flex justify-between items-center mb-2">
+          <p className="text-xs text-gray-500">{doctorProfile.name}</p>
+        </div>
+        <div style={{ marginBottom: '24px', display: 'flex', justifyContent: 'center', width: '100%' }}>
           <EnhancedDatePicker
             selectedDate={selectedDate}
             onDateChange={setSelectedDate}
             dateStatuses={dateStatuses}
             isLoading={isLoading}
-            className="w-full"
           />
         </div>
         
-        <button
-          onClick={() => setIsTemplateModalOpen(true)}
-          className="mobile-btn mobile-btn-primary w-full flex items-center justify-center space-x-2"
-          title="使用模板填充"
-        >
-          <FaPlusCircle className="w-4 h-4" />
-          <span>使用模板填充</span>
-        </button>
+        <div className="w-full grid grid-cols-2 gap-2">
+          <button
+            onClick={() => setIsTemplateModalOpen(true)}
+            className="mobile-btn mobile-btn-primary w-full flex items-center justify-center space-x-2"
+            title="使用模板填充"
+          >
+            <FaPlusCircle className="w-4 h-4" />
+            <span>使用模板填充</span>
+          </button>
+          <button
+            onClick={() => setIsAddTimeSlotModalOpen(true)}
+            className="mobile-btn mobile-btn-outline w-full flex items-center justify-center space-x-2"
+            title="新增自定義時段"
+          >
+            <FaPlusCircle className="w-4 h-4" />
+            <span>新增自定義時段</span>
+          </button>
+        </div>
       </div>
 
       {isLoading ? (
@@ -679,62 +802,84 @@ export default function DoctorSchedulePage() {
                 const isModified = modifiedTimeSlots.has(key);
                 const isSaving = savingTimeSlots.has(key);
                 const isExpanded = expandedTimeSlots.has(key);
+                const editedStart = getSlotValue(schedule.id, index, 'startTime', slot.startTime) as string;
+                const editedEnd = getSlotValue(schedule.id, index, 'endTime', slot.endTime) as string;
+                const editedBedCount = Number(getSlotValue(schedule.id, index, 'bedCount', slot.bedCount));
+                const isValidEdit = !!editedStart && !!editedEnd && (editedEnd > editedStart) && editedBedCount > 0;
+                const isPast = isTimeSlotPast(selectedDate, slot.startTime);
 
                 return (
                   <div key={index} className={`mobile-time-slot-single-line ${
-                    isModified ? 'mobile-time-slot-modified' : ''
+                    isPast ? 'mobile-time-slot-past' : (!isPast && isModified ? 'mobile-time-slot-modified' : '')
                   }`}>
                     {/* 第一行：時間點信息 */}
-                    <div className="mobile-time-slot-info-row">
-                      {/* 時間輸入 */}
+                    <div className="mobile-time-slot-info-row mobile-time-slot-info-row-grid">
+                      {/* 開始時間輸入 */}
                       <input
                         type="time"
-                        value={getSlotValue(schedule.id, index, 'time', slot.time)}
+                        value={getSlotValue(schedule.id, index, 'startTime', slot.startTime)}
                         onChange={(e) => {
-                          updateSlotEdit(schedule.id, index, 'time', e.target.value);
+                          updateSlotEdit(schedule.id, index, 'startTime', e.target.value);
                           setModifiedTimeSlots(prev => new Set(prev).add(key));
                         }}
-                        className="mobile-time-input-inline"
+                        className="mobile-time-input-inline mobile-time-input-fluid"
+                        disabled={isPast}
+                        title={isPast ? '時間已過，不可編輯' : '開始時間'}
+                      />
+                      
+                      {/* 結束時間輸入 */}
+                      <input
+                        type="time"
+                        value={getSlotValue(schedule.id, index, 'endTime', slot.endTime)}
+                        onChange={(e) => {
+                          updateSlotEdit(schedule.id, index, 'endTime', e.target.value);
+                          setModifiedTimeSlots(prev => new Set(prev).add(key));
+                        }}
+                        className="mobile-time-input-inline mobile-time-input-fluid"
+                        disabled={isPast}
+                        title={isPast ? '時間已過，不可編輯' : '結束時間'}
                       />
                       
                       {/* 床位輸入 */}
                       <input
                         type="number"
                         min="1"
-                        value={getSlotValue(schedule.id, index, 'total', slot.total)}
+                        value={getSlotValue(schedule.id, index, 'bedCount', slot.bedCount)}
                         onChange={(e) => {
-                          updateSlotEdit(schedule.id, index, 'total', parseInt(e.target.value));
+                          updateSlotEdit(schedule.id, index, 'bedCount', parseInt(e.target.value));
                           setModifiedTimeSlots(prev => new Set(prev).add(key));
                         }}
-                        className="mobile-total-input-inline"
+                        className="mobile-total-input-inline mobile-total-input-fluid"
                         placeholder="床位數"
+                        disabled={isPast}
+                        title={isPast ? '時間已過，不可編輯' : '可預約人數'}
                       />
 
                       {/* 預約狀態信息 */}
-                      <div className="mobile-slot-info-inline">
+                      <div className="mobile-slot-info-inline mobile-slot-info-fluid">
                         <span className={`font-semibold ${
-                          slot.appointments.length >= slot.total ? 'text-red-600' : 'text-green-600'
+                          slot.availableBeds <= 0 ? 'text-red-600' : 'text-green-600'
                         }`}>
-                          {slot.appointments.length}/{slot.total}
+                          {slot.bedCount - slot.availableBeds}/{slot.bedCount}
                         </span>
                       </div>
                     </div>
 
                     {/* 第二行：操作按鈕 */}
-                    <div className="mobile-slot-actions-row">
+                    <div className="mobile-slot-actions-row mobile-slot-actions-row-grid">
                       {/* 新增按鈕 */}
                       <button
                         onClick={() => handleAddAppointment(schedule, index)}
                         className={`mobile-icon-btn-colored ${
-                          slot.appointments.length >= slot.total || isTimeSlotPast(selectedDate, slot.time)
+                          slot.availableBeds <= 0 || isPast
                             ? 'mobile-icon-btn-disabled-colored' 
                             : 'mobile-icon-btn-success'
                         }`}
-                        disabled={slot.appointments.length >= slot.total || isTimeSlotPast(selectedDate, slot.time)}
+                        disabled={slot.availableBeds <= 0 || isPast}
                         title={
-                          isTimeSlotPast(selectedDate, slot.time) 
+                          isPast 
                             ? "時間已過，無法預約" 
-                            : (slot.appointments.length >= slot.total ? "已滿額" : "新增預約")
+                            : (slot.availableBeds <= 0 ? "已滿額" : "新增預約")
                         }
                       >
                         <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
@@ -745,13 +890,13 @@ export default function DoctorSchedulePage() {
                       {/* 儲存按鈕 */}
                       <button
                         onClick={() => handleSaveTimeSlot(schedule.id, index)}
-                        disabled={!isModified || isSaving}
+                        disabled={isPast || !isModified || isSaving || !isValidEdit}
                         className={`mobile-icon-btn-colored ${
-                          isModified && !isSaving
+                          !isPast && isModified && !isSaving && isValidEdit
                             ? 'mobile-icon-btn-save-colored'
                             : 'mobile-icon-btn-disabled-colored'
                         }`}
-                        title={isModified ? "儲存變更" : "無變更"}
+                        title={isPast ? '時間已過，不可編輯' : (isModified ? (isValidEdit ? "儲存變更" : "時間或床位數不合法") : "無變更")}
                       >
                         {isSaving ? (
                           <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
@@ -767,12 +912,12 @@ export default function DoctorSchedulePage() {
 
                       {/* 刪除按鈕 */}
                       <button
-                        onClick={() => handleDeleteTimeSlot(schedule.id, slot.time)}
-                        disabled={isSaving}
+                        onClick={() => handleDeleteTimeSlot(schedule.id, slot.id)}
+                        disabled={isPast || isSaving}
                         className={`mobile-icon-btn-colored mobile-icon-btn-delete-colored ${
-                          isSaving ? 'mobile-icon-btn-disabled-colored' : ''
+                          (isPast || isSaving) ? 'mobile-icon-btn-disabled-colored' : ''
                         }`}
-                        title="刪除時段"
+                        title={isPast ? '時間已過，不可刪除' : '刪除時段'}
                       >
                         <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
                           <path fillRule="evenodd" d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z" clipRule="evenodd" />
@@ -861,17 +1006,6 @@ export default function DoctorSchedulePage() {
                   <p>目前沒有安排任何時段</p>
                 </div>
               )}
-              
-              <button 
-                onClick={() => {
-                  setIsAddTimeSlotModalOpen(true);
-                }}
-                className="mobile-btn mobile-btn-outline w-full flex items-center justify-center space-x-2"
-                title="新增時段"
-              >
-                <FaPlusCircle className="w-4 h-4" />
-                <span>新增時段</span>
-              </button>
             </div>
           ))}
         </div>
@@ -883,7 +1017,7 @@ export default function DoctorSchedulePage() {
             <div className="mobile-modal-header">
               <h2>選擇診室套用模板</h2>
             </div>
-            <div className="mobile-modal-content space-y-4">
+            <div className="mobile-modal-content grid grid-cols-1 sm:grid-cols-2 gap-3">
               {doctorProfile?.Room && doctorProfile.Room.length > 0 ? (
                 <div>
                   <label htmlFor="room-template" className="block text-sm font-medium mb-2">診室</label>
@@ -932,7 +1066,7 @@ export default function DoctorSchedulePage() {
 
       {isBookingModalOpen && (
         <div className="mobile-modal-overlay">
-          <div className="mobile-modal mobile-modal-large">
+          <div className="mobile-modal mobile-modal-compact">
             <div className="mobile-modal-header">
               <h2 className="text-xl font-bold">新增預約</h2>
             </div>
@@ -941,7 +1075,7 @@ export default function DoctorSchedulePage() {
                 <label className="block text-sm font-medium mb-2">時間</label>
                 <input
                   type="text"
-                  value={selectedScheduleForBooking?.timeSlots[selectedSlotIndexForBooking || 0]?.time || ''}
+                  value={selectedScheduleForBooking?.timeSlots[selectedSlotIndexForBooking || 0]?.startTime || ''}
                   readOnly
                   className="mobile-input w-full bg-gray-100"
                 />
@@ -1010,68 +1144,82 @@ export default function DoctorSchedulePage() {
 
       {isAddTimeSlotModalOpen && (
         <div className="mobile-modal-overlay">
-          <div className="mobile-modal">
+          <div className="mobile-modal mobile-modal-compact">
             <div className="mobile-modal-header">
               <h2 className="text-xl font-bold">新增時段</h2>
             </div>
             <div className="mobile-modal-content space-y-4">
               <div>
                 <label className="block text-sm font-medium mb-2">診室</label>
-                <input
-                  type="text"
-                  value={doctorProfile?.Room.find(r => r.id === selectedRoomIdForTemplate)?.name || ''}
-                  readOnly
-                  className="mobile-input w-full bg-gray-100"
-                />
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium mb-2">時間</label>
-                <input
-                  type="time"
-                  value={newTimeSlotData.time}
-                  onChange={(e) => setNewTimeSlotData(prev => ({ ...prev, time: e.target.value }))}
+                <select
+                  value={selectedRoomIdForTemplate}
+                  onChange={(e) => setSelectedRoomIdForTemplate(e.target.value)}
                   className="mobile-input w-full"
                   required
-                />
+                >
+                  <option value="">請選擇診室</option>
+                  {doctorProfile?.Room?.map(room => (
+                    <option key={room.id} value={room.id}>{room.name}</option>
+                  ))}
+                </select>
               </div>
               
+              <div className="sm:col-span-2">
+                <label className="block text-sm font-medium mb-2">時間</label>
+                <div className="flex items-center gap-3">
+                  <input
+                    type="time"
+                    value={newTimeSlotData.startTime}
+                    onChange={(e) => setNewTimeSlotData(prev => ({ ...prev, startTime: e.target.value }))}
+                    className="mobile-input flex-1"
+                    required
+                  />
+                  <span className="text-gray-500">至</span>
+                  <input
+                    type="time"
+                    value={newTimeSlotData.endTime}
+                    onChange={(e) => setNewTimeSlotData(prev => ({ ...prev, endTime: e.target.value }))}
+                    className="mobile-input flex-1"
+                    required
+                  />
+                </div>
+              </div>
+              
+              
+              
               <div>
-                <label className="block text-sm font-medium mb-2">
-                  可預約人數
-                  <span className="text-xs text-gray-500 ml-2">(此時段最多可預約的患者數量)</span>
-                </label>
+                <label className="block text-sm font-medium mb-2">可預約人數</label>
                 <input
                   type="number"
                   min="1"
                   max="50"
-                  value={newTimeSlotData.total}
-                  onChange={(e) => setNewTimeSlotData(prev => ({ ...prev, total: e.target.value }))}
+                  value={newTimeSlotData.bedCount}
+                  onChange={(e) => setNewTimeSlotData(prev => ({ ...prev, bedCount: e.target.value }))}
                   className="mobile-input w-full"
-                  placeholder="請輸入可預約人數 (1-50)"
+                  placeholder="請輸入可預約人數"
                   required
                 />
               </div>
             </div>
             <div className="mobile-modal-footer">
               <button
-                type="button"
-                onClick={() => {
-                  setIsAddTimeSlotModalOpen(false);
-                  setNewTimeSlotData({ time: '', total: '' });
-                }}
-                className="mobile-btn mobile-btn-outline flex-1"
-              >
-                取消
-              </button>
-              <button
-                type="button"
-                onClick={handleAddTimeSlot}
-                disabled={!selectedRoomIdForTemplate || !newTimeSlotData.time || !newTimeSlotData.total}
-                className="mobile-btn mobile-btn-primary flex-1 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                新增時段
-              </button>
+                  type="button"
+                  onClick={() => {
+                    setIsAddTimeSlotModalOpen(false);
+                    setNewTimeSlotData({ startTime: '', endTime: '', bedCount: '' });
+                  }}
+                  className="mobile-btn mobile-btn-outline flex-1"
+                >
+                  取消
+                </button>
+                <button
+                  type="button"
+                  onClick={handleAddTimeSlot}
+                  disabled={!selectedRoomIdForTemplate || !newTimeSlotData.startTime || !newTimeSlotData.endTime || !newTimeSlotData.bedCount || (newTimeSlotData.endTime <= newTimeSlotData.startTime)}
+                  className="mobile-btn mobile-btn-primary flex-1 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  新增時段
+                </button>
             </div>
           </div>
         </div>

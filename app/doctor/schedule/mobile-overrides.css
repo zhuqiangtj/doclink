@@ -1,0 +1,53 @@
+/* ===== 排班行寬度優化（移動端覆蓋樣式） ===== */
+/* 首行控件使用網格，讓四個區塊按比例填滿整行 */
+.mobile-time-slot-info-row-grid {
+  display: grid;
+  grid-template-columns: 2fr 2fr 1.2fr 1fr; /* 開始時間、結束時間、床位、占用 */
+  gap: var(--spacing-sm);
+  align-items: center;
+  width: 100%;
+}
+
+/* 時間與床位輸入寬度自適應 */
+.mobile-time-input-fluid,
+.mobile-total-input-fluid {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* 占用顯示自適應且置中 */
+.mobile-slot-info-fluid {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: var(--spacing-xs);
+  background: #f8fafc;
+  border-radius: var(--border-radius-sm);
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* 底部操作按鈕等分整行寬度 */
+.mobile-slot-actions-row-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr); /* 新增、保存、刪除、展開 */
+  gap: var(--spacing-sm);
+  width: 100%;
+}
+.mobile-slot-actions-row-grid .mobile-icon-btn-colored {
+  width: 100%;
+  min-width: 0;
+  height: 44px; /* 略高，便於觸控 */
+}
+
+/* 超小屏幕優化 */
+@media (max-width: 375px) {
+  .mobile-time-slot-info-row-grid {
+    grid-template-columns: 1.5fr 1.5fr 1fr 1fr;
+  }
+  .mobile-slot-actions-row-grid .mobile-icon-btn-colored {
+    height: 40px;
+  }
+}

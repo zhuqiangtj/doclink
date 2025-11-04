@@ -11,6 +11,18 @@ async function recreateZhangruUser() {
 
     if (existingUser) {
       console.log('用戶 zhangru 已存在，ID:', existingUser.id);
+      // 檢查是否已有 Doctor 資料
+      const existingDoctor = await prisma.doctor.findUnique({
+        where: { userId: existingUser.id }
+      });
+      if (!existingDoctor) {
+        const doctor = await prisma.doctor.create({
+          data: { userId: existingUser.id }
+        });
+        console.log('補建醫生資料成功，ID:', doctor.id);
+      } else {
+        console.log('醫生資料已存在，ID:', existingDoctor.id);
+      }
       return;
     }
 
@@ -31,9 +43,7 @@ async function recreateZhangruUser() {
     // 創建醫生資料
     const doctor = await prisma.doctor.create({
       data: {
-        userId: newUser.id,
-        specialty: '內科',
-        licenseNumber: 'DOC001'
+        userId: newUser.id
       }
     });
 

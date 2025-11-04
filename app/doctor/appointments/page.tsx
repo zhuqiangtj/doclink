@@ -74,9 +74,10 @@ export default function DoctorAppointmentsPage() {
   // --- Filter States ---
   const getCurrentDateInChina = () => {
     const now = new Date();
-    // 轉換為中國時間 (UTC+8)
-    const chinaTime = new Date(now.getTime() + (8 * 60 * 60 * 1000));
-    return chinaTime.toISOString().split('T')[0];
+    const y = now.getFullYear();
+    const m = String(now.getMonth() + 1).padStart(2, '0');
+    const d = String(now.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
   };
 
   const [selectedDate, setSelectedDate] = useState<string>('');
@@ -369,10 +370,10 @@ export default function DoctorAppointmentsPage() {
 
   // 判斷預約是否過期
   const isAppointmentExpired = (date: string, time: string): boolean => {
-    const now = new Date();
-    const chinaTime = new Date(now.getTime() + (8 * 60 * 60 * 1000));
-    const appointmentDateTime = new Date(`${date}T${time}`);
-    return appointmentDateTime < chinaTime;
+    const [year, month, day] = date.split('-').map(Number);
+    const [hour, minute] = time.split(':').map(Number);
+    const appointmentLocal = new Date(year || 0, (month || 1) - 1, day || 1, hour || 0, minute || 0, 0, 0);
+    return appointmentLocal.getTime() < Date.now();
   };
 
   // 獲取預約的實際狀態（考慮過期情況）

@@ -7,12 +7,6 @@ import { createAppointmentHistoryInTransaction } from '../../../lib/appointment-
 
 const prisma = new PrismaClient();
 
-interface TimeSlot {
-  time: string;
-  total: number;
-  booked: number;
-}
-
 // GET appointments (for doctors or patients)
 export async function GET() {
   const session = await getServerSession(authOptions);
@@ -44,6 +38,13 @@ export async function GET() {
         doctor: { include: { user: { select: { name: true } } } },
         room: { select: { name: true } },
         schedule: { select: { date: true } }, // Get date from schedule
+        timeSlot: { 
+          select: { 
+            startTime: true, 
+            endTime: true, 
+            type: true 
+          } 
+        },
       },
       orderBy: {
         createTime: 'desc',
@@ -72,53 +73,68 @@ export async function POST(request: Request) {
   }
 
   try {
-    const { userId, patientId, doctorId, scheduleId, time, roomId } = await request.json();
+    const { userId, patientId, doctorId, timeSlotId, roomId } = await request.json();
 
     // Authorization check: Patients can only book for themselves. Doctors can book for any patient.
     if (session.user.role === 'PATIENT' && session.user.id !== userId) {
       return NextResponse.json({ error: 'Forbidden: Patients can only book appointments for themselves.' }, { status: 403 });
     }
-    // Further validation can be added for doctors if needed
 
-    if (!userId || !patientId || !doctorId || !scheduleId || !time || !roomId) {
+    if (!userId || !patientId || !doctorId || !timeSlotId || !roomId) {
       return NextResponse.json({ error: 'Missing required appointment data' }, { status: 400 });
     }
 
     const result = await prisma.$transaction(async (tx) => {
-      // First, fetch the schedule to get timeSlots with explicit locking
-      const schedule = await tx.schedule.findUnique({
-        where: { id: scheduleId },
+      // 獲取時間段信息並檢查可用性
+      const timeSlot = await tx.timeSlot.findUnique({
+        where: { id: timeSlotId },
+        include: { schedule: true }
       });
       
-      if (!schedule) {
-        console.error('Schedule not found in transaction:', { scheduleId, userId, patientId, time });
-        throw new Error('Schedule not found.');
+      if (!timeSlot) {
+        throw new Error('Time slot not found.');
       }
 
-      const timeSlots = schedule.timeSlots as TimeSlot[];
-      const targetSlot = timeSlots.find(slot => slot.time === time);
-      if (!targetSlot) throw new Error('Time slot not found in schedule.');
-      if (targetSlot.booked >= targetSlot.total) throw new Error('This time slot is fully booked.');
+      if (!timeSlot.isActive) {
+        throw new Error('This time slot is not active.');
+      }
 
-      targetSlot.booked += 1;
+      // 僅允許未來時間段：檢查時間段開始時間是否早於當前時間
+      if (timeSlot.schedule && timeSlot.schedule.date && timeSlot.startTime) {
+        const [year, month, day] = timeSlot.schedule.date.split('-').map(Number);
+        const [hour, minute] = timeSlot.startTime.split(':').map(Number);
+        // 使用本地時間構造，避免時區解析差異
+        const slotStartDateTime = new Date(year, (month || 1) - 1, day || 1, hour || 0, minute || 0, 0, 0);
+        const now = new Date();
+        if (slotStartDateTime.getTime() <= now.getTime()) {
+          throw new Error('预约的时间段已经过期');
+        }
+      }
 
-      await tx.schedule.update({
-        where: { id: scheduleId },
-        data: { timeSlots: timeSlots },
+      if (timeSlot.availableBeds <= 0) {
+        throw new Error('This time slot is fully booked.');
+      }
+
+      // 更新可用床位數
+      await tx.timeSlot.update({
+        where: { id: timeSlotId },
+        data: { availableBeds: timeSlot.availableBeds - 1 }
       });
 
+      // 創建預約，使用時間段的開始時間作為time字段（向後兼容）
       const newAppointment = await tx.appointment.create({
         data: { 
           userId, 
           patientId, 
           doctorId, 
-          scheduleId, 
-          time, 
+          scheduleId: timeSlot.scheduleId,
+          timeSlotId,
+          time: timeSlot.startTime, // 向後兼容
           roomId, 
           bedId: 0, 
           status: 'PENDING', 
           reason: session.user.role === 'DOCTOR' ? '醫生預約' : '病人預約'
-        }, // Set bedId to 0 initially
+        },
       });
 
       // 創建預約歷史記錄
@@ -139,7 +155,7 @@ export async function POST(request: Request) {
             doctorId: doctorId,
             appointmentId: newAppointment.id,
             patientName: patientUser.name,
-            message: `${patientUser.name} 预约了您在 ${time} 的号。`,
+            message: `${patientUser.name} 预约了您在 ${timeSlot.startTime}-${timeSlot.endTime} 的号。`,
             type: 'APPOINTMENT_CREATED',
           },
         });
@@ -154,7 +170,7 @@ export async function POST(request: Request) {
               userId: userId,
               appointmentId: newAppointment.id,
               doctorName: doctorUser.name,
-              message: `医生 ${doctorUser.name} 为您安排了在 ${time} 的预约。`,
+              message: `医生 ${doctorUser.name} 为您安排了在 ${timeSlot.startTime}-${timeSlot.endTime} 的预约。`,
               type: 'APPOINTMENT_CREATED_BY_DOCTOR',
             },
           });
@@ -164,51 +180,28 @@ export async function POST(request: Request) {
       return newAppointment;
     });
 
-    await createAuditLog(session, 'CREATE_APPOINTMENT', 'Appointment', result.id, { userId, patientId, doctorId, scheduleId, time, roomId });
+    await createAuditLog(session, 'CREATE_APPOINTMENT', 'Appointment', result.id, { userId, patientId, doctorId, timeSlotId, roomId });
     return NextResponse.json(result, { status: 201 });
 
   } catch (error) {
     console.error('Error creating appointment:', {
       error: error instanceof Error ? error.message : error,
       stack: error instanceof Error ? error.stack : undefined,
-      scheduleId,
-      time,
+      timeSlotId,
       userId,
       patientId,
       doctorId,
       roomId
     });
     
-    // 如果是Schedule not found錯誤，檢查是否實際上預約已經創建
-    if (error instanceof Error && error.message === 'Schedule not found.') {
-      try {
-        // 檢查是否有相同的預約已經存在
-        const existingAppointment = await prisma.appointment.findFirst({
-          where: {
-            userId,
-            patientId,
-            doctorId,
-            scheduleId,
-            time,
-            roomId,
-            createdAt: {
-              gte: new Date(Date.now() - 30000) // 30秒內創建的
-            }
-          }
-        });
-        
-        if (existingAppointment) {
-          console.log('Found existing appointment despite error:', existingAppointment.id);
-          await createAuditLog(session, 'CREATE_APPOINTMENT', 'Appointment', existingAppointment.id, { userId, patientId, doctorId, scheduleId, time, roomId });
-          return NextResponse.json(existingAppointment, { status: 201 });
-        }
-      } catch (checkError) {
-        console.error('Error checking for existing appointment:', checkError);
-      }
-    }
-    
     const message = error instanceof Error ? error.message : 'Failed to create appointment';
-    return NextResponse.json({ error: message }, { status: 500 });
+    const status =
+      message === '预约的时间段已经过期' ? 400 :
+      message === 'Time slot not found.' ? 404 :
+      message === 'This time slot is not active.' ? 400 :
+      message === 'This time slot is fully booked.' ? 400 :
+      500;
+    return NextResponse.json({ error: message }, { status });
   }
 }
 
@@ -230,7 +223,10 @@ export async function DELETE(request: Request) {
     // 先獲取預約信息進行授權檢查
     const appointment = await prisma.appointment.findUnique({ 
       where: { id: appointmentId },
-      include: { schedule: true }
+      include: { 
+        schedule: true,
+        timeSlot: true
+      }
     });
     if (!appointment) {
       return NextResponse.json({ error: 'Appointment not found' }, { status: 404 });
@@ -302,19 +298,12 @@ export async function DELETE(request: Request) {
         }
       });
 
-      // 更新排程中的預約數量
-      const schedule = await tx.schedule.findUnique({ where: { id: appointment.scheduleId } });
-      if (schedule) {
-        const timeSlots = schedule.timeSlots as TimeSlot[];
-        const targetSlot = timeSlots.find(slot => slot.time === appointment.time);
-        if (targetSlot && targetSlot.booked > 0) {
-          targetSlot.booked -= 1;
-          await tx.schedule.update({
-            where: { id: appointment.scheduleId },
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            data: { timeSlots: timeSlots as any },
-          });
-        }
+      // 更新時間段的可用床位數
+      if (appointment.timeSlotId) {
+        await tx.timeSlot.update({
+          where: { id: appointment.timeSlotId },
+          data: { availableBeds: { increment: 1 } }
+        });
       }
 
       // 創建審計日誌
@@ -348,7 +337,7 @@ export async function DELETE(request: Request) {
             doctorId: appointment.doctorId,
             appointmentId: appointment.id,
             patientName: patientUser.name,
-            message: `${patientUser.name} 取消了 ${appointment.time} 的预约。`,
+            message: `${patientUser.name} 取消了 ${appointment.timeSlot?.startTime || appointment.time} 的预约。`,
             type: 'APPOINTMENT_CANCELLED',
           },
         });
@@ -363,7 +352,7 @@ export async function DELETE(request: Request) {
               userId: appointment.userId,
               appointmentId: appointment.id,
               doctorName: actor.name,
-              message: `您的预约 (预约时间: ${appointment.time}) 已被 ${actor.name} 取消。`,
+              message: `您的预约 (预约时间: ${appointment.timeSlot?.startTime || appointment.time}) 已被 ${actor.name} 取消。`,
               type: 'APPOINTMENT_CANCELLED_BY_DOCTOR',
             },
           });

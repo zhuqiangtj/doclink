@@ -7,20 +7,24 @@
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
   max-width: 600px;
-  margin: 0 auto;
+  margin: 0 auto !important;
   width: 100%;
+  display: block;
+  text-align: center;
 }
 
 /* Combined Header with Month Navigation and Selected Date */
 .combined-header {
   display: flex;
-  justify-content: space-between;
+  justify-content: center;
   align-items: center;
   margin-bottom: 12px;
   padding: 8px 12px;
   background: rgba(255, 255, 255, 0.1);
   border-radius: 12px;
   border: 1px solid rgba(255, 255, 255, 0.2);
+  flex-wrap: wrap;
+  gap: 16px;
 }
 
 .month-navigation {
@@ -33,7 +37,7 @@
 .selected-date-inline {
   display: flex;
   flex-direction: column;
-  align-items: flex-end;
+  align-items: center;
   gap: 2px;
 }
 
@@ -188,6 +192,12 @@
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
 
+/* 選中日期的hover效果 */
+.enhanced-date-cell.selected:hover {
+  transform: scale(1.12) !important;
+  box-shadow: 0 0 0 4px rgba(245, 158, 11, 0.6), 0 12px 24px rgba(245, 158, 11, 0.4) !important;
+}
+
 .date-number {
   font-size: 16px;
   font-weight: 500;
@@ -213,11 +223,14 @@
 }
 
 .enhanced-date-cell.selected {
-  border-color: #667eea;
-  background: linear-gradient(135deg, #e0e7ff, #c7d2fe);
-  color: #3730a3;
-  font-weight: 700;
-  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.3);
+  border-color: #f59e0b !important;
+  background: linear-gradient(135deg, #fbbf24, #f59e0b) !important;
+  color: #ffffff !important;
+  font-weight: 800 !important;
+  box-shadow: 0 0 0 4px rgba(245, 158, 11, 0.4), 0 8px 20px rgba(245, 158, 11, 0.3) !important;
+  transform: scale(1.1) !important;
+  z-index: 10;
+  position: relative;
 }
 
 .enhanced-date-cell.past-with-schedule {

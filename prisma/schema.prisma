@@ -24,6 +24,11 @@ enum AppointmentStatus {
   NO_SHOW    // 未到診
 }
 
+enum TimeSlotType {
+  MORNING    // 上午時段
+  AFTERNOON  // 下午時段
+}
+
 model User {
   id          String    @id @default(cuid())
   username    String    @unique // Now required
@@ -107,10 +112,26 @@ model Schedule {
   doctor       Doctor        @relation(fields: [doctorId], references: [id])
   doctorId     String
   date         String
-  timeSlots    Json
   room         Room          @relation(fields: [roomId], references: [id])
   roomId       String
+  timeSlots    TimeSlot[]    // 新的一對多關係
   appointments Appointment[]
+}
+
+model TimeSlot {
+  id             String        @id @default(cuid())
+  schedule       Schedule      @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
+  scheduleId     String
+  startTime      String        // 開始時間 (例如: "08:00")
+  endTime        String        // 結束時間 (例如: "09:00")
+  bedCount       Int           // 總床位數
+  availableBeds  Int           // 可用床位數
+  type           TimeSlotType  // 時段類型 (上午/下午)
+  isActive       Boolean       @default(true) // 是否啟用
+  appointments   Appointment[]
+
+  @@index([scheduleId])
+  @@index([startTime, endTime])
 }
 
 model Appointment {
@@ -123,7 +144,9 @@ model Appointment {
   doctorId   String
   schedule   Schedule          @relation(fields: [scheduleId], references: [id])
   scheduleId String
-  time       String
+  timeSlot   TimeSlot          @relation(fields: [timeSlotId], references: [id])
+  timeSlotId String
+  time       String            // 保留用於向後兼容
   room       Room              @relation(fields: [roomId], references: [id])
   roomId     String
   bedId      Int
