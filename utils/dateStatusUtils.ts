@@ -40,39 +40,45 @@ export function convertToDateStatuses(
 
     // 獲取該日期的排班數據
     const daySchedules = schedulesData?.[dateStr] || [];
-    
-    // 只統計「未過期」的時段：若為今天，要求時段的結束時間晚於現在；若為未來日期，統計全部活躍時段
-    const futureSlots: TimeSlot[] = [];
+    // 按照需求：統計「當天所有時段」的數據（不論是否已過期）
+    const daySlots: TimeSlot[] = [];
     for (const schedule of daySchedules) {
       for (const slot of schedule.timeSlots) {
-        // 合成該槽位的結束時間為 Date
-        const slotEnd = new Date(`${dateStr}T${slot.endTime}:00`);
-        const isFutureOrOngoing = date > today || (!isDateBeforeToday && slotEnd > now);
-        if (isFutureOrOngoing) {
-          futureSlots.push(slot);
-        }
+        daySlots.push(slot);
       }
     }
 
-    // 計算總床位與已預約床位（以 availableBeds 反推）
+    // 計算當天總床位與已預約數量
+    // 需求：已預約數量為「所有時段的已預約總數」（不管是否過期）
+    // 使用 appointments.length 更精準地表達已預約數量
     let totalBeds = 0;
     let bookedBeds = 0;
-    for (const slot of futureSlots) {
+    for (const slot of daySlots) {
       totalBeds += Number(slot.bedCount) || 0;
-      const bookedForSlot = (Number(slot.bedCount) || 0) - (Number(slot.availableBeds) || 0);
-      bookedBeds += Math.max(0, bookedForSlot);
+      const bookedForSlot = Array.isArray(slot.appointments) ? slot.appointments.length : Math.max(0, (Number(slot.bedCount) || 0) - (Number(slot.availableBeds) || 0));
+      bookedBeds += bookedForSlot;
     }
 
     const hasAppointments = bookedBeds > 0;
     // 若今日所有時段均已結束，或日期早於今天，視為「已過期」
-    const isPast = isDateBeforeToday || (date.toDateString() === today.toDateString() && futureSlots.length === 0);
+    // 這裡保留 isPast 的判定，但不影響統計的顯示（角標將始終顯示數字）
+    const allSlotsEndedToday = (() => {
+      if (date.toDateString() !== today.toDateString()) return false;
+      // 若今日但所有槽位的結束時間均在「現在」之前，視為已過期
+      if (daySlots.length === 0) return true;
+      return daySlots.every(slot => {
+        const slotEnd = new Date(`${dateStr}T${slot.endTime}:00`);
+        return slotEnd <= now;
+      });
+    })();
+    const isPast = isDateBeforeToday || allSlotsEndedToday;
 
     return {
       date: dateStr,
-      // 僅在仍有未過期時段時視為「有排班」
-      hasSchedule: futureSlots.length > 0,
+      // 該日期只要存在任何時段，即視為「有排班」
+      hasSchedule: daySlots.length > 0,
       hasAppointments,
-      // 將右下角標示為 已預約床位/總床位
+      // 將右下角標示為 已預約數量/總床位數
       bookedBeds,
       totalBeds,
       isPast,

@@ -241,6 +241,9 @@ export default function DoctorSchedulePage() {
       const skippedCount = DEFAULT_TEMPLATE.length - templateToAdd.length;
       
       for (const tpl of templateToAdd) {
+        // 避免模板床位數超過診室容量
+        const maxBedsForRoom = selectedRoom?.bedCount ?? tpl.bedCount;
+        const tplBedCount = Math.min(tpl.bedCount, maxBedsForRoom);
         const response = await fetch('/api/schedules', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -249,7 +252,7 @@ export default function DoctorSchedulePage() {
             roomId: selectedRoomIdForTemplate,
             startTime: tpl.startTime,
             endTime: tpl.endTime,
-            bedCount: tpl.bedCount,
+            bedCount: tplBedCount,
             type: tpl.type
           })
         });
@@ -347,6 +350,12 @@ export default function DoctorSchedulePage() {
     }
     if (isNaN(nextBedCount) || nextBedCount <= 0) {
       setError('床位數必須大於 0');
+      return;
+    }
+    // 不可超過診室容量
+    const roomMaxBeds = schedule.room.bedCount;
+    if (nextBedCount > roomMaxBeds) {
+      setError(`床位數不可超過診室床位數（最大 ${roomMaxBeds}）`);
       return;
     }
 
@@ -466,7 +475,13 @@ export default function DoctorSchedulePage() {
           roomId: selectedRoomIdForTemplate,
           startTime: newTimeSlotData.startTime,
           endTime: newTimeSlotData.endTime,
-          bedCount: parseInt(newTimeSlotData.bedCount)
+          // 保障不超過診室床位數
+          bedCount: (() => {
+            const selectedRoom = doctorProfile?.Room.find(r => r.id === selectedRoomIdForTemplate);
+            const maxBeds = selectedRoom?.bedCount ?? Number.MAX_SAFE_INTEGER;
+            const parsed = parseInt(newTimeSlotData.bedCount);
+            return Math.min(parsed, maxBeds);
+          })()
         })
       });
 
@@ -805,7 +820,7 @@ export default function DoctorSchedulePage() {
                 const editedStart = getSlotValue(schedule.id, index, 'startTime', slot.startTime) as string;
                 const editedEnd = getSlotValue(schedule.id, index, 'endTime', slot.endTime) as string;
                 const editedBedCount = Number(getSlotValue(schedule.id, index, 'bedCount', slot.bedCount));
-                const isValidEdit = !!editedStart && !!editedEnd && (editedEnd > editedStart) && editedBedCount > 0;
+                const isValidEdit = !!editedStart && !!editedEnd && (editedEnd > editedStart) && editedBedCount > 0 && editedBedCount <= schedule.room.bedCount;
                 const isPast = isTimeSlotPast(selectedDate, slot.startTime);
 
                 return (
@@ -844,15 +859,20 @@ export default function DoctorSchedulePage() {
                       <input
                         type="number"
                         min="1"
+                        max={schedule.room.bedCount}
                         value={getSlotValue(schedule.id, index, 'bedCount', slot.bedCount)}
                         onChange={(e) => {
-                          updateSlotEdit(schedule.id, index, 'bedCount', parseInt(e.target.value));
+                          const maxBeds = schedule.room.bedCount;
+                          const raw = e.target.value;
+                          const n = parseInt(raw);
+                          const clamped = isNaN(n) ? 1 : Math.max(1, Math.min(n, maxBeds));
+                          updateSlotEdit(schedule.id, index, 'bedCount', clamped);
                           setModifiedTimeSlots(prev => new Set(prev).add(key));
                         }}
                         className="mobile-total-input-inline mobile-total-input-fluid"
                         placeholder="床位數"
                         disabled={isPast}
-                        title={isPast ? '時間已過，不可編輯' : '可預約人數'}
+                        title={isPast ? '時間已過，不可編輯' : `可預約人數（最大 ${schedule.room.bedCount}）`}
                       />
 
                       {/* 預約狀態信息 */}
@@ -1193,11 +1213,17 @@ export default function DoctorSchedulePage() {
                 <input
                   type="number"
                   min="1"
-                  max="50"
+                  max={selectedRoomIdForTemplate ? (doctorProfile?.Room.find(r => r.id === selectedRoomIdForTemplate)?.bedCount ?? 50) : 50}
                   value={newTimeSlotData.bedCount}
-                  onChange={(e) => setNewTimeSlotData(prev => ({ ...prev, bedCount: e.target.value }))}
+                  onChange={(e) => {
+                    const selectedRoom = doctorProfile?.Room.find(r => r.id === selectedRoomIdForTemplate);
+                    const maxBeds = selectedRoom?.bedCount ?? 50;
+                    const n = parseInt(e.target.value);
+                    const clamped = isNaN(n) ? '' : String(Math.max(1, Math.min(n, maxBeds)));
+                    setNewTimeSlotData(prev => ({ ...prev, bedCount: clamped }));
+                  }}
                   className="mobile-input w-full"
-                  placeholder="請輸入可預約人數"
+                  placeholder="請輸入可預約人數（不超過診室床位數）"
                   required
                 />
               </div>

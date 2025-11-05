@@ -6,10 +6,10 @@ import './EnhancedDatePicker.css';
 
 export interface DateStatus {
   date: string; // YYYY-MM-DD format
-  hasSchedule: boolean; // 僅代表此日期仍有未過期時段
-  hasAppointments: boolean; // 已預約床位數是否大於 0
-  bookedBeds: number; // 已預約床位總數（未來時段）
-  totalBeds: number; // 總床位數（未來時段）
+  hasSchedule: boolean; // 該日期是否有任何排班時段（不論是否過期）
+  hasAppointments: boolean; // 已預約數量是否大於 0（不論是否過期）
+  bookedBeds: number; // 當天已預約總數（所有時段）
+  totalBeds: number; // 當天總床位數（所有時段）
   isPast: boolean; // 日期早於今天，或今日但所有時段已結束
 }
 
@@ -155,23 +155,22 @@ const EnhancedDatePicker: React.FC<EnhancedDatePickerProps> = ({
     }
   };
 
-  // Get status indicator for a date (remove orange person icon, keep compact count)
+  // Get status indicator for a date：右下角始終顯示「已預約/總床位」
   const getStatusIndicator = (date: Date) => {
     const status = getDateStatus(date);
     if (!status || !status.hasSchedule) return null;
 
-    // Past days keep a subtle clock icon; future days show only counts
+    // 始終顯示數字；可選地在過去日期疊加小時計圖標（保留簡潔）
     return (
       <div className="date-status-indicator">
-        {status.isPast ? (
+        {status.isPast && (
           <div className="status-icon past">
             <FaClock size={8} />
           </div>
-        ) : (
-          <div className="status-info">
-            <span className="appointment-count">{status.bookedBeds}/{status.totalBeds}</span>
-          </div>
         )}
+        <div className="status-info">
+          <span className="appointment-count">{status.bookedBeds}/{status.totalBeds}</span>
+        </div>
       </div>
     );
   };
