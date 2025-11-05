@@ -160,7 +160,18 @@ const EnhancedDatePicker: React.FC<EnhancedDatePickerProps> = ({
     const status = getDateStatus(date);
     if (!status || !status.hasSchedule) return null;
 
-    // 始終顯示數字；可選地在過去日期疊加小時計圖標（保留簡潔）
+    // 始終顯示數字；根據容量顯示不同顏色；過去日期疊加小時計圖標
+    const isFull = status.totalBeds > 0 && status.bookedBeds >= status.totalBeds;
+    const hasSome = status.bookedBeds > 0 && !isFull;
+    const hasAvailable = status.totalBeds > 0 && status.bookedBeds === 0;
+    const countClass = isFull
+      ? 'appointment-count full'
+      : hasSome
+        ? 'appointment-count partial'
+        : hasAvailable
+          ? 'appointment-count available'
+          : 'appointment-count';
+
     return (
       <div className="date-status-indicator">
         {status.isPast && (
@@ -169,7 +180,7 @@ const EnhancedDatePicker: React.FC<EnhancedDatePickerProps> = ({
           </div>
         )}
         <div className="status-info">
-          <span className="appointment-count">{status.bookedBeds}/{status.totalBeds}</span>
+          <span className={countClass}>{status.bookedBeds}/{status.totalBeds}</span>
         </div>
       </div>
     );

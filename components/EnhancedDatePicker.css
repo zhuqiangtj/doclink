@@ -295,11 +295,30 @@
 .appointment-count {
   font-size: 10px;
   font-weight: 600;
-  color: #c2410c;
+  color: #1f2937;
   background: rgba(255, 255, 255, 0.9);
   padding: 1px 4px;
   border-radius: 6px;
   line-height: 1;
+}
+
+/* 容量状态颜色区分 */
+.appointment-count.full {
+  color: #ffffff;
+  background: #dc2626; /* red-600 */
+  border: 1px solid #b91c1c; /* red-700 */
+}
+
+.appointment-count.partial {
+  color: #7c2d12;
+  background: #fdba74; /* orange-300 */
+  border: 1px solid #ea580c; /* orange-600 */
+}
+
+.appointment-count.available {
+  color: #0b3b75;
+  background: #bfdbfe; /* blue-200 */
+  border: 1px solid #3b82f6; /* blue-500 */
 }
 
 /* Responsive Design */

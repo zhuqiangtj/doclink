@@ -111,15 +111,14 @@ export async function POST(request: Request) {
         }
       }
 
-      if (timeSlot.availableBeds <= 0) {
+      // 原子性防超訂：僅在 availableBeds > 0 時遞減，否則報錯
+      const decResult = await tx.timeSlot.updateMany({
+        where: { id: timeSlotId, availableBeds: { gt: 0 } },
+        data: { availableBeds: { decrement: 1 } }
+      });
+      if (decResult.count === 0) {
         throw new Error('This time slot is fully booked.');
       }
-
-      // 更新可用床位數
-      await tx.timeSlot.update({
-        where: { id: timeSlotId },
-        data: { availableBeds: timeSlot.availableBeds - 1 }
-      });
 
       // 創建預約，使用時間段的開始時間作為time字段（向後兼容）
       const newAppointment = await tx.appointment.create({
