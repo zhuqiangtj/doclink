@@ -156,6 +156,58 @@
   padding: 1rem;
 }
 
+/* 通用按鈕樣式（用於“预约”等操作） */
+.mobile-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 14px;
+  border-radius: 10px;
+  border: 1px solid #d1d5db; /* 明顯邊框 */
+  background: #f9fafb; /* 淺灰背景讓像按鈕 */
+  color: #1f2937;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  min-height: 36px;
+}
+
+.mobile-btn:hover:not(:disabled) {
+  background: #f3f4f6;
+  border-color: #9ca3af;
+}
+
+.mobile-btn:focus-visible {
+  outline: 3px solid #93c5fd; /* 高對比聚焦輪廓 */
+  outline-offset: 2px;
+}
+
+.mobile-btn-primary {
+  background: #3b82f6;
+  color: white;
+  border-color: #3b82f6;
+}
+
+.mobile-btn-primary:hover:not(:disabled) {
+  background: #2563eb;
+  border-color: #2563eb;
+}
+
+.mobile-btn-disabled,
+.mobile-btn:disabled {
+  background: #e5e7eb;
+  color: #9ca3af;
+  border-color: #e5e7eb;
+  cursor: not-allowed;
+}
+
+.mobile-btn-disabled:hover,
+.mobile-btn:disabled:hover {
+  background: #e5e7eb;
+  border-color: #e5e7eb;
+}
+
 /* Success message */
 .mobile-success-message {
   margin-top: 1.5rem;
@@ -165,6 +217,39 @@
   border-radius: 0.75rem;
   text-align: center;
   font-size: 1rem;
+}
+
+/* Center Toast */
+.mobile-toast {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 1000;
+  padding: 12px 16px;
+  border-radius: 10px;
+  color: #fff;
+  font-size: 14px;
+  text-align: center;
+  box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+  pointer-events: none; /* do not block clicks */
+  opacity: 0.98;
+  animation: mobile-toast-fade 3s ease both;
+}
+
+.mobile-toast-success {
+  background: rgba(16, 185, 129, 0.95); /* emerald */
+}
+
+.mobile-toast-error {
+  background: rgba(239, 68, 68, 0.95); /* red */
+}
+
+@keyframes mobile-toast-fade {
+  0% { opacity: 0; transform: translate(-50%, -60%); }
+  10% { opacity: 1; transform: translate(-50%, -50%); }
+  90% { opacity: 1; transform: translate(-50%, -50%); }
+  100% { opacity: 0; transform: translate(-50%, -40%); }
 }
 
 /* Modal - 優化居中和緊湊設計 */

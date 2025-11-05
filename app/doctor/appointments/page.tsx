@@ -5,6 +5,7 @@ import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { FaCalendarAlt, FaHospital, FaFilter, FaChevronLeft, FaChevronRight, FaTimes, FaCheckCircle, FaBell, FaHistory } from 'react-icons/fa';
 import './mobile.css';
+import { getStatusText } from '../../../utils/statusText';
 import AppointmentHistoryModal from '../../../components/AppointmentHistoryModal';
 
 // --- Interfaces ---
@@ -106,31 +107,38 @@ export default function DoctorAppointmentsPage() {
     }
   }, [status, session?.user?.role, router]);
 
-  // 獲取通知數據
+  // 獲取通知數據（僅在醫生身份下觸發，並對 401/404 友好處理）
   useEffect(() => {
-    if (status === 'authenticated') {
-      const fetchNotifications = async () => {
-        try {
-          const res = await fetch('/api/notifications');
-          if (!res.ok) throw new Error('Failed to fetch notifications.');
-          const data = await res.json();
-          const allNotifications = data.notifications || [];
-          setNotifications(allNotifications);
-          
-          // 只顯示最近的未讀通知（最多5條）
-          const unread = allNotifications.filter((n: Notification) => !n.isRead).slice(0, 5);
-          setUnreadNotifications(unread);
-        } catch (err) {
-          console.error('Failed to fetch notifications:', err);
+    if (status !== 'authenticated' || session?.user?.role !== 'DOCTOR') return;
+
+    const fetchNotifications = async () => {
+      try {
+        const res = await fetch('/api/notifications');
+        if (res.status === 404 || res.status === 401) {
+          // 無醫生資料或未授權：前端不報錯，以空通知呈現
+          setNotifications([]);
+          setUnreadNotifications([]);
+          return;
         }
-      };
-      fetchNotifications();
-      
-      // 每分鐘檢查一次新通知
-      const interval = setInterval(fetchNotifications, 60000);
-      return () => clearInterval(interval);
-    }
-  }, [status]);
+        if (!res.ok) throw new Error('Failed to fetch notifications.');
+        const data = await res.json();
+        const allNotifications = data.notifications || [];
+        setNotifications(allNotifications);
+
+        // 只顯示最近的未讀通知（最多5條）
+        const unread = allNotifications.filter((n: Notification) => !n.isRead).slice(0, 5);
+        setUnreadNotifications(unread);
+      } catch (err) {
+        // 保留日誌但避免不必要的錯誤提示
+        console.error('Failed to fetch notifications:', err);
+      }
+    };
+
+    fetchNotifications();
+    // 每分鐘檢查一次新通知
+    const interval = setInterval(fetchNotifications, 60000);
+    return () => clearInterval(interval);
+  }, [status, session?.user?.role]);
 
   // 獨立的獲取預約函數
   const fetchAppointments = async () => {
@@ -181,7 +189,7 @@ export default function DoctorAppointmentsPage() {
 
   const sortedAppointments = useMemo(() => {
     return [...filteredAppointments].sort((a, b) => {
-      // Sort by date (newest first), then by time
+      // 按日期（新到舊），再按時間（小到大）
       const dateCompare = new Date(b.date).getTime() - new Date(a.date).getTime();
       if (dateCompare !== 0) return dateCompare;
       return a.time.localeCompare(b.time);
@@ -382,15 +390,7 @@ export default function DoctorAppointmentsPage() {
     return appointment.status;
   };
 
-  const getStatusText = (status: string): string => {
-    const statusMap: { [key: string]: string } = {
-      'PENDING': '待就診',
-      'CANCELLED': '已取消',
-      'COMPLETED': '已完成',
-      'NO_SHOW': '未到診'
-    };
-    return statusMap[status] || status;
-  };
+  // 使用統一的狀態文字工具
 
   const getStatusColor = (status: string): string => {
     const colorMap: { [key: string]: string } = {
@@ -552,6 +552,8 @@ export default function DoctorAppointmentsPage() {
           </span>
         </div>
       </div>
+
+      {/* 排序選項已移除 */}
 
       {/* Appointments List */}
       <div className="mobile-content-card">
