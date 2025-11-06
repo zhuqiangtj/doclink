@@ -19,6 +19,7 @@ interface EnhancedDatePickerProps {
   dateStatuses: DateStatus[];
   isLoading?: boolean;
   className?: string;
+  onMonthChange?: (year: number, month: number) => void; // 新增：月份切換回調
 }
 
 const MONTHS = [
@@ -33,7 +34,8 @@ const EnhancedDatePicker: React.FC<EnhancedDatePickerProps> = ({
   onDateChange,
   dateStatuses,
   isLoading = false,
-  className = ''
+  className = '',
+  onMonthChange
 }) => {
   const [currentMonth, setCurrentMonth] = useState(new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1));
   
@@ -95,6 +97,10 @@ const EnhancedDatePicker: React.FC<EnhancedDatePickerProps> = ({
         newMonth.setMonth(prev.getMonth() - 1);
       } else {
         newMonth.setMonth(prev.getMonth() + 1);
+      }
+      // 觸發父層月份變化回調，用於重新抓取當月排班高亮
+      if (onMonthChange) {
+        onMonthChange(newMonth.getFullYear(), newMonth.getMonth());
       }
       return newMonth;
     });

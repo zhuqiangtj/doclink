@@ -1,11 +1,12 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { FaHistory } from 'react-icons/fa';
 import './mobile.css';
 import AppointmentHistoryModal from '../../components/AppointmentHistoryModal';
+import { getStatusText } from '../../utils/statusText';
 
 // --- Interfaces ---
 interface Appointment {
@@ -18,12 +19,7 @@ interface Appointment {
   room: { name: string };
 }
 
-const statusTranslations: { [key: string]: string } = {
-  PENDING: '待就診',
-  COMPLETED: '已完成',
-  NO_SHOW: '未到診',
-  CANCELLED: '已取消',
-};
+// 狀態文字由統一工具提供
 
 // --- Component ---
 export default function MyAppointmentsPage() {
@@ -34,6 +30,15 @@ export default function MyAppointmentsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [success, ] = useState<string | null>(null);
+  
+  // --- Filter States ---
+  const [selectedDate, setSelectedDate] = useState<string>('');
+  const [selectedRoomName, setSelectedRoomName] = useState<string>('');
+  const [selectedStatus, setSelectedStatus] = useState<string>('PENDING'); // 默認待就診
+  
+  // --- Pagination State ---
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const itemsPerPage = 10;
   
   // --- History Modal States ---
   const [showHistoryModal, setShowHistoryModal] = useState(false);
@@ -84,10 +89,7 @@ export default function MyAppointmentsPage() {
     }
   };
 
-  const getDisplayStatus = (apt: Appointment) => {
-    // 直接使用數據庫中的狀態，不再進行客戶端轉換
-    return statusTranslations[apt.status] || apt.status;
-  };
+  // 顯示狀態統一使用工具函數
 
   // 打開歷史記錄模態框
   const openHistoryModal = (appointmentId: string) => {
@@ -101,18 +103,106 @@ export default function MyAppointmentsPage() {
     setSelectedAppointmentId(null);
   };
 
+  // --- Filters Logic ---
+  const uniqueRoomNames = useMemo(() => {
+    const names = new Set<string>();
+    appointments.forEach(a => { if (a.room?.name) names.add(a.room.name); });
+    return Array.from(names);
+  }, [appointments]);
+
+  const filteredAppointments = useMemo(() => {
+    return appointments.filter(apt => {
+      const dateMatch = !selectedDate || apt.date === selectedDate;
+      const roomMatch = !selectedRoomName || apt.room?.name === selectedRoomName;
+      const statusMatch = !selectedStatus || apt.status === selectedStatus;
+      return dateMatch && roomMatch && statusMatch;
+    });
+  }, [appointments, selectedDate, selectedRoomName, selectedStatus]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredAppointments.length / itemsPerPage));
+  const paginatedAppointments = useMemo(() => {
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    return filteredAppointments.slice(startIndex, startIndex + itemsPerPage);
+  }, [filteredAppointments, currentPage]);
+
+  // Reset to first page when filters or sort change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [selectedDate, selectedRoomName, selectedStatus]);
+
+  const resetFilters = () => {
+    setSelectedDate('');
+    setSelectedRoomName('');
+    setSelectedStatus('PENDING');
+  };
+
   if (isLoading || status === 'loading') {
     return <div className="mobile-loading">正在加载预约...</div>;
   }
 
   return (
-    <div className="page-container">
+    <div className="mobile-container">
       <h1 className="mobile-header">我的预约</h1>
       {error && <div className="mobile-alert mobile-alert-error">{error}</div>}
       {success && <div className="mobile-alert mobile-alert-success">{success}</div>}
 
+      {/* 過濾器 */}
+      <div className="mobile-filters-card">
+        <h2 className="mobile-filters-title">过滤器</h2>
+        <div className="mobile-filters-grid">
+          <div className="mobile-filter-group">
+            <label htmlFor="date-filter" className="mobile-filter-label">日期</label>
+            <input
+              id="date-filter"
+              type="date"
+              value={selectedDate}
+              onChange={(e) => setSelectedDate(e.target.value)}
+              className="mobile-filter-input"
+            />
+          </div>
+
+          <div className="mobile-filter-group">
+            <label htmlFor="room-filter" className="mobile-filter-label">诊室</label>
+            <select
+              id="room-filter"
+              value={selectedRoomName}
+              onChange={(e) => setSelectedRoomName(e.target.value)}
+              className="mobile-filter-select"
+            >
+              <option value="">所有诊室</option>
+              {uniqueRoomNames.map(name => (
+                <option key={name} value={name}>{name}</option>
+              ))}
+            </select>
+          </div>
+
+          <div className="mobile-filter-group">
+            <label htmlFor="status-filter" className="mobile-filter-label">状态</label>
+            <select
+              id="status-filter"
+              value={selectedStatus}
+              onChange={(e) => setSelectedStatus(e.target.value)}
+              className="mobile-filter-select"
+            >
+              <option value="">所有状态</option>
+              <option value="PENDING">待就诊</option>
+              <option value="COMPLETED">已完成</option>
+              <option value="CANCELLED">已取消</option>
+              <option value="NO_SHOW">未到诊</option>
+            </select>
+          </div>
+
+          {/* 排序選項已移除 */}
+        </div>
+
+        <div className="mobile-filters-actions">
+          <button onClick={resetFilters} className="mobile-reset-filters-btn">重置过滤器</button>
+          <span className="mobile-results-count">共 {filteredAppointments.length} 条记录</span>
+        </div>
+      </div>
+
       <div className="mobile-appointments-grid">
-        {appointments.length > 0 ? appointments.map(apt => (
+        {paginatedAppointments.length > 0 ? paginatedAppointments.map(apt => (
           <div key={apt.id} className="mobile-appointment-card">
             <div className="mobile-doctor-name">医生 {apt.doctor.name}</div>
             <div className="mobile-appointment-detail">
@@ -135,7 +225,7 @@ export default function MyAppointmentsPage() {
               apt.status === 'CANCELLED' ? 'mobile-status-cancelled' :
               'mobile-status-no-show'
             }`}>
-              状态：{getDisplayStatus(apt)}
+              状态：{getStatusText(apt.status)}
             </div>
             
             <div className="mobile-appointment-actions">
@@ -162,6 +252,23 @@ export default function MyAppointmentsPage() {
           </div>
         )}
       </div>
+
+      {/* 分頁控制 */}
+      {filteredAppointments.length > 0 && (
+        <div className="mobile-pagination">
+          <button
+            className="mobile-pagination-btn"
+            onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+            disabled={currentPage === 1}
+          >上一頁</button>
+          <span className="mobile-pagination-info">第 {currentPage} / {totalPages} 頁</span>
+          <button
+            className="mobile-pagination-btn"
+            onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+            disabled={currentPage === totalPages}
+          >下一頁</button>
+        </div>
+      )}
 
       {/* 歷史記錄模態框 */}
       {showHistoryModal && selectedAppointmentId && (

@@ -156,6 +156,25 @@
   padding: 1rem;
 }
 
+/* 顶部并列选择控件（医生 + 诊室） */
+.mobile-top-controls {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  align-items: start;
+}
+
+.mobile-control {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.mobile-control-label {
+  font-size: 0.9rem;
+  color: #374151; /* 系统深灰 */
+}
+
 /* 通用按鈕樣式（用於“预约”等操作） */
 .mobile-btn {
   display: inline-flex;

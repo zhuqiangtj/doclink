@@ -47,6 +47,8 @@ export default function PatientScheduleHome() {
 
   const [doctors, setDoctors] = useState<Doctor[]>([]);
   const [selectedDoctorId, setSelectedDoctorId] = useState<string>("");
+  const [rooms, setRooms] = useState<{ id: string; name: string }[]>([]);
+  const [selectedRoomId, setSelectedRoomId] = useState<string>("");
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [dateStatuses, setDateStatuses] = useState<DateStatus[]>([]);
   const [isCalendarLoading, setIsCalendarLoading] = useState<boolean>(false);
@@ -135,8 +137,26 @@ export default function PatientScheduleHome() {
       if (!detailsRes.ok) throw new Error("获取当天排班详情失败。");
       const details: Schedule[] = await detailsRes.json();
       setSchedulesForSelectedDay(details);
+
+      // 构建当日诊室列表（去重）并设置默认选中
+      const uniqueRoomsMap = new Map<string, string>();
+      details.forEach((d) => {
+        if (d?.room?.id && d?.room?.name) {
+          uniqueRoomsMap.set(d.room.id, d.room.name);
+        }
+      });
+      const uniqueRooms = Array.from(uniqueRoomsMap.entries()).map(([id, name]) => ({ id, name }));
+      setRooms(uniqueRooms);
+      // 若当前选中的诊室不在当日列表中，则默认选中第一个
+      if (uniqueRooms.length === 0) {
+        setSelectedRoomId("");
+      } else if (!selectedRoomId || !uniqueRooms.find(r => r.id === selectedRoomId)) {
+        setSelectedRoomId(uniqueRooms[0].id);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "发生未知错误");
+      setRooms([]);
+      setSelectedRoomId("");
     } finally {
       setIsDayLoading(false);
     }
@@ -261,24 +281,44 @@ export default function PatientScheduleHome() {
 
   return (
     <main className="mobile-container">
-      {/* 顶部为医生选择，样式统一适配手机 */}
+      {/* 顶部并列选择：医生与诊室（去掉标题） */}
       <div className="mobile-card">
-        <div className="mobile-section-header"><h3>选择医生</h3></div>
         {doctors.length === 0 ? (
           <p className="mobile-no-selection">暂无医生数据</p>
         ) : (
-          <select
-            className="mobile-input"
-            value={selectedDoctorId}
-            onChange={(e) => {
-              setSelectedDoctorId(e.target.value);
-              setSelectedDate(new Date());
-            }}
-          >
-            {doctors.map((d) => (
-              <option key={d.id} value={d.id}>{d.name}</option>
-            ))}
-          </select>
+          <div className="mobile-top-controls">
+            <div className="mobile-control">
+              <label className="mobile-control-label">医生</label>
+              <select
+                className="mobile-input"
+                value={selectedDoctorId}
+                onChange={(e) => {
+                  setSelectedDoctorId(e.target.value);
+                  setSelectedDate(new Date());
+                }}
+              >
+                {doctors.map((d) => (
+                  <option key={d.id} value={d.id}>{d.name}</option>
+                ))}
+              </select>
+            </div>
+            <div className="mobile-control">
+              <label className="mobile-control-label">诊室</label>
+              <select
+                className="mobile-input"
+                value={selectedRoomId}
+                onChange={(e) => setSelectedRoomId(e.target.value)}
+              >
+                {rooms.length === 0 ? (
+                  <option value="">当日无诊室</option>
+                ) : (
+                  rooms.map((r) => (
+                    <option key={r.id} value={r.id}>{r.name}</option>
+                  ))
+                )}
+              </select>
+            </div>
+          </div>
         )}
       </div>
 
@@ -318,7 +358,9 @@ export default function PatientScheduleHome() {
               <p className="mobile-no-slots">该日暂无排班</p>
             ) : (
               <div className="space-y-4">
-                {schedulesForSelectedDay.map((schedule) => (
+                {schedulesForSelectedDay
+                  .filter((s) => !selectedRoomId || s.room.id === selectedRoomId)
+                  .map((schedule) => (
                   <div key={schedule.id} className="mobile-schedule-container">
                     <h3 className="mobile-room-title">{schedule.room.name}</h3>
                     <div className="mobile-time-grid">

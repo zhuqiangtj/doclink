@@ -146,18 +146,20 @@ export async function POST(request: Request) {
         action: 'CREATE',
       });
 
-      // Create a notification for the doctor
-      const patientUser = await tx.user.findUnique({ where: { id: userId } });
-      if (patientUser) {
-        await tx.notification.create({
-          data: {
-            doctorId: doctorId,
-            appointmentId: newAppointment.id,
-            patientName: patientUser.name,
-            message: `${patientUser.name} 预约了您在 ${timeSlot.startTime}-${timeSlot.endTime} 的号。`,
-            type: 'APPOINTMENT_CREATED',
-          },
-        });
+      // Create a notification for the doctor ONLY when the actor is PATIENT
+      if (session.user.role === 'PATIENT') {
+        const patientUser = await tx.user.findUnique({ where: { id: userId } });
+        if (patientUser) {
+          await tx.notification.create({
+            data: {
+              doctorId: doctorId,
+              appointmentId: newAppointment.id,
+              patientName: patientUser.name,
+              message: `${patientUser.name} 预约了您在 ${timeSlot.startTime}-${timeSlot.endTime} 的号。`,
+              type: 'APPOINTMENT_CREATED',
+            },
+          });
+        }
       }
 
       // Create a notification for the patient if the doctor is booking
@@ -328,21 +330,23 @@ export async function DELETE(request: Request) {
 
     // 在事務外創建通知（避免事務超時）
     try {
-      // 為醫生創建通知
-      const patientUser = await prisma.user.findUnique({ where: { id: appointment.userId } });
-      if (patientUser) {
-        await prisma.notification.create({
-          data: {
-            doctorId: appointment.doctorId,
-            appointmentId: appointment.id,
-            patientName: patientUser.name,
-            message: `${patientUser.name} 取消了 ${appointment.timeSlot?.startTime || appointment.time} 的预约。`,
-            type: 'APPOINTMENT_CANCELLED',
-          },
-        });
+      // 為醫生創建通知：僅當病人主動取消時
+      if (session.user.role === 'PATIENT') {
+        const patientUser = await prisma.user.findUnique({ where: { id: appointment.userId } });
+        if (patientUser) {
+          await prisma.notification.create({
+            data: {
+              doctorId: appointment.doctorId,
+              appointmentId: appointment.id,
+              patientName: patientUser.name,
+              message: `${patientUser.name} 取消了 ${appointment.timeSlot?.startTime || appointment.time} 的预约。`,
+              type: 'APPOINTMENT_CANCELLED',
+            },
+          });
+        }
       }
 
-      // 如果是醫生或管理員取消，為病人創建通知
+      // 如果是醫生或管理員取消，為病人創建通知（病人接收對方的操作事件）
       if (session.user.role === 'DOCTOR' || session.user.role === 'ADMIN') {
         const actor = await prisma.user.findUnique({ where: { id: session.user.id } });
         if (actor) {

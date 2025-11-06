@@ -89,7 +89,8 @@ const isTimeSlotPast = (date: Date, time: string): boolean => {
   
   slotDateTime.setHours(hours, minutes, 0, 0);
   
-  return slotDateTime < now;
+  // 到點（開始時間）即視為過期
+  return slotDateTime <= now;
 };
 
 // --- Component ---
@@ -121,6 +122,7 @@ export default function DoctorSchedulePage() {
   const [collapsedSlots, setCollapsedSlots] = useState<{[key: string]: boolean}>({});
   const [editingSlots, setEditingSlots] = useState<{[key: string]: any}>({});
   const [deletingSlots, setDeletingSlots] = useState<Set<string>>(new Set());
+  // 注意：統一使用 savingTimeSlots 來追蹤各時段的保存狀態
   const [savingSlots, setSavingSlots] = useState<Set<string>>(new Set());
 
   const getSlotValue = (scheduleId: string, slotIndex: number, field: 'startTime' | 'endTime' | 'bedCount' | 'type' | 'roomId', originalValue: any) => {
@@ -194,6 +196,10 @@ export default function DoctorSchedulePage() {
 
   useEffect(() => {
     if (status === 'authenticated') {
+      // 在切換日期時，清空所有未保存的本地編輯狀態，確保返回該日期時顯示為資料庫值
+      setEditingSlots({});
+      setModifiedTimeSlots(new Set());
+      setSavingTimeSlots(new Set());
       fetchAllDataForDate(selectedDate);
     }
   }, [selectedDate, status, fetchAllDataForDate]);
@@ -359,7 +365,8 @@ export default function DoctorSchedulePage() {
       return;
     }
 
-    setSavingSlots(prev => new Set([...prev, key]));
+    // 使用 savingTimeSlots 以便按鈕正確顯示保存中狀態
+    setSavingTimeSlots(prev => new Set([...prev, key]));
     setError(null);
 
     try {
@@ -408,12 +415,19 @@ export default function DoctorSchedulePage() {
         return updated;
       });
 
-      setSuccess('Time slot saved successfully!');
+      // 保存成功後清除已修改標記，恢復正常背景
+      setModifiedTimeSlots(prev => {
+        const updated = new Set(prev);
+        updated.delete(key);
+        return updated;
+      });
+
+      setSuccess('時段已保存');
       setTimeout(() => setSuccess(null), 3000);
     } catch (err) {
       setError(`Error saving time slot: ${err instanceof Error ? err.message : 'Unknown error'}`);
     } finally {
-      setSavingSlots(prev => {
+      setSavingTimeSlots(prev => {
         const updated = new Set(prev);
         updated.delete(key);
         return updated;
@@ -600,9 +614,13 @@ export default function DoctorSchedulePage() {
                   {
                     id: `temp-${Date.now()}`,
                     patient: { user: { name: selectedPatient.name } },
-                    user: { name: doctorProfile?.name || 'Doctor', role: 'DOCTOR' },
-                    status: 'CONFIRMED',
-                    time: selectedTimeSlot.startTime
+                    user: { name: doctorProfile?.name || session?.user?.name || '醫生', role: 'DOCTOR' },
+                    status: 'PENDING',
+                    time: selectedTimeSlot.startTime,
+                    history: [{
+                      operatedAt: new Date().toISOString(),
+                      operatorName: doctorProfile?.name || session?.user?.username || session?.user?.name || '醫生'
+                    }]
                   }
                 ]
               };
@@ -657,6 +675,47 @@ export default function DoctorSchedulePage() {
       setTimeout(() => setSuccess(null), 3000);
     } catch (error) {
       setError(error instanceof Error ? error.message : '取消預約失敗');
+    }
+  };
+
+  const handleMarkNoShow = async (appointmentId: string, scheduleId: string, slotIndex: number, patientName: string) => {
+    if (!confirm(`確認將 ${patientName} 標記為爽約嗎？病人將扣除 5 分信用分。`)) {
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/appointments/${appointmentId}/no-show`, {
+        method: 'POST'
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || '標記爽約失敗');
+      }
+
+      setSchedulesForSelectedDay(
+        prev => 
+          prev.map(schedule => {
+            if (schedule.id === scheduleId) {
+              const updatedTimeSlots = [...schedule.timeSlots];
+              updatedTimeSlots[slotIndex] = {
+                ...updatedTimeSlots[slotIndex],
+                appointments: updatedTimeSlots[slotIndex].appointments.map(
+                  appointment => appointment.id === appointmentId 
+                    ? { ...appointment, status: 'NO_SHOW' } 
+                    : appointment
+                )
+              };
+              return { ...schedule, timeSlots: updatedTimeSlots };
+            }
+            return schedule;
+          })
+      );
+
+      setSuccess(`已標記 ${patientName} 為爽約並扣分`);
+      setTimeout(() => setSuccess(null), 3000);
+    } catch (error) {
+      setError(error instanceof Error ? error.message : '標記爽約失敗');
     }
   };
 
@@ -758,6 +817,18 @@ export default function DoctorSchedulePage() {
             isLoading={isLoading}
           />
         </div>
+
+        {success && (
+          <div className="mobile-toast mobile-toast-success">
+            {success}
+          </div>
+        )}
+
+        {error && (
+          <div className="mobile-toast mobile-toast-error">
+            {error}
+          </div>
+        )}
         
         <div className="w-full grid grid-cols-2 gap-2">
           <button
@@ -837,6 +908,7 @@ export default function DoctorSchedulePage() {
                           updateSlotEdit(schedule.id, index, 'startTime', e.target.value);
                           setModifiedTimeSlots(prev => new Set(prev).add(key));
                         }}
+                        onKeyDown={(e) => { if (e.key === 'Enter') e.preventDefault(); }}
                         className="mobile-time-input-inline mobile-time-input-fluid"
                         disabled={isPast}
                         title={isPast ? '時間已過，不可編輯' : '開始時間'}
@@ -850,6 +922,7 @@ export default function DoctorSchedulePage() {
                           updateSlotEdit(schedule.id, index, 'endTime', e.target.value);
                           setModifiedTimeSlots(prev => new Set(prev).add(key));
                         }}
+                        onKeyDown={(e) => { if (e.key === 'Enter') e.preventDefault(); }}
                         className="mobile-time-input-inline mobile-time-input-fluid"
                         disabled={isPast}
                         title={isPast ? '時間已過，不可編輯' : '結束時間'}
@@ -869,6 +942,7 @@ export default function DoctorSchedulePage() {
                           updateSlotEdit(schedule.id, index, 'bedCount', clamped);
                           setModifiedTimeSlots(prev => new Set(prev).add(key));
                         }}
+                        onKeyDown={(e) => { if (e.key === 'Enter') e.preventDefault(); }}
                         className="mobile-total-input-inline mobile-total-input-fluid"
                         placeholder="床位數"
                         disabled={isPast}
@@ -889,6 +963,7 @@ export default function DoctorSchedulePage() {
                     <div className="mobile-slot-actions-row mobile-slot-actions-row-grid">
                       {/* 新增按鈕 */}
                       <button
+                        type="button"
                         onClick={() => handleAddAppointment(schedule, index)}
                         className={`mobile-icon-btn-colored ${
                           slot.availableBeds <= 0 || isPast
@@ -909,6 +984,7 @@ export default function DoctorSchedulePage() {
 
                       {/* 儲存按鈕 */}
                       <button
+                        type="button"
                         onClick={() => handleSaveTimeSlot(schedule.id, index)}
                         disabled={isPast || !isModified || isSaving || !isValidEdit}
                         className={`mobile-icon-btn-colored ${
@@ -932,6 +1008,7 @@ export default function DoctorSchedulePage() {
 
                       {/* 刪除按鈕 */}
                       <button
+                        type="button"
                         onClick={() => handleDeleteTimeSlot(schedule.id, slot.id)}
                         disabled={isPast || isSaving}
                         className={`mobile-icon-btn-colored mobile-icon-btn-delete-colored ${
@@ -947,6 +1024,7 @@ export default function DoctorSchedulePage() {
 
                       {/* 展開患者列表按鈕 */}
                       <button
+                        type="button"
                         onClick={() => {
                           if (slot.appointments.length > 0) {
                             const newExpanded = new Set(expandedTimeSlots);
@@ -994,16 +1072,16 @@ export default function DoctorSchedulePage() {
                                 } 操作員：{
                                   // 優先使用醫生的真實姓名
                                   appointment.history && appointment.history.length > 0 
-                                    ? (doctorProfile?.name || appointment.history[0].operatorName)
-                                    : appointment.user.name
+                                    ? appointment.history[0].operatorName
+                                    : (doctorProfile?.name || appointment.user.name)
                                 } 角色：{
                                   appointment.history && appointment.history.length > 0 
                                     ? (doctorProfile?.name ? '醫生' : (appointment.history[0].operatorName.includes('醫生') || appointment.history[0].operatorName.includes('張') ? '醫生' : '患者'))
                                     : (appointment.user.role === 'DOCTOR' ? '醫生' : '患者')
-                                } 狀態：{appointment.status === 'PENDING' ? '待就診' : appointment.status === 'CONFIRMED' ? '待就診' : appointment.status === 'COMPLETED' ? '已完成' : appointment.status === 'CANCELLED' ? '已取消' : appointment.status}
+                                } 狀態：{appointment.status === 'PENDING' ? '待就診' : appointment.status === 'CONFIRMED' ? '待就診' : appointment.status === 'COMPLETED' ? '已完成' : appointment.status === 'CANCELLED' ? '已取消' : appointment.status === 'NO_SHOW' ? '已爽約' : appointment.status}
                               </span>
                             </div>
-                            {appointment.status === 'PENDING' && (
+                            {!isPast && appointment.status === 'PENDING' && (
                               <button
                                 onClick={() => handleDeleteAppointment(appointment.id, schedule.id, index, appointment.patient.user.name)}
                                 className="mobile-patient-delete-btn-inline"
@@ -1012,6 +1090,18 @@ export default function DoctorSchedulePage() {
                                 <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
                                   <path fillRule="evenodd" d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z" clipRule="evenodd" />
                                   <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                                </svg>
+                              </button>
+                            )}
+                            {isPast && appointment.status !== 'NO_SHOW' && appointment.status !== 'CANCELLED' && (
+                              <button
+                                onClick={() => handleMarkNoShow(appointment.id, schedule.id, index, appointment.patient.user.name)}
+                                className="mobile-patient-delete-btn-inline"
+                                title="標記爽約"
+                              >
+                                <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16z" clipRule="evenodd" />
+                                  <path fillRule="evenodd" d="M7 10a3 3 0 116 0 3 3 0 01-6 0z" clipRule="evenodd" />
                                 </svg>
                               </button>
                             )}

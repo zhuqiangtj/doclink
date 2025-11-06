@@ -35,24 +35,20 @@ export async function POST(request: NextRequest, context: { params: { id: string
                       today.getMonth() === appointmentDate.getMonth() &&
                       today.getDate() === appointmentDate.getDate();
 
-    if (appointment.status !== 'pending' || !isSameDay) {
+    // 僅允許當天且當前狀態為 PENDING 的預約可報到
+    if (appointment.status !== 'PENDING' || !isSameDay) {
         return NextResponse.json({ error: 'Check-in is not available for this appointment at this time.' }, { status: 400 });
     }
-
-    const updatedAppointment = await prisma.appointment.update({
-      where: { id: appointmentId },
-      data: { 
-        status: 'CHECKED_IN',
-        reason: '病人已報到'
-      },
-    });
+    // 不再更新預約記錄的狀態為 CHECKED_IN，僅記錄報到行為
+    const updatedAppointment = appointment;
 
     // 創建預約歷史記錄
     await createAppointmentHistory({
       appointmentId: appointmentId,
       operatorName: session.user.name || session.user.username || 'Unknown',
       operatorId: session.user.id,
-      status: 'CHECKED_IN',
+      // 保留當前預約狀態（四狀態之一），只記錄報到行為
+      status: appointment.status,
       reason: '病人已報到',
       action: 'CHECKIN',
     });

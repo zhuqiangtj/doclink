@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { getStatusText, getActionText } from '../utils/statusText';
 import { IoClose, IoTime, IoPerson, IoDocument, IoList } from 'react-icons/io5';
 
 interface AppointmentHistoryRecord {
@@ -68,38 +69,17 @@ const AppointmentHistoryModal: React.FC<AppointmentHistoryModalProps> = ({
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'PENDING': return 'text-yellow-600 bg-yellow-100';
-      case 'CHECKED_IN': return 'text-blue-600 bg-blue-100';
       case 'COMPLETED': return 'text-green-600 bg-green-100';
       case 'CANCELLED': return 'text-red-600 bg-red-100';
       case 'NO_SHOW': return 'text-gray-600 bg-gray-100';
-      default: return 'text-gray-600 bg-gray-100';
+      // 將任何非四狀態的值（如舊資料中的 CHECKED_IN）以待就診的樣式顯示
+      default: return 'text-yellow-600 bg-yellow-100';
     }
   };
 
-  const getStatusText = (status: string) => {
-    switch (status) {
-      case 'PENDING': return '待診';
-      case 'CHECKED_IN': return '已報到';
-      case 'COMPLETED': return '已完成';
-      case 'CANCELLED': return '已取消';
-      case 'NO_SHOW': return '爽約';
-      default: return status;
-    }
-  };
+  // 狀態文字使用統一工具
 
-  const getActionText = (action: string) => {
-    switch (action) {
-      case 'CREATE': return '創建預約';
-      case 'UPDATE_STATUS_TO_PENDING': return '更新為待診';
-      case 'UPDATE_STATUS_TO_CHECKED_IN': return '更新為已報到';
-      case 'UPDATE_STATUS_TO_COMPLETED': return '更新為已完成';
-      case 'UPDATE_STATUS_TO_CANCELLED': return '更新為已取消';
-      case 'UPDATE_STATUS_TO_NO_SHOW': return '更新為爽約';
-      case 'CHECKIN': return '病人報到';
-      case 'MARK_NO_SHOW': return '標記爽約';
-      default: return action;
-    }
-  };
+  // 動作文字使用統一工具
 
   const formatDateTime = (dateString: string) => {
     const date = new Date(dateString);

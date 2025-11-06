@@ -24,6 +24,97 @@
   text-align: center;
 }
 
+/* Filters card (copy minimal styles from doctor page for consistency) */
+.mobile-filters-card {
+  background: white;
+  border-radius: 0.75rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  padding: 1rem;
+  margin-bottom: 1rem;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.mobile-filters-title {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #1f2937;
+  margin-bottom: 1rem;
+}
+
+.mobile-filters-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+@media (min-width: 640px) {
+  .mobile-filters-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+.mobile-filter-group {
+  display: flex;
+  flex-direction: column;
+}
+
+.mobile-filter-label {
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: #374151;
+  margin-bottom: 0.5rem;
+}
+
+.mobile-filter-input,
+.mobile-filter-select {
+  width: 100%;
+  padding: 0.75rem;
+  border: 1px solid #d1d5db;
+  border-radius: 0.5rem;
+  font-size: 0.95rem;
+  background: white;
+  transition: border-color 0.2s;
+}
+
+.mobile-filter-input:focus,
+.mobile-filter-select:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.mobile-filters-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.mobile-reset-filters-btn {
+  padding: 0.5rem 1rem;
+  background: #f3f4f6;
+  color: #374151;
+  border: none;
+  border-radius: 0.5rem;
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.2s;
+  touch-action: manipulation;
+}
+
+.mobile-reset-filters-btn:hover {
+  background: #e5e7eb;
+}
+
+.mobile-results-count {
+  font-size: 0.9rem;
+  color: #6b7280;
+}
+
 /* Alert styles */
 .mobile-alert {
   padding: 0.875rem;
@@ -212,6 +303,43 @@
   color: #6b7280;
 }
 
+/* Pagination */
+.mobile-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  margin: 1rem 0 2rem;
+}
+
+.mobile-pagination-btn {
+  padding: 0.5rem 1rem;
+  background: #3b82f6;
+  color: white;
+  border: none;
+  border-radius: 0.5rem;
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.2s;
+  touch-action: manipulation;
+}
+
+.mobile-pagination-btn:hover:not(:disabled) {
+  background: #2563eb;
+}
+
+.mobile-pagination-btn:disabled {
+  background: #d1d5db;
+  color: #9ca3af;
+  cursor: not-allowed;
+}
+
+.mobile-pagination-info {
+  font-size: 0.9rem;
+  color: #6b7280;
+}
+
 /* Responsive adjustments */
 @media (max-width: 480px) {
   .mobile-container {
@@ -270,6 +398,13 @@
   .mobile-appointment-card:active,
   .mobile-cancel-btn:active {
     transform: none;
+  }
+}
+
+/* Touch improvements */
+@media (hover: none) and (pointer: coarse) {
+  .mobile-pagination-btn {
+    min-height: 44px;
   }
 }
 

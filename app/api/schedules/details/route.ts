@@ -46,6 +46,10 @@ export async function GET(request: Request) {
           where: { isActive: true },
           include: {
             appointments: {
+              // 僅返回未取消的預約，避免前端重新加載時顯示已取消記錄
+              where: {
+                status: { not: 'CANCELLED' }
+              },
               include: {
                 patient: { 
                   select: { 
