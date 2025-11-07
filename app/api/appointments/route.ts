@@ -291,12 +291,22 @@ export async function DELETE(request: Request) {
       }
 
       // 更新預約狀態為已取消
-      await tx.appointment.update({
+      const updated = await tx.appointment.update({
         where: { id: appointmentId },
         data: { 
           status: 'CANCELLED',
           reason: reason
         }
+      });
+
+      // 在事務中寫入預約歷史
+      await createAppointmentHistoryInTransaction(tx, {
+        appointmentId: updated.id,
+        operatorName: session.user.name || session.user.username || 'Unknown',
+        operatorId: session.user.id,
+        status: 'CANCELLED',
+        reason,
+        action: 'CANCEL_APPOINTMENT',
       });
 
       // 更新時間段的可用床位數

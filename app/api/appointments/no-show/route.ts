@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth/next';
 import { authOptions } from '../../auth/[...nextauth]/route';
 import { prisma } from '../../../../lib/prisma';
 import { createAuditLog } from '../../../../lib/audit';
+import { createAppointmentHistoryInTransaction } from '../../../../lib/appointment-history';
 
 export async function PUT(request: NextRequest) {
   try {
@@ -89,6 +90,16 @@ export async function PUT(request: NextRequest) {
           status: 'NO_SHOW',
           reason: '醫生確認爽約'
         }
+      });
+
+      // 寫入預約歷史記錄
+      await createAppointmentHistoryInTransaction(tx, {
+        appointmentId,
+        operatorName: session.user.name || session.user.username || 'Unknown',
+        operatorId: session.user.id,
+        status: 'NO_SHOW',
+        reason: '醫生確認爽約',
+        action: 'MARK_NO_SHOW',
       });
 
       // 扣除病人5分
