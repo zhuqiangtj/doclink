@@ -795,3 +795,34 @@ body {
   font-size: 0.875rem;
   margin: 0;
 }
+
+/* 狀態徽章（彩色背景） */
+.mobile-status-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 9999px;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1;
+  margin-left: 4px;
+}
+
+.mobile-status-pending {
+  background-color: #e0f2fe; /* sky-100 */
+  color: #075985; /* sky-800 */
+}
+
+.mobile-status-completed {
+  background-color: #dcfce7; /* green-100 */
+  color: #166534; /* green-800 */
+}
+
+.mobile-status-cancelled {
+  background-color: #fef3c7; /* amber-100 */
+  color: #92400e; /* amber-800 */
+}
+
+.mobile-status-no-show {
+  background-color: #fee2e2; /* red-100 */
+  color: #b91c1c; /* red-700/800 */
+}

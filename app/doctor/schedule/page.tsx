@@ -1057,56 +1057,74 @@ export default function DoctorSchedulePage() {
                     {/* 已預約患者列表 - 下拉顯示 */}
                     {slot.appointments.length > 0 && isExpanded && (
                       <div className="mobile-patient-list-inline">
-                        {slot.appointments.map((appointment, apptIndex) => (
-                          <div key={apptIndex} className="mobile-patient-item-inline">
-                            <div className="mobile-patient-info-inline">
-                              <span className="mobile-patient-name-inline">{appointment.patient.user.name}</span>
-                              <span className="mobile-patient-details-inline">
-                                操作時間：{appointment.history && appointment.history.length > 0 
-                                  ? new Date(appointment.history[0].operatedAt).toLocaleString('zh-TW', {
-                                      hour: '2-digit',
-                                      minute: '2-digit',
-                                      hour12: false
-                                    })
-                                  : appointment.time
-                                } 操作員：{
-                                  // 優先使用醫生的真實姓名
-                                  appointment.history && appointment.history.length > 0 
-                                    ? appointment.history[0].operatorName
-                                    : (doctorProfile?.name || appointment.user.name)
-                                } 角色：{
-                                  appointment.history && appointment.history.length > 0 
-                                    ? (doctorProfile?.name ? '醫生' : (appointment.history[0].operatorName.includes('醫生') || appointment.history[0].operatorName.includes('張') ? '醫生' : '患者'))
-                                    : (appointment.user.role === 'DOCTOR' ? '醫生' : '患者')
-                                } 狀態：{appointment.status === 'PENDING' ? '待就診' : appointment.status === 'CONFIRMED' ? '待就診' : appointment.status === 'COMPLETED' ? '已完成' : appointment.status === 'CANCELLED' ? '已取消' : appointment.status === 'NO_SHOW' ? '已爽約' : appointment.status}
-                              </span>
+                        {slot.appointments.map((appointment, apptIndex) => {
+                          const operatedAtString = (appointment.history && appointment.history.length > 0)
+                            ? new Date(appointment.history[0].operatedAt).toLocaleString('zh-TW', {
+                                year: 'numeric',
+                                month: '2-digit',
+                                day: '2-digit',
+                                hour: '2-digit',
+                                minute: '2-digit',
+                                hour12: false,
+                              })
+                            : `${schedule.date} ${appointment.time}`;
+
+                          const statusKey = appointment.status === 'CONFIRMED' ? 'PENDING' : appointment.status;
+                          const statusText = statusKey === 'PENDING'
+                            ? '待就診'
+                            : statusKey === 'COMPLETED'
+                            ? '已完成'
+                            : statusKey === 'CANCELLED'
+                            ? '已取消'
+                            : statusKey === 'NO_SHOW'
+                            ? '已爽約'
+                            : appointment.status;
+                          const statusClassKey = statusKey.toLowerCase().replace('_', '-');
+
+                          return (
+                            <div key={apptIndex} className="mobile-patient-item-inline">
+                              <div className="mobile-patient-info-inline">
+                                <span className="mobile-patient-name-inline">{appointment.patient.user.name}</span>
+                                <span className="mobile-patient-details-inline">
+                                  操作時間：{operatedAtString} 操作員：{
+                                    // 優先使用醫生的真實姓名
+                                    appointment.history && appointment.history.length > 0 
+                                      ? appointment.history[0].operatorName
+                                      : (doctorProfile?.name || appointment.user.name)
+                                  } 角色：{
+                                    appointment.history && appointment.history.length > 0 
+                                      ? (doctorProfile?.name ? '醫生' : (appointment.history[0].operatorName.includes('醫生') || appointment.history[0].operatorName.includes('張') ? '醫生' : '患者'))
+                                      : (appointment.user.role === 'DOCTOR' ? '醫生' : '患者')
+                                  } 狀態：<span className={`mobile-status-badge mobile-status-${statusClassKey}`}>{statusText}</span>
+                                </span>
+                              </div>
+                              {!isPast && appointment.status === 'PENDING' && (
+                                <button
+                                  onClick={() => handleDeleteAppointment(appointment.id, schedule.id, index, appointment.patient.user.name)}
+                                  className="mobile-patient-delete-btn-inline"
+                                  title="取消預約"
+                                >
+                                  <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fillRule="evenodd" d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z" clipRule="evenodd" />
+                                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                                  </svg>
+                                </button>
+                              )}
+                              {isPast && appointment.status !== 'NO_SHOW' && appointment.status !== 'CANCELLED' && (
+                                <button
+                                  onClick={() => handleMarkNoShow(appointment.id, schedule.id, index, appointment.patient.user.name)}
+                                  className="mobile-patient-delete-btn-inline"
+                                  title="標記爽約"
+                                >
+                                  <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16z" clipRule="evenodd" />
+                                    <path fillRule="evenodd" d="M7 10a3 3 0 116 0 3 3 0 01-6 0z" clipRule="evenodd" />
+                                  </svg>
+                                </button>
+                              )}
                             </div>
-                            {!isPast && appointment.status === 'PENDING' && (
-                              <button
-                                onClick={() => handleDeleteAppointment(appointment.id, schedule.id, index, appointment.patient.user.name)}
-                                className="mobile-patient-delete-btn-inline"
-                                title="取消預約"
-                              >
-                                <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-                                  <path fillRule="evenodd" d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z" clipRule="evenodd" />
-                                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-                                </svg>
-                              </button>
-                            )}
-                            {isPast && appointment.status !== 'NO_SHOW' && appointment.status !== 'CANCELLED' && (
-                              <button
-                                onClick={() => handleMarkNoShow(appointment.id, schedule.id, index, appointment.patient.user.name)}
-                                className="mobile-patient-delete-btn-inline"
-                                title="標記爽約"
-                              >
-                                <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-                                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16z" clipRule="evenodd" />
-                                  <path fillRule="evenodd" d="M7 10a3 3 0 116 0 3 3 0 01-6 0z" clipRule="evenodd" />
-                                </svg>
-                              </button>
-                            )}
-                          </div>
-                        ))}
+                          );
+                        })}
                       </div>
                     )}
                   </div>
