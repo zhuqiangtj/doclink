@@ -841,7 +841,7 @@ export default function DoctorSchedulePage() {
           </button>
           <button
             onClick={() => setIsAddTimeSlotModalOpen(true)}
-            className="mobile-btn mobile-btn-outline w-full flex items-center justify-center space-x-2"
+            className="mobile-btn mobile-btn-success w-full flex items-center justify-center space-x-2"
             title="新增自定義時段"
           >
             <FaPlusCircle className="w-4 h-4" />
