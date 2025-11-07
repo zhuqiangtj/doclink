@@ -195,19 +195,18 @@ const AppointmentHistoryModal: React.FC<AppointmentHistoryModalProps> = ({
                               </div>
                             </div>
                             
-                            <div className="flex items-center space-x-4 overflow-x-auto">
-                              <div className="flex items-center space-x-2">
-                                <span className="text-sm text-gray-600">狀態：</span>
+                            <div className="space-y-1 text-sm leading-tight">
+                              <div className="flex items-center">
+                                <span className="text-gray-600 mr-2">狀態：</span>
                                 <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(record.status)}`}>
                                   {getStatusText(record.status)}
                                 </span>
                               </div>
-                              
+
                               {record.reason && (
-                                <div className="flex items-center space-x-2">
-                                  <IoDocument className="h-4 w-4 text-gray-500" />
-                                  <span className="text-sm text-gray-600">原因：</span>
-                                  <span className="text-sm font-medium break-words">{record.reason}</span>
+                                <div className="flex items-start">
+                                  <span className="text-gray-600 mr-2">原因：</span>
+                                  <span className="font-medium break-words">{record.reason}</span>
                                 </div>
                               )}
                             </div>
