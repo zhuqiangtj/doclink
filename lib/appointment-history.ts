@@ -1,6 +1,5 @@
-import { PrismaClient, AppointmentStatus } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import { AppointmentStatus } from '@prisma/client';
+import { prisma } from './prisma';
 
 interface CreateHistoryParams {
   appointmentId: string;

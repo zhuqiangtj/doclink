@@ -20,6 +20,7 @@ interface Appointment {
   status: string; 
   time: string;
   timeSlot?: { startTime: string; endTime: string; };
+  reason?: string;
   history?: Array<{ operatedAt: string; operatorName: string; }>;
 }
 interface TimeSlot { 
@@ -112,6 +113,7 @@ export default function DoctorSchedulePage() {
   const [activeRoomTab, setActiveRoomTab] = useState<string>('');
   const [expandedTimeSlots, setExpandedTimeSlots] = useState<Set<string>>(new Set());
   const [isBookingModalOpen, setIsBookingModalOpen] = useState(false);
+  const [isBookingSubmitting, setIsBookingSubmitting] = useState(false);
   const [selectedScheduleForBooking, setSelectedScheduleForBooking] = useState<Schedule | null>(null);
   const [selectedSlotIndexForBooking, setSelectedSlotIndexForBooking] = useState<number | null>(null);
   const [patientSearchQuery, setPatientSearchQuery] = useState('');
@@ -582,6 +584,7 @@ export default function DoctorSchedulePage() {
     }
     
     try {
+      setIsBookingSubmitting(true);
       const selectedTimeSlot = selectedScheduleForBooking.timeSlots[selectedSlotIndexForBooking];
       
       const response = await fetch('/api/appointments', {
@@ -597,8 +600,28 @@ export default function DoctorSchedulePage() {
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Booking failed');
+        let errorMessage = `Booking failed (HTTP ${response.status})`;
+        try {
+          const bodyText = await response.text();
+          if (bodyText) {
+            try {
+              const errorData = JSON.parse(bodyText);
+              errorMessage = (errorData && errorData.error) ? errorData.error : bodyText;
+            } catch {
+              // 非JSON，直接使用文本
+              errorMessage = bodyText;
+            }
+          } else {
+            // 無響應體時根據常見狀態給出更明確提示
+            if (response.status === 401 || response.status === 403) {
+              errorMessage = '未授權：請登入或檢查會話設定';
+            }
+          }
+        } catch (readErr) {
+          // 網絡錯誤或讀取失敗
+          errorMessage = '網絡錯誤或服務不可用';
+        }
+        throw new Error(errorMessage);
       }
 
       setSchedulesForSelectedDay(
@@ -617,9 +640,10 @@ export default function DoctorSchedulePage() {
                     user: { name: doctorProfile?.name || session?.user?.name || '醫生', role: 'DOCTOR' },
                     status: 'PENDING',
                     time: selectedTimeSlot.startTime,
+                    reason: '醫生預約',
                     history: [{
                       operatedAt: new Date().toISOString(),
-                      operatorName: doctorProfile?.name || session?.user?.username || session?.user?.name || '醫生'
+                      operatorName: doctorProfile?.name || session?.user?.name || session?.user?.username || '醫生'
                     }]
                   }
                 ]
@@ -635,6 +659,8 @@ export default function DoctorSchedulePage() {
       setTimeout(() => setSuccess(null), 3000);
     } catch (error) {
       setError(error instanceof Error ? error.message : 'Failed to add appointment');
+    } finally {
+      setIsBookingSubmitting(false);
     }
   };
 
@@ -1087,14 +1113,16 @@ export default function DoctorSchedulePage() {
                                 <span className="mobile-patient-name-inline">{appointment.patient.user.name}</span>
                                 <span className="mobile-patient-details-inline">
                                   操作時間：{operatedAtString} 操作員：{
-                                    // 優先使用醫生的真實姓名
+                                    // 使用歷史記錄的操作者，否則依據 reason 與當前醫生資訊推斷
                                     appointment.history && appointment.history.length > 0 
                                       ? appointment.history[0].operatorName
-                                      : (doctorProfile?.name || appointment.user.name)
+                                      : ((appointment.reason === '醫生預約')
+                                          ? (doctorProfile?.name || session?.user?.name || '醫生')
+                                          : appointment.patient.user.name)
                                   } 角色：{
-                                    appointment.history && appointment.history.length > 0 
-                                      ? (doctorProfile?.name ? '醫生' : (appointment.history[0].operatorName.includes('醫生') || appointment.history[0].operatorName.includes('張') ? '醫生' : '患者'))
-                                      : (appointment.user.role === 'DOCTOR' ? '醫生' : '患者')
+                                    (appointment.history && appointment.history.length > 0)
+                                      ? ((appointment.reason === '醫生預約') ? '醫生' : '患者')
+                                      : ((appointment.reason === '醫生預約' || appointment.user.role === 'DOCTOR') ? '醫生' : '患者')
                                   } 狀態：<span className={`mobile-status-badge mobile-status-${statusClassKey}`}>{statusText}</span>
                                 </span>
                               </div>
@@ -1199,7 +1227,7 @@ export default function DoctorSchedulePage() {
             <div className="mobile-modal-header">
               <h2 className="text-xl font-bold">新增預約</h2>
             </div>
-            <form onSubmit={handleBookingSubmit} className="mobile-modal-content space-y-4">
+            <form id="bookingForm" onSubmit={handleBookingSubmit} className="mobile-modal-content space-y-4">
               <div>
                 <label className="block text-sm font-medium mb-2">時間</label>
                 <input
@@ -1260,11 +1288,12 @@ export default function DoctorSchedulePage() {
               </button>
               <button
                 type="submit"
-                disabled={!selectedPatient}
+                form="bookingForm"
+                disabled={!selectedPatient || isBookingSubmitting}
                 className="mobile-btn mobile-btn-primary flex-1 disabled:opacity-50 disabled:cursor-not-allowed"
-                onClick={handleBookingSubmit}
+                aria-busy={isBookingSubmitting}
               >
-                確認預約
+                {isBookingSubmitting ? '確認中…' : '確認預約'}
               </button>
             </div>
           </div>

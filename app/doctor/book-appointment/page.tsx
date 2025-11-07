@@ -137,8 +137,19 @@ export default function BookAppointmentPage() {
       });
 
       if (!response.ok) {
-        const errData = await response.json();
-        throw new Error(errData.error || '预约失败。');
+        let errorMessage = '预约失败。';
+        try {
+          const bodyText = await response.text();
+          if (bodyText) {
+            try {
+              const errData = JSON.parse(bodyText);
+              errorMessage = (errData && errData.error) ? errData.error : bodyText;
+            } catch {
+              errorMessage = bodyText;
+            }
+          }
+        } catch {}
+        throw new Error(errorMessage);
       }
       
       setSuccess(`成功为${selectedPatient.name}于${selectedTime}预约。`);

@@ -182,16 +182,18 @@ const AppointmentHistoryModal: React.FC<AppointmentHistoryModalProps> = ({
                           </div>
                           
                           <div className="flex-1 bg-white border border-gray-200 rounded-lg p-4 shadow-sm">
-                            <div className="flex items-center justify-between mb-2">
-                              <div className="flex items-center space-x-2">
-                                <IoPerson className="h-4 w-4 text-gray-500" />
-                                <span className="font-medium text-gray-900">{record.operatorName}</span>
-                                <span className="text-gray-500">•</span>
-                                <span className="text-sm text-gray-600">{getActionText(record.action)}</span>
+                            <div className="space-y-1 text-sm leading-tight mb-2">
+                              <div className="flex items-start">
+                                <span className="text-gray-600 mr-2">操作人：</span>
+                                <span className="font-medium text-gray-900 break-words">{record.operatorName}</span>
                               </div>
-                              <div className="flex items-center text-sm text-gray-500 whitespace-nowrap">
-                                <IoTime className="h-4 w-4 mr-1" />
-                                {formatDateTime(record.operatedAt)}
+                              <div className="flex items-start">
+                                <span className="text-gray-600 mr-2">動作：</span>
+                                <span className="font-medium text-gray-900 break-words">{getActionText(record.action)}</span>
+                              </div>
+                              <div className="flex items-start">
+                                <span className="text-gray-600 mr-2">時間：</span>
+                                <span className="font-medium text-gray-900 break-words">{formatDateTime(record.operatedAt)}</span>
                               </div>
                             </div>
                             
