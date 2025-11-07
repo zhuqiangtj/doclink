@@ -98,9 +98,9 @@ const AppointmentHistoryModal: React.FC<AppointmentHistoryModalProps> = ({
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full mx-4 max-h-[90vh] overflow-hidden">
+      <div className="bg-white rounded-lg shadow-xl w-full mx-2 sm:mx-4 max-w-full sm:max-w-4xl max-h-[90vh] overflow-hidden">
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b">
+        <div className="flex items-center justify-between p-4 sm:p-6 border-b">
           <h2 className="text-xl font-semibold text-gray-900 flex items-center">
             <IoList className="mr-2 h-5 w-5" />
             預約變更歷史記錄
@@ -114,7 +114,7 @@ const AppointmentHistoryModal: React.FC<AppointmentHistoryModalProps> = ({
         </div>
 
         {/* Content */}
-        <div className="p-6 overflow-y-auto max-h-[calc(90vh-120px)]">
+        <div className="p-4 sm:p-6 overflow-y-auto max-h-[calc(90vh-120px)]">
           {loading && (
             <div className="flex items-center justify-center py-8">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
@@ -133,10 +133,10 @@ const AppointmentHistoryModal: React.FC<AppointmentHistoryModalProps> = ({
               {/* Appointment Info */}
               <div className="bg-gray-50 rounded-lg p-4 mb-6">
                 <h3 className="text-lg font-medium text-gray-900 mb-3">預約信息</h3>
-                <div className="grid grid-cols-2 gap-4 text-sm">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 text-sm">
                   <div>
                     <span className="text-gray-600">預約時間：</span>
-                    <span className="font-medium">{appointmentInfo.time}</span>
+                    <span className="font-medium whitespace-nowrap">{appointmentInfo.time}</span>
                   </div>
                   <div>
                     <span className="text-gray-600">當前狀態：</span>
@@ -153,9 +153,9 @@ const AppointmentHistoryModal: React.FC<AppointmentHistoryModalProps> = ({
                     <span className="font-medium">{appointmentInfo.doctorName}</span>
                   </div>
                   {appointmentInfo.reason && (
-                    <div className="col-span-2">
+                    <div className="col-span-1 sm:col-span-2">
                       <span className="text-gray-600">當前原因：</span>
-                      <span className="font-medium">{appointmentInfo.reason}</span>
+                      <span className="font-medium break-words">{appointmentInfo.reason}</span>
                     </div>
                   )}
                 </div>
@@ -189,13 +189,13 @@ const AppointmentHistoryModal: React.FC<AppointmentHistoryModalProps> = ({
                                 <span className="text-gray-500">•</span>
                                 <span className="text-sm text-gray-600">{getActionText(record.action)}</span>
                               </div>
-                              <div className="flex items-center text-sm text-gray-500">
+                              <div className="flex items-center text-sm text-gray-500 whitespace-nowrap">
                                 <IoTime className="h-4 w-4 mr-1" />
                                 {formatDateTime(record.operatedAt)}
                               </div>
                             </div>
                             
-                            <div className="flex items-center space-x-4">
+                            <div className="flex items-center space-x-4 overflow-x-auto">
                               <div className="flex items-center space-x-2">
                                 <span className="text-sm text-gray-600">狀態：</span>
                                 <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(record.status)}`}>
@@ -207,7 +207,7 @@ const AppointmentHistoryModal: React.FC<AppointmentHistoryModalProps> = ({
                                 <div className="flex items-center space-x-2">
                                   <IoDocument className="h-4 w-4 text-gray-500" />
                                   <span className="text-sm text-gray-600">原因：</span>
-                                  <span className="text-sm font-medium">{record.reason}</span>
+                                  <span className="text-sm font-medium break-words">{record.reason}</span>
                                 </div>
                               )}
                             </div>
@@ -223,7 +223,7 @@ const AppointmentHistoryModal: React.FC<AppointmentHistoryModalProps> = ({
         </div>
 
         {/* Footer */}
-        <div className="flex justify-end p-6 border-t bg-gray-50">
+        <div className="flex justify-end p-4 sm:p-6 border-t bg-gray-50">
           <button
             onClick={onClose}
             className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"

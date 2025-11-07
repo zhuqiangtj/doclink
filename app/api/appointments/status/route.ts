@@ -143,16 +143,28 @@ export async function PUT(request: Request) {
 }
 
 // POST - 自動更新過期預約狀態
-export async function POST() {
+// 共享的自動更新邏輯，供 POST/GET 調用（兼容 Vercel Cron）
+async function autoUpdateExpiredAppointments() {
   try {
     const now = new Date();
-    const y = now.getFullYear();
-    const m = String(now.getMonth() + 1).padStart(2, '0');
-    const d = String(now.getDate()).padStart(2, '0');
-    const today = `${y}-${m}-${d}`;
-    const currentTime = now.toTimeString().split(' ')[0].substring(0, 5); // HH:MM format
-    
-    // 查找所有待就診且已過期的預約
+    const tz = process.env.APP_TIMEZONE || process.env.TZ || 'Asia/Taipei';
+
+    // 以指定時區生成 YYYY-MM-DD 與 HH:MM 字串，避免 Vercel UTC 造成誤判
+    const today = new Intl.DateTimeFormat('en-CA', {
+      timeZone: tz,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).format(now);
+
+    const currentTime = new Intl.DateTimeFormat('en-GB', {
+      timeZone: tz,
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+    }).format(now);
+
+    // 查找所有待就診且已過期的預約（以所屬時段的開始時間判斷過期）
     const expiredAppointments = await prisma.appointment.findMany({
       where: {
         status: 'PENDING',
@@ -161,55 +173,75 @@ export async function POST() {
           {
             schedule: {
               date: {
-                lt: today
-              }
-            }
-          },
-          // 今天但時間已過期
-          {
-            schedule: {
-              date: today
+                lt: today,
+              },
             },
-            time: {
-              lt: currentTime
-            }
-          }
-        ]
+          },
+          // 今天且時段開始時間已過期
+          {
+            schedule: { date: today },
+            timeSlot: { startTime: { lt: currentTime } },
+          },
+        ],
       },
       include: {
-        schedule: true
-      }
+        schedule: true,
+        timeSlot: true,
+      },
     });
 
-    console.log(`Found ${expiredAppointments.length} expired appointments to update`);
+    console.log(`Found ${expiredAppointments.length} expired appointments to update (tz=${tz}, today=${today}, time=${currentTime})`);
 
     if (expiredAppointments.length === 0) {
-      return NextResponse.json({ 
+      return NextResponse.json({
         message: 'No expired appointments to update',
-        updatedCount: 0
+        updatedCount: 0,
       });
     }
 
-    // 批量更新為已完成狀態
-    const updatePromises = expiredAppointments.map(appointment => 
-      prisma.appointment.update({
-        where: { id: appointment.id },
-        data: { 
-          status: 'COMPLETED',
-          reason: '自動到期完成就診'
-        }
-      })
-    );
+    // 批量更新為已完成狀態並新增歷史記錄（幂等：僅 PENDING -> COMPLETED）
+    for (const appointment of expiredAppointments) {
+      await prisma.$transaction(async (tx) => {
+        // 更新主記錄狀態與原因
+        await tx.appointment.update({
+          where: { id: appointment.id },
+          data: {
+            status: 'COMPLETED',
+            reason: '系統自動觸發：日期到期',
+          },
+        });
 
-    await Promise.all(updatePromises);
+        // 新增歷史記錄（操作時間為函式觸發時間）
+        await tx.appointmentHistory.create({
+          data: {
+            appointmentId: appointment.id,
+            operatorName: '系統',
+            operatorId: null,
+            operatedAt: new Date(),
+            status: 'COMPLETED',
+            reason: '系統自動觸發：日期到期',
+            action: 'UPDATE_STATUS_TO_COMPLETED',
+          },
+        });
+      });
+    }
 
-    return NextResponse.json({ 
+    return NextResponse.json({
       message: `Updated ${expiredAppointments.length} expired appointments to COMPLETED status`,
-      updatedCount: expiredAppointments.length
+      updatedCount: expiredAppointments.length,
     });
-
   } catch (error) {
     console.error('Error auto-updating appointment statuses:', error);
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
   }
+}
+
+// POST - 自動更新過期預約狀態（手動/本地腳本）
+export async function POST() {
+  return autoUpdateExpiredAppointments();
+}
+
+// GET - 供 Vercel Cron 調用
+export async function GET() {
+  return autoUpdateExpiredAppointments();
 }
