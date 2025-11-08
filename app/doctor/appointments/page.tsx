@@ -108,7 +108,7 @@ export default function DoctorAppointmentsPage() {
   useEffect(() => {
     if (status === 'unauthenticated') router.push('/auth/signin');
     if (status === 'authenticated' && session?.user?.role !== 'DOCTOR') {
-      setError('訪問被拒絕');
+  setError('访问被拒绝');
     }
   }, [status, session?.user?.role, router]);
 
@@ -427,7 +427,7 @@ export default function DoctorAppointmentsPage() {
   if (!session || session.user.role !== 'DOCTOR') {
     return (
       <div className="mobile-access-denied">
-        <h1 className="mobile-access-title">訪問被拒絕</h1>
+  <h1 className="mobile-access-title">访问被拒绝</h1>
         <p className="mobile-access-message">{error || '您必須以醫生身份登錄才能查看此頁面。'}</p>
       </div>
     );
@@ -435,8 +435,8 @@ export default function DoctorAppointmentsPage() {
 
   return (
     <div className="page-container">
-      <h1 className="mobile-header">預約管理</h1>
-      <p className="mobile-description">管理您的所有病人預約信息</p>
+      <h1 className="mobile-header">预约管理</h1>
+      <p className="mobile-description">管理您的所有病人预约信息</p>
       
       {/* 通知區域 */}
       {unreadNotifications.length > 0 && (
@@ -450,7 +450,7 @@ export default function DoctorAppointmentsPage() {
               onClick={() => setShowNotifications(!showNotifications)}
               className="mobile-notifications-toggle"
             >
-              {showNotifications ? '收起' : '展開'}
+  {showNotifications ? '收起' : '展开'}
             </button>
           </div>
           
@@ -462,8 +462,8 @@ export default function DoctorAppointmentsPage() {
                     <p className={`mobile-notification-type ${
                       notification.type === 'APPOINTMENT_CANCELLED' ? 'mobile-notification-cancelled' : 'mobile-notification-appointment'
                     }`}>
-                      {notification.type === 'APPOINTMENT_CANCELLED' ? '預約已取消' : 
-                       notification.type === 'APPOINTMENT_CREATED' ? '新預約提醒' : '預約通知'}
+                      {notification.type === 'APPOINTMENT_CANCELLED' ? '预约已取消' : 
+                       notification.type === 'APPOINTMENT_CREATED' ? '新预约提醒' : '预约通知'}
                     </p>
                     <div className="mobile-notification-details">
                       <p className="mobile-notification-patient">
@@ -523,7 +523,7 @@ export default function DoctorAppointmentsPage() {
           </div>
 
           <div className="mobile-filter-group">
-            <label htmlFor="room-filter" className="mobile-filter-label">診室</label>
+            <label htmlFor="room-filter" className="mobile-filter-label">诊室</label>
             <select
               id="room-filter"
               value={selectedRoomId}
@@ -533,7 +533,7 @@ export default function DoctorAppointmentsPage() {
               }}
               className="mobile-filter-select"
             >
-              <option value="">所有診室</option>
+              <option value="">所有诊室</option>
               {doctorProfile?.Room.map(room => (
                 <option key={room.id} value={room.id}>{room.name}</option>
               ))}
@@ -619,10 +619,10 @@ export default function DoctorAppointmentsPage() {
                 <button 
                   onClick={() => openHistoryModal(apt.id)}
                   className="mobile-history-btn"
-                  title="查看歷史記錄"
+                  title="查看历史记录"
                 >
                   <FaHistory className="mr-1" />
-                  歷史記錄
+                  历史记录
                 </button>
                 
                 {apt.status === 'PENDING' && (
@@ -630,7 +630,7 @@ export default function DoctorAppointmentsPage() {
                     onClick={() => openCancelDialog(apt)}
                     className="mobile-cancel-appointment-btn"
                   >
-                    取消預約
+                    取消预约
                   </button>
                 )}
                 
@@ -639,7 +639,7 @@ export default function DoctorAppointmentsPage() {
                     onClick={() => openNoShowDialog(apt)}
                     className="mobile-no-show-btn"
                   >
-                    標記爽約
+                    标记爽约
                   </button>
                 )}
               </div>
@@ -647,7 +647,7 @@ export default function DoctorAppointmentsPage() {
           )) : (
             <div className="mobile-empty-state">
               <p className="mobile-empty-text">
-                {appointments.length === 0 ? '暫無預約記錄' : '沒有符合條件的預約記錄'}
+                {appointments.length === 0 ? '暂无预约记录' : '没有符合条件的预约记录'}
               </p>
             </div>
           )}
@@ -661,11 +661,11 @@ export default function DoctorAppointmentsPage() {
               disabled={currentPage === 1}
               className="mobile-pagination-btn"
             >
-              上一頁
+              上一页
             </button>
             
             <span className="mobile-pagination-info">
-              第 {currentPage} 頁，共 {totalPages} 頁
+              第 {currentPage} 页，共 {totalPages} 页
             </span>
             
             <button
@@ -673,18 +673,18 @@ export default function DoctorAppointmentsPage() {
               disabled={currentPage === totalPages}
               className="mobile-pagination-btn"
             >
-              下一頁
+              下一页
             </button>
           </div>
         )}
       </div>
 
-      {/* 爽約確認對話框 */}
+      {/* 爽约确认对话框 */}
       {showNoShowDialog && selectedAppointmentForNoShow && (
         <div className="mobile-dialog-overlay">
           <div className="mobile-dialog">
             <div className="mobile-dialog-header">
-              <h3 className="mobile-dialog-title">確認標記爽約</h3>
+              <h3 className="mobile-dialog-title">确认标记爽约</h3>
               <button 
                 onClick={closeNoShowDialog}
                 className="mobile-dialog-close"
@@ -694,12 +694,12 @@ export default function DoctorAppointmentsPage() {
               </button>
             </div>
             
-            <div className="mobile-dialog-content">
+              <div className="mobile-dialog-content">
               <p className="mobile-dialog-message">
-                您確定要將以下預約標記為爽約嗎？
+                您确定要将以下预约标记为爽约吗？
               </p>
               
-              <div className="mobile-dialog-appointment-info">
+                <div className="mobile-dialog-appointment-info">
                 <div className="mobile-dialog-info-row">
                   <span className="mobile-dialog-label">病人：</span>
                   <span className="mobile-dialog-value">{selectedAppointmentForNoShow.patient.user.name}</span>
@@ -719,7 +719,7 @@ export default function DoctorAppointmentsPage() {
               </div>
               
               <div className="mobile-dialog-warning">
-                <p>⚠️ 標記爽約後，該病人將被扣除5分</p>
+              <p>⚠️ 标记爽约后，该病人将被扣除5分</p>
               </div>
             </div>
             

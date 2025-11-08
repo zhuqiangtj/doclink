@@ -72,7 +72,7 @@ const AppointmentHistoryModal: React.FC<AppointmentHistoryModalProps> = ({
       case 'COMPLETED': return 'text-green-600 bg-green-100';
       case 'CANCELLED': return 'text-red-600 bg-red-100';
       case 'NO_SHOW': return 'text-gray-600 bg-gray-100';
-      // 將任何非四狀態的值（如舊資料中的 CHECKED_IN）以待就診的樣式顯示
+// 将任何非四状态的值（如旧资料中的 CHECKED_IN）以待就诊的样式显示
       default: return 'text-yellow-600 bg-yellow-100';
     }
   };
@@ -103,7 +103,7 @@ const AppointmentHistoryModal: React.FC<AppointmentHistoryModalProps> = ({
         <div className="flex items-center justify-between p-4 sm:p-6 border-b">
           <h2 className="text-xl font-semibold text-gray-900 flex items-center">
             <IoList className="mr-2 h-5 w-5" />
-            預約變更歷史記錄
+            预约变更历史记录
           </h2>
           <button
             onClick={onClose}
@@ -118,7 +118,7 @@ const AppointmentHistoryModal: React.FC<AppointmentHistoryModalProps> = ({
           {loading && (
             <div className="flex items-center justify-center py-8">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-              <span className="ml-2 text-gray-600">載入中...</span>
+              <span className="ml-2 text-gray-600">加载中...</span>
             </div>
           )}
 
@@ -132,14 +132,14 @@ const AppointmentHistoryModal: React.FC<AppointmentHistoryModalProps> = ({
             <>
               {/* Appointment Info */}
               <div className="bg-gray-50 rounded-lg p-4 mb-6">
-                <h3 className="text-lg font-medium text-gray-900 mb-3">預約信息</h3>
+                <h3 className="text-lg font-medium text-gray-900 mb-3">预约信息</h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 text-sm">
                   <div>
-                    <span className="text-gray-600">預約時間：</span>
+                    <span className="text-gray-600">预约时间：</span>
                     <span className="font-medium whitespace-nowrap">{appointmentInfo.time}</span>
                   </div>
                   <div>
-                    <span className="text-gray-600">當前狀態：</span>
+                    <span className="text-gray-600">当前状态：</span>
                     <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(appointmentInfo.status)}`}>
                       {getStatusText(appointmentInfo.status)}
                     </span>
@@ -149,12 +149,12 @@ const AppointmentHistoryModal: React.FC<AppointmentHistoryModalProps> = ({
                     <span className="font-medium">{appointmentInfo.patientName}</span>
                   </div>
                   <div>
-                    <span className="text-gray-600">醫生：</span>
+                    <span className="text-gray-600">医生：</span>
                     <span className="font-medium">{appointmentInfo.doctorName}</span>
                   </div>
                   {appointmentInfo.reason && (
                     <div className="col-span-1 sm:col-span-2">
-                      <span className="text-gray-600">當前原因：</span>
+                      <span className="text-gray-600">当前原因：</span>
                       <span className="font-medium break-words">{appointmentInfo.reason}</span>
                     </div>
                   )}
@@ -163,9 +163,9 @@ const AppointmentHistoryModal: React.FC<AppointmentHistoryModalProps> = ({
 
               {/* History Timeline */}
               <div>
-                <h3 className="text-lg font-medium text-gray-900 mb-4">變更歷史</h3>
+                <h3 className="text-lg font-medium text-gray-900 mb-4">变更历史</h3>
                 {history.length === 0 ? (
-                  <p className="text-gray-500 text-center py-8">暫無歷史記錄</p>
+                  <p className="text-gray-500 text-center py-8">暂无历史记录</p>
                 ) : (
                   <div className="space-y-4">
                     {history.map((record, index) => (
@@ -188,18 +188,18 @@ const AppointmentHistoryModal: React.FC<AppointmentHistoryModalProps> = ({
                                 <span className="font-medium text-gray-900 break-words">{record.operatorName}</span>
                               </div>
                               <div className="flex items-start">
-                                <span className="text-gray-600 mr-2">動作：</span>
+                                <span className="text-gray-600 mr-2">动作：</span>
                                 <span className="font-medium text-gray-900 break-words">{getActionText(record.action)}</span>
                               </div>
                               <div className="flex items-start">
-                                <span className="text-gray-600 mr-2">時間：</span>
+                                <span className="text-gray-600 mr-2">时间：</span>
                                 <span className="font-medium text-gray-900 break-words">{formatDateTime(record.operatedAt)}</span>
                               </div>
                             </div>
                             
                             <div className="space-y-1 text-sm leading-tight">
                               <div className="flex items-center">
-                                <span className="text-gray-600 mr-2">狀態：</span>
+                                <span className="text-gray-600 mr-2">状态：</span>
                                 <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(record.status)}`}>
                                   {getStatusText(record.status)}
                                 </span>
@@ -229,7 +229,7 @@ const AppointmentHistoryModal: React.FC<AppointmentHistoryModalProps> = ({
             onClick={onClose}
             className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
           >
-            關閉
+            关闭
           </button>
         </div>
       </div>

@@ -745,7 +745,7 @@ export default function DoctorSchedulePage() {
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || '取消預約失敗');
+        throw new Error(errorData.error || '取消预约失败');
       }
 
       setSchedulesForSelectedDay(
@@ -769,7 +769,7 @@ export default function DoctorSchedulePage() {
 
       setShowCancelDialog(false);
       setSelectedAppointmentForCancel(null);
-      setSuccess(`已成功取消 ${selectedAppointmentForCancel.patientName} 的預約`);
+      setSuccess(`已成功取消 ${selectedAppointmentForCancel.patientName} 的预约`);
       setTimeout(() => setSuccess(null), 3000);
     } catch (error) {
       setError(error instanceof Error ? error.message : '取消預約失敗');
@@ -820,7 +820,7 @@ export default function DoctorSchedulePage() {
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || '標記爽約失敗');
+        throw new Error(errorData.error || '标记爽约失败');
       }
 
       setSchedulesForSelectedDay(
@@ -856,10 +856,10 @@ export default function DoctorSchedulePage() {
         credibilityScore: ((prev.credibilityScore ?? 0) - 5) 
       } : prev);
 
-      setSuccess(`已標記 ${patientName} 為爽約並扣分`);
+      setSuccess(`已标记 ${patientName} 为爽约并扣分`);
       setTimeout(() => setSuccess(null), 3000);
     } catch (error) {
-      setError(error instanceof Error ? error.message : '標記爽約失敗');
+      setError(error instanceof Error ? error.message : '标记爽约失败');
     }
   };
 
@@ -938,12 +938,12 @@ export default function DoctorSchedulePage() {
   );
   if (error) return (
     <div className="mobile-message mobile-message-error">
-      錯誤: {error}
+      错误: {error}
     </div>
   );
   if (!doctorProfile) return (
     <div className="mobile-message mobile-message-error">
-      無法載入醫生資訊
+      无法载入医生信息
     </div>
   );
 
@@ -986,10 +986,10 @@ export default function DoctorSchedulePage() {
           <button
             onClick={() => setIsAddTimeSlotModalOpen(true)}
             className="mobile-btn mobile-btn-success w-full flex items-center justify-center space-x-2"
-            title="新增自定義時段"
+            title="新增自定义时段"
           >
             <FaPlusCircle className="w-4 h-4" />
-            <span>新增自定義時段</span>
+            <span>新增自定义时段</span>
           </button>
         </div>
       </div>
@@ -1000,14 +1000,14 @@ export default function DoctorSchedulePage() {
         </div>
       ) : schedulesForSelectedDay.length === 0 ? (
         <div className="mobile-empty-state">
-          <h3>今日無排程</h3>
-          <p>請選擇其他日期或新增排程</p>
+          <h3>今日无排程</h3>
+          <p>请选择其他日期或新增排程</p>
         </div>
       ) : (
         <div className="space-y-2 w-full flex flex-col items-center">
           {/* 手機端診室選擇 - 使用下拉選單而非標籤頁 */}
           <div className="mobile-card">
-            <label className="block text-sm font-medium text-gray-700 mb-2">選擇診室</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">选择诊室</label>
             <select
               value={activeRoomTab}
               onChange={(e) => setActiveRoomTab(e.target.value)}
@@ -1024,7 +1024,7 @@ export default function DoctorSchedulePage() {
           {activeSchedules.map(schedule => (
             <div key={schedule.id} className="mobile-card space-y-2">
               <div className="mobile-section-header">
-                <h3 className="text-lg font-semibold">診室: {schedule.room.name}</h3>
+                <h3 className="text-lg font-semibold">诊室: {schedule.room.name}</h3>
               </div>
               
               {schedule.timeSlots && Array.isArray(schedule.timeSlots) ? schedule.timeSlots.map((slot, index) => {
@@ -1088,9 +1088,9 @@ export default function DoctorSchedulePage() {
                         }}
                         onKeyDown={(e) => { if (e.key === 'Enter') e.preventDefault(); }}
                         className="mobile-total-input-inline mobile-total-input-fluid"
-                        placeholder="床位數"
+                        placeholder="床位数"
                         disabled={isPast}
-                        title={isPast ? '時間已過，不可編輯' : `可預約人數（最大 ${schedule.room.bedCount}）`}
+                        title={isPast ? '时间已过，不可编辑' : `可预约人数（最大 ${schedule.room.bedCount}）`}
                       />
 
                       {/* 預約狀態信息 */}
@@ -1117,8 +1117,8 @@ export default function DoctorSchedulePage() {
                         disabled={slot.availableBeds <= 0 || isPast}
                         title={
                           isPast 
-                            ? "時間已過，無法預約" 
-                            : (slot.availableBeds <= 0 ? "已滿額" : "新增預約")
+                            ? "时间已过，无法预约" 
+                            : (slot.availableBeds <= 0 ? "已满额" : "新增预约")
                         }
                       >
                         <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
@@ -1126,7 +1126,7 @@ export default function DoctorSchedulePage() {
                         </svg>
                       </button>
 
-                      {/* 儲存按鈕 */}
+                      {/* 保存按钮 */}
                       <button
                         type="button"
                         onClick={() => handleSaveTimeSlot(schedule.id, index)}
@@ -1136,7 +1136,7 @@ export default function DoctorSchedulePage() {
                             ? 'mobile-icon-btn-save-colored'
                             : 'mobile-icon-btn-disabled-colored'
                         }`}
-                        title={isPast ? '時間已過，不可編輯' : (isModified ? (isValidEdit ? "儲存變更" : "時間或床位數不合法") : "無變更")}
+                        title={isPast ? '时间已过，不可编辑' : (isModified ? (isValidEdit ? "保存变更" : "时间或床位数不合法") : "无变更")}
                       >
                         {isSaving ? (
                           <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
@@ -1221,27 +1221,27 @@ export default function DoctorSchedulePage() {
                             <div key={apptIndex} className={`mobile-patient-item-inline ${statusKey === 'NO_SHOW' ? 'mobile-status-no-show' : ''}`}>
                               <div className="mobile-patient-info-inline">
                                 <span className="mobile-patient-name-inline">{appointment.patient.user.name}</span>
-                                <span className="ml-2 text-xs text-gray-600">積分：{appointment.patient.credibilityScore ?? '未知'}</span>
+                                <span className="ml-2 text-xs text-gray-600">积分：{appointment.patient.credibilityScore ?? '未知'}</span>
                                 <span className="mobile-patient-details-inline">
-                                  操作時間：{operatedAtString} 操作員：{
+                                  操作时间：{operatedAtString} 操作员：{
                                     // 使用歷史記錄的操作者，否則依據 reason 與當前醫生資訊推斷
                                     appointment.history && appointment.history.length > 0 
                                       ? appointment.history[0].operatorName
-                                      : ((appointment.reason === '醫生預約')
-                                          ? (doctorProfile?.name || session?.user?.name || '醫生')
+                                      : ((appointment.reason === '医生预约')
+                                          ? (doctorProfile?.name || session?.user?.name || '医生')
                                           : appointment.patient.user.name)
                                   } 角色：{
                                     (appointment.history && appointment.history.length > 0)
-                                      ? ((appointment.reason === '醫生預約') ? '醫生' : '患者')
-                                      : ((appointment.reason === '醫生預約' || appointment.user.role === 'DOCTOR') ? '醫生' : '患者')
-                                  } 狀態：<span className={`mobile-status-badge mobile-status-${statusClassKey}`}>{statusText}</span>
+                                      ? ((appointment.reason === '医生预约') ? '医生' : '患者')
+                                      : ((appointment.reason === '医生预约' || appointment.user.role === 'DOCTOR') ? '医生' : '患者')
+                                  } 状态：<span className={`mobile-status-badge mobile-status-${statusClassKey}`}>{statusText}</span>
                                 </span>
                               </div>
                               {!isPast && appointment.status === 'PENDING' && (
                                 <button
                                   onClick={() => openCancelDialog(appointment, schedule, index)}
                                   className="mobile-patient-delete-btn-inline"
-                                  title="取消預約"
+                                  title="取消预约"
                                 >
                                   <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
                                     <path fillRule="evenodd" d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z" clipRule="evenodd" />
@@ -1253,7 +1253,7 @@ export default function DoctorSchedulePage() {
                                 <button
                                   onClick={() => openNoShowDialog(appointment, schedule, index)}
                                   className="mobile-patient-delete-btn-inline"
-                                  title="標記爽約"
+                                  title="标记爽约"
                                 >
                                   <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
                                     <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16z" clipRule="evenodd" />
@@ -1270,8 +1270,8 @@ export default function DoctorSchedulePage() {
                 );
               }) : (
                 <div className="mobile-empty-state">
-                  <h3>無可用時段</h3>
-                  <p>目前沒有安排任何時段</p>
+                  <h3>无可用时段</h3>
+                  <p>目前没有安排任何时段</p>
                 </div>
               )}
             </div>
@@ -1283,12 +1283,12 @@ export default function DoctorSchedulePage() {
         <div className="mobile-modal-overlay">
           <div className="mobile-modal">
             <div className="mobile-modal-header">
-              <h2>選擇診室套用模板</h2>
+              <h2>选择诊室套用模板</h2>
             </div>
             <div className="mobile-modal-content grid grid-cols-1 sm:grid-cols-2 gap-3">
               {doctorProfile?.Room && doctorProfile.Room.length > 0 ? (
                 <div>
-                  <label htmlFor="room-template" className="block text-sm font-medium mb-2">診室</label>
+                  <label htmlFor="room-template" className="block text-sm font-medium mb-2">诊室</label>
                   <select
                     id="room-template"
                     value={selectedRoomIdForTemplate}
@@ -1303,8 +1303,8 @@ export default function DoctorSchedulePage() {
               ) : (
                 <div className="text-center py-4">
                   <div className="text-gray-400 text-lg mb-2">🏥</div>
-                  <p className="text-gray-500 text-sm">醫生名下沒有診室</p>
-                  <p className="text-gray-400 text-xs mt-1">請聯繫管理員分配診室</p>
+                  <p className="text-gray-500 text-sm">医生名下没有诊室</p>
+                  <p className="text-gray-400 text-xs mt-1">请联系管理员分配诊室</p>
                 </div>
               )}
             </div>
@@ -1411,7 +1411,7 @@ export default function DoctorSchedulePage() {
                 className="mobile-btn mobile-btn-primary flex-1 disabled:opacity-50 disabled:cursor-not-allowed"
                 aria-busy={isBookingSubmitting}
               >
-                {isBookingSubmitting ? '確認中…' : '確認預約'}
+                {isBookingSubmitting ? '确认中…' : '确认预约'}
               </button>
             </div>
           </div>
@@ -1422,22 +1422,22 @@ export default function DoctorSchedulePage() {
         <div className="mobile-dialog-overlay">
           <div className="mobile-dialog">
             <div className="mobile-dialog-header">
-              <h3 className="mobile-dialog-title">確認標記爽約</h3>
-              <button onClick={closeNoShowDialog} className="mobile-dialog-close-btn" aria-label="關閉" disabled={noShowLoading}>×</button>
+              <h3 className="mobile-dialog-title">确认标记爽约</h3>
+              <button onClick={closeNoShowDialog} className="mobile-dialog-close-btn" aria-label="关闭" disabled={noShowLoading}>×</button>
             </div>
             <div className="mobile-dialog-content">
-              <p className="mobile-dialog-text">將標記 {selectedAppointmentForNoShow.patientName} 爽約並扣除信用分。</p>
+              <p className="mobile-dialog-text">将标记 {selectedAppointmentForNoShow.patientName} 爽约并扣除信用分。</p>
               <div className="mobile-dialog-details">
                 <div className="mobile-dialog-detail-row">
                   <span className="mobile-dialog-detail-label">日期</span>
                   <span className="mobile-dialog-detail-value">{formatDate(selectedAppointmentForNoShow.date)}</span>
                 </div>
                 <div className="mobile-dialog-detail-row">
-                  <span className="mobile-dialog-detail-label">時間</span>
+                  <span className="mobile-dialog-detail-label">时间</span>
                   <span className="mobile-dialog-detail-value">{selectedAppointmentForNoShow.time}</span>
                 </div>
                 <div className="mobile-dialog-detail-row">
-                  <span className="mobile-dialog-detail-label">診室</span>
+                  <span className="mobile-dialog-detail-label">诊室</span>
                   <span className="mobile-dialog-detail-value">{selectedAppointmentForNoShow.roomName}</span>
                 </div>
                 <div className="mobile-dialog-detail-row">
@@ -1463,7 +1463,7 @@ export default function DoctorSchedulePage() {
                   }}
                   disabled={noShowLoading}
                 >
-                  {noShowLoading ? '提交中…' : '確認標記爽約'}
+                  {noShowLoading ? '提交中…' : '确认标记爽约'}
                 </button>
               </div>
             </div>
@@ -1491,18 +1491,18 @@ export default function DoctorSchedulePage() {
         <div className="mobile-modal-overlay">
           <div className="mobile-modal mobile-modal-compact">
             <div className="mobile-modal-header">
-              <h2 className="text-xl font-bold">新增時段</h2>
+              <h2 className="text-xl font-bold">新增时段</h2>
             </div>
             <div className="mobile-modal-content space-y-4">
               <div>
-                <label className="block text-sm font-medium mb-2">診室</label>
+                <label className="block text-sm font-medium mb-2">诊室</label>
                 <select
                   value={selectedRoomIdForTemplate}
                   onChange={(e) => setSelectedRoomIdForTemplate(e.target.value)}
                   className="mobile-input w-full"
                   required
                 >
-                  <option value="">請選擇診室</option>
+                  <option value="">请选择诊室</option>
                   {doctorProfile?.Room?.map(room => (
                     <option key={room.id} value={room.id}>{room.name}</option>
                   ))}
@@ -1510,7 +1510,7 @@ export default function DoctorSchedulePage() {
               </div>
               
               <div className="sm:col-span-2">
-                <label className="block text-sm font-medium mb-2">時間</label>
+                <label className="block text-sm font-medium mb-2">时间</label>
                 <div className="flex items-center gap-3">
                   <input
                     type="time"
@@ -1533,7 +1533,7 @@ export default function DoctorSchedulePage() {
               
               
               <div>
-                <label className="block text-sm font-medium mb-2">可預約人數</label>
+                <label className="block text-sm font-medium mb-2">可预约人数</label>
                 <input
                   type="number"
                   min="1"
@@ -1547,7 +1547,7 @@ export default function DoctorSchedulePage() {
                     setNewTimeSlotData(prev => ({ ...prev, bedCount: clamped }));
                   }}
                   className="mobile-input w-full"
-                  placeholder="請輸入可預約人數（不超過診室床位數）"
+                  placeholder="请输入可预约人数（不超过诊室床位数）"
                   required
                 />
               </div>
@@ -1568,7 +1568,7 @@ export default function DoctorSchedulePage() {
                 className="mobile-btn mobile-btn-success flex-1 disabled:opacity-50 disabled:cursor-not-allowed"
                 aria-busy={isAddingTimeSlot}
               >
-                {isAddingTimeSlot ? '提交中…' : '新增時段'}
+                {isAddingTimeSlot ? '提交中…' : '新增时段'}
               </button>
             </div>
           </div>

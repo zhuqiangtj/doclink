@@ -4,7 +4,7 @@ import bcrypt from 'bcrypt';
 
 export async function POST(request: NextRequest) {
   try {
-    // 檢查用戶是否已存在
+// 检查用户是否已存在
     const existingUser = await prisma.user.findUnique({
       where: { username: 'zhangru' }
     });
@@ -22,21 +22,21 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // 創建新用戶
+// 创建新用户
     const hashedPassword = await bcrypt.hash('123456', 10);
     
     const newUser = await prisma.user.create({
       data: {
         username: 'zhangru',
         password: hashedPassword,
-        name: '張如醫生',
+  name: '张如医生',
         gender: 'Female',
         dateOfBirth: new Date('1975-06-10T00:00:00.000Z'),
         role: 'DOCTOR'
       }
     });
 
-    // 創建醫生資料
+// 创建医生资料
     const doctor = await prisma.doctor.create({
       data: {
         userId: newUser.id,
@@ -45,7 +45,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ 
       success: true, 
-      message: '用戶 zhangru 創建成功',
+  message: '用户 zhangru 创建成功',
       user: {
         id: newUser.id,
         username: newUser.username,
@@ -58,7 +58,7 @@ export async function POST(request: NextRequest) {
     });
 
   } catch (error) {
-    console.error('創建用戶錯誤:', error);
+  console.error('创建用户错误:', error);
     return NextResponse.json({ 
       success: false, 
       error: error instanceof Error ? error.message : 'Unknown error' 

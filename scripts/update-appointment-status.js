@@ -1,6 +1,6 @@
 /**
- * 定時任務：自動更新過期預約狀態
- * 將超過預約時間的 PENDING 狀態預約自動更新為 COMPLETED
+ * 定时任务：自动更新过期预约状态
+ * 将超过预约时间的 PENDING 状态预约自动更新为 COMPLETED
  */
 
 const https = require('https');
@@ -41,7 +41,7 @@ function makeRequest(url, options) {
 
 async function updateExpiredAppointments() {
   try {
-    console.log('開始更新過期預約狀態...');
+console.log('开始更新过期预约状态...');
     
     const response = await makeRequest('http://localhost:3000/api/appointments/status', {
       method: 'POST',
@@ -58,13 +58,13 @@ async function updateExpiredAppointments() {
     console.log('更新結果:', result);
     
     if (result.updatedCount > 0) {
-      console.log(`成功更新了 ${result.updatedCount} 個過期預約的狀態`);
+console.log(`成功更新了 ${result.updatedCount} 个过期预约的状态`);
     } else {
-      console.log('沒有需要更新的過期預約');
+console.log('没有需要更新的过期预约');
     }
     
   } catch (error) {
-    console.error('更新過期預約狀態時發生錯誤:', error);
+console.error('更新过期预约状态时发生错误:', error);
   }
 }
 

@@ -27,27 +27,27 @@ export async function POST(request: Request, { params }: { params: { id: string 
         schedule: { select: { date: true } }
       }
     });
-    if (!appointment) throw new Error('預約記錄不存在');
+if (!appointment) throw new Error('预约记录不存在');
 
-    // 不允許對已取消或已爽約的預約重複標記
+// 不允许对已取消或已爽约的预约重复标记
     if (appointment.status === 'CANCELLED' || appointment.status === 'NO_SHOW') {
-      throw new Error('無法標記已取消或已爽約的預約');
+throw new Error('无法标记已取消或已爽约的预约');
     }
 
-    // 檢查時間段是否已過期（以開始時間為準，允許等於當前時間）
+// 检查时间段是否已过期（以开始时间为准，允许等于当前时间）
     if (!appointment.schedule?.date || !appointment.time) {
-      throw new Error('預約記錄缺少日期或時間信息');
+throw new Error('预约记录缺少日期或时间信息');
     }
     const now = new Date();
     const appointmentDateTime = new Date(`${appointment.schedule.date}T${appointment.time}`);
     if (appointmentDateTime > now) {
-      throw new Error('只能標記已過期的預約為爽約');
+throw new Error('只能标记已过期的预约为爽约');
     }
 
     // Authorization: Doctor can only mark their own appointments
     const doctorProfile = await prisma.doctor.findUnique({ where: { userId: session.user.id } });
     if (appointment.doctorId !== doctorProfile?.id) {
-      throw new Error('您只能標記自己的預約為爽約');
+throw new Error('您只能标记自己的预约为爽约');
     }
 
     // 事務內僅保留必要的寫操作，並提升超時上限
@@ -56,7 +56,7 @@ export async function POST(request: Request, { params }: { params: { id: string 
         where: { id: appointmentId },
         data: { 
           status: 'NO_SHOW',
-          reason: '醫生確認爽約'
+reason: '医生确认爽约'
         },
       });
 
@@ -65,7 +65,7 @@ export async function POST(request: Request, { params }: { params: { id: string 
         operatorName: session.user.name || session.user.username || 'Unknown',
         operatorId: session.user.id,
         status: 'NO_SHOW',
-        reason: '醫生確認爽約',
+reason: '医生确认爽约',
         action: 'MARK_NO_SHOW',
       });
 
@@ -79,13 +79,13 @@ export async function POST(request: Request, { params }: { params: { id: string 
       return result;
     }, { timeout: 15000 });
 
-    // 事務外執行通知與審計，避免延長鎖持有時間
+// 事务外执行通知与审计，避免延长锁持有时间
     await prisma.patientNotification.create({
       data: {
         userId: appointment.userId,
         appointmentId: appointment.id,
-        doctorName: session.user.name || '醫生',
-        message: `您的預約 (預約時間: ${appointment.time}) 已被醫生標記為爽約，扣除5分信用分數。`,
+doctorName: session.user.name || '医生',
+message: `您的预约 (预约时间: ${appointment.time}) 已被医生标记为爽约，扣除5分信用分数。`,
         type: 'APPOINTMENT_NO_SHOW',
       },
     });
@@ -94,15 +94,15 @@ export async function POST(request: Request, { params }: { params: { id: string 
         patientId: appointment.patientId, 
         oldStatus: appointment.status,
         newStatus: 'NO_SHOW',
-        reason: '醫生確認爽約',
+reason: '医生确认爽约',
         credibilityChange: -5
     });
 
-    return NextResponse.json({ message: '已成功標記為爽約', appointment: updatedAppointment });
+return NextResponse.json({ message: '已成功标记为爽约', appointment: updatedAppointment });
 
   } catch (error) {
     console.error(`Error marking appointment ${appointmentId} as no-show:`, error);
-    const message = error instanceof Error ? error.message : '標記爽約失敗';
+const message = error instanceof Error ? error.message : '标记爽约失败';
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }

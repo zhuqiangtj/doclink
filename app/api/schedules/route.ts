@@ -63,7 +63,7 @@ export async function GET(request: Request) {
       },
     });
 
-    // 包含所有仍有活動時段（isActive=true）的日期，即便可用床位為 0（滿額）
+// 包含所有仍有活动时段（isActive=true）的日期，即便可用床位为 0（满额）
     const availableDates = schedules
       .filter(s => s.timeSlots && s.timeSlots.length > 0)
       .map(s => s.date);
@@ -96,7 +96,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Doctor profile not found' }, { status: 404 });
     }
 
-    // 查找或創建排班
+// 查找或创建排班
     let schedule = await prisma.schedule.findFirst({
       where: { date, doctorId: doctorProfile.id, roomId },
     });
@@ -111,8 +111,8 @@ export async function POST(request: Request) {
       });
     }
 
-    // 創建新的時間段
-    // 推斷時段類型（內部字段，API不再要求客戶端提供）
+// 创建新的时段
+// 推断时段类型（内部字段，API不再要求客户端提供）
     const inferredType = startTime < '12:00' ? 'MORNING' : 'AFTERNOON';
 
     const timeSlot = await prisma.timeSlot.create({
@@ -159,7 +159,7 @@ export async function PUT(request: Request) {
       return NextResponse.json({ error: 'Doctor profile not found' }, { status: 404 });
     }
 
-    // 驗證時間段是否屬於該醫生
+// 验证时段是否属于该医生
     const timeSlot = await prisma.timeSlot.findFirst({
       where: { 
         id: timeSlotId,
@@ -171,8 +171,8 @@ export async function PUT(request: Request) {
       return NextResponse.json({ error: 'TimeSlot not found or you do not have permission to update it.' }, { status: 404 });
     }
 
-    // 檢查是否有預約，如果有則不能減少床位數
-    // 當前 Appointment 模型不包含狀態欄位，統計該時段的所有預約數即可
+// 检查是否有预约，如果有则不能减少床位数
+// 当前 Appointment 模型不包含状态栏位，统计该时段的所有预约数即可
     const appointmentCount = await prisma.appointment.count({
       where: { 
         timeSlotId: timeSlotId
@@ -180,7 +180,7 @@ export async function PUT(request: Request) {
     });
 
     const newBedCount = Number(bedCount);
-    // 校驗：結束時間必須大於開始時間，床位數必須大於 0
+// 校验：结束时间必须大于开始时间，床位数必须大于 0
     if (!startTime || !endTime) {
       return NextResponse.json({ error: 'Start and end time are required.' }, { status: 400 });
     }
@@ -238,7 +238,7 @@ export async function DELETE(request: Request) {
       return NextResponse.json({ error: 'Doctor profile not found' }, { status: 404 });
     }
 
-    // 驗證時間段是否屬於該醫生
+// 验证时段是否属于该医生
     const timeSlot = await prisma.timeSlot.findFirst({
       where: { 
         id: timeSlotId,
@@ -250,15 +250,15 @@ export async function DELETE(request: Request) {
       return NextResponse.json({ error: 'TimeSlot not found or you do not have permission to delete it.' }, { status: 404 });
     }
 
-    // 檢查是否有關聯預約（任意狀態）。目前資料庫未設定對 Appointment 的級聯刪除，
-    // 因此只要存在任何關聯預約，就不允許刪除該時段，以避免外鍵約束錯誤。
+// 检查是否有关联预约（任意状态）。目前数据库未设定对 Appointment 的级联删除，
+// 因此只要存在任何关联预约，就不允许删除该时段，以避免外键约束错误。
     const appointmentCount = await prisma.appointment.count({
       where: { timeSlotId: timeSlotId }
     });
 
     if (appointmentCount > 0) {
       return NextResponse.json({ 
-        error: `此時段已有預約記錄（${appointmentCount} 筆），無法刪除。` 
+error: `此时段已有预约记录（${appointmentCount} 笔），无法删除。`
       }, { status: 400 });
     }
 

@@ -43,17 +43,17 @@ function makeRequest(url, options = {}) {
 
 async function testAppointmentActions() {
   try {
-    console.log('開始測試預約操作...');
+console.log('开始测试预约操作...');
     
-    // 1. 測試取消預約 (DELETE)
-    console.log('\n1. 測試取消預約...');
+// 1. 测试取消预约 (DELETE)
+console.log('\n1. 测试取消预约...');
     const cancelResult = await makeRequest('http://localhost:3000/api/appointments/cmhhlvgxm0003lh8cn5jcxowh', {
       method: 'DELETE'
     });
-    console.log('取消預約結果:', cancelResult);
+console.log('取消预约结果:', cancelResult);
     
-    // 2. 測試更新預約狀態為 NO_SHOW
-    console.log('\n2. 測試標記爽約...');
+// 2. 测试更新预约状态为 NO_SHOW
+console.log('\n2. 测试标记爽约...');
     const noShowResult = await makeRequest('http://localhost:3000/api/appointments/status', {
       method: 'PUT',
       body: {
@@ -62,9 +62,9 @@ async function testAppointmentActions() {
         reason: '患者未到診'
       }
     });
-    console.log('標記爽約結果:', noShowResult);
+console.log('标记爽约结果:', noShowResult);
     
-    // 3. 測試更新預約狀態為 COMPLETED
+// 3. 测试更新预约状态为 COMPLETED
     console.log('\n3. 測試標記完成...');
     const completedResult = await makeRequest('http://localhost:3000/api/appointments/status', {
       method: 'PUT',
@@ -77,7 +77,7 @@ async function testAppointmentActions() {
     console.log('標記完成結果:', completedResult);
     
   } catch (error) {
-    console.error('測試預約操作時發生錯誤:', error);
+console.error('测试预约操作时发生错误:', error);
   }
 }
 

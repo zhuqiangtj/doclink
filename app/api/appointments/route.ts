@@ -87,15 +87,15 @@ export async function POST(request: Request) {
     }
 
     const result = await prisma.$transaction(async (tx) => {
-      // 驗證病人積分，積分小於或等於 0 無法預約
+// 验证病人积分，积分小于或等于 0 无法预约
       const patientProfile = await tx.patient.findUnique({ where: { id: patientId } });
       if (!patientProfile) {
         throw new Error('Patient profile not found.');
       }
       if ((patientProfile.credibilityScore ?? 0) <= 0) {
-        throw new Error('病人积分不足，无法预约');
+throw new Error('病人积分不足，无法预约');
       }
-      // 獲取時間段信息並檢查可用性
+// 获取时间段信息并检查可用性
       const timeSlot = await tx.timeSlot.findUnique({
         where: { id: timeSlotId },
         include: { schedule: true }
@@ -109,7 +109,7 @@ export async function POST(request: Request) {
         throw new Error('This time slot is not active.');
       }
 
-      // 僅允許未來時間段：檢查時間段開始時間是否早於當前時間
+// 仅允许未来时段：检查时段开始时间是否早于当前时间
       if (timeSlot.schedule && timeSlot.schedule.date && timeSlot.startTime) {
         const [year, month, day] = timeSlot.schedule.date.split('-').map(Number);
         const [hour, minute] = timeSlot.startTime.split(':').map(Number);
@@ -130,7 +130,7 @@ export async function POST(request: Request) {
         throw new Error('This time slot is fully booked.');
       }
 
-      // 創建預約，使用時間段的開始時間作為time字段（向後兼容）
+// 创建预约，使用时段的开始时间作为 time 字段（向后兼容）
       const newAppointment = await tx.appointment.create({
         data: { 
           userId, 
@@ -142,17 +142,17 @@ export async function POST(request: Request) {
           roomId, 
           bedId: 0, 
           status: 'PENDING', 
-          reason: session.user.role === 'DOCTOR' ? '醫生預約' : '病人預約'
+reason: session.user.role === 'DOCTOR' ? '医生预约' : '病人预约'
         },
       });
 
-      // 創建預約歷史記錄
+// 创建预约历史记录
       await createAppointmentHistoryInTransaction(tx, {
         appointmentId: newAppointment.id,
         operatorName: session.user.name || session.user.username || 'Unknown',
         operatorId: session.user.id,
         status: 'PENDING',
-        reason: session.user.role === 'DOCTOR' ? '醫生預約' : '病人預約',
+reason: session.user.role === 'DOCTOR' ? '医生预约' : '病人预约',
         action: 'CREATE',
       });
 
@@ -234,7 +234,7 @@ export async function DELETE(request: Request) {
   }
 
   try {
-    // 先獲取預約信息進行授權檢查
+// 先获取预约信息进行授权检查
     const appointment = await prisma.appointment.findUnique({ 
       where: { id: appointmentId },
       include: { 
@@ -263,7 +263,7 @@ export async function DELETE(request: Request) {
       return NextResponse.json({ error: 'Forbidden: You do not have permission to cancel this appointment' }, { status: 403 });
     }
 
-    // 計算取消原因和扣分
+// 计算取消原因和扣分
     let reason = '';
     let credibilityChange = 0;
 
@@ -274,25 +274,25 @@ export async function DELETE(request: Request) {
       appointmentDate.setHours(0, 0, 0, 0);
 
       if (appointmentDate.getTime() === today.getTime()) {
-        reason = '病人當天取消預約';
+reason = '病人当天取消预约';
         credibilityChange = -5;
       } else if (appointmentDate > today) {
-        reason = '病人提前取消預約';
+reason = '病人提前取消预约';
         credibilityChange = -2;
       } else {
         return NextResponse.json({ error: 'Forbidden: You cannot cancel an appointment that has already passed' }, { status: 403 });
       }
     } else if (session.user.role === 'DOCTOR') {
-      reason = '醫生取消預約';
+reason = '医生取消预约';
       credibilityChange = 0;
     } else {
-      reason = '管理員取消預約';
+reason = '管理员取消预约';
       credibilityChange = 0;
     }
 
     // Execute core data updates within transaction
     await prisma.$transaction(async (tx) => {
-      // 更新病人信用分數（如果需要）
+// 更新病人信用分数（如果需要）
       if (credibilityChange !== 0 && session.user.role === 'PATIENT') {
         const patientProfile = await tx.patient.findUnique({ where: { userId: session.user.id } });
         if (patientProfile) {
@@ -303,7 +303,7 @@ export async function DELETE(request: Request) {
         }
       }
 
-      // 更新預約狀態為已取消
+// 更新预约状态为已取消
       const updated = await tx.appointment.update({
         where: { id: appointmentId },
         data: { 
@@ -312,7 +312,7 @@ export async function DELETE(request: Request) {
         }
       });
 
-      // 在事務中寫入預約歷史
+// 在事务中写入预约历史
       await createAppointmentHistoryInTransaction(tx, {
         appointmentId: updated.id,
         operatorName: session.user.name || session.user.username || 'Unknown',
@@ -322,7 +322,7 @@ export async function DELETE(request: Request) {
         action: 'CANCEL_APPOINTMENT',
       });
 
-      // 更新時間段的可用床位數
+// 更新时段的可用床位数
       if (appointment.timeSlotId) {
         await tx.timeSlot.update({
           where: { id: appointment.timeSlotId },
@@ -330,7 +330,7 @@ export async function DELETE(request: Request) {
         });
       }
 
-      // 創建審計日誌
+// 创建审计日志
       await tx.auditLog.create({
         data: {
           userId: session?.user?.id,
@@ -351,9 +351,9 @@ export async function DELETE(request: Request) {
       });
     });
 
-    // 在事務外創建通知（避免事務超時）
+// 在事务外创建通知（避免事务超时）
     try {
-      // 為醫生創建通知：僅當病人主動取消時
+// 为医生创建通知：仅当病人主动取消时
       if (session.user.role === 'PATIENT') {
         const patientUser = await prisma.user.findUnique({ where: { id: appointment.userId } });
         if (patientUser) {
@@ -362,14 +362,14 @@ export async function DELETE(request: Request) {
               doctorId: appointment.doctorId,
               appointmentId: appointment.id,
               patientName: patientUser.name,
-              message: `${patientUser.name} 取消了 ${appointment.timeSlot?.startTime || appointment.time} 的预约。`,
+message: `${patientUser.name} 取消了 ${appointment.timeSlot?.startTime || appointment.time} 的预约。`,
               type: 'APPOINTMENT_CANCELLED',
             },
           });
         }
       }
 
-      // 如果是醫生或管理員取消，為病人創建通知（病人接收對方的操作事件）
+// 如果是医生或管理员取消，为病人创建通知（病人接收对方的操作事件）
       if (session.user.role === 'DOCTOR' || session.user.role === 'ADMIN') {
         const actor = await prisma.user.findUnique({ where: { id: session.user.id } });
         if (actor) {
@@ -378,14 +378,14 @@ export async function DELETE(request: Request) {
               userId: appointment.userId,
               appointmentId: appointment.id,
               doctorName: actor.name,
-              message: `您的预约 (预约时间: ${appointment.timeSlot?.startTime || appointment.time}) 已被 ${actor.name} 取消。`,
+message: `您的预约 (预约时间: ${appointment.timeSlot?.startTime || appointment.time}) 已被 ${actor.name} 取消。`,
               type: 'APPOINTMENT_CANCELLED_BY_DOCTOR',
             },
           });
         }
       }
     } catch (notificationError) {
-      // 通知創建失敗不應該影響主要操作
+// 通知创建失败不应该影响主要操作
       console.error('Failed to create notifications:', notificationError);
     }
 

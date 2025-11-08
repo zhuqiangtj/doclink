@@ -76,16 +76,16 @@ export default function MyAppointmentsPage() {
       const res = await fetch(`/api/appointments/${appointmentId}`, {
         method: 'DELETE',
       });
-      if (!res.ok) throw new Error('取消預約失敗');
+      if (!res.ok) throw new Error('取消预约失败');
       
-      // 重新獲取預約列表
+      // 重新获取预约列表
       const appointmentsRes = await fetch('/api/appointments');
       if (appointmentsRes.ok) {
         const data = await appointmentsRes.json();
         setAppointments(data);
       }
     } catch (error) {
-      setError('取消預約失敗，請稍後再試');
+      setError('取消预约失败，请稍后再试');
     }
   };
 
@@ -232,10 +232,10 @@ export default function MyAppointmentsPage() {
               <button 
                 onClick={() => openHistoryModal(apt.id)}
                 className="mobile-history-btn"
-                title="查看歷史記錄"
+                title="查看历史记录"
               >
                 <FaHistory className="mr-1" />
-                歷史記錄
+                历史记录
               </button>
               
               {new Date(`${apt.date}T${apt.time}`) > new Date() && apt.status === 'PENDING' && (
@@ -260,13 +260,13 @@ export default function MyAppointmentsPage() {
             className="mobile-pagination-btn"
             onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
             disabled={currentPage === 1}
-          >上一頁</button>
-          <span className="mobile-pagination-info">第 {currentPage} / {totalPages} 頁</span>
+          >上一页</button>
+          <span className="mobile-pagination-info">第 {currentPage} / {totalPages} 页</span>
           <button
             className="mobile-pagination-btn"
             onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
             disabled={currentPage === totalPages}
-          >下一頁</button>
+          >下一页</button>
         </div>
       )}
 

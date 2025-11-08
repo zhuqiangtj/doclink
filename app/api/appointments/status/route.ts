@@ -5,7 +5,7 @@ import { prisma } from '../../../../lib/prisma';
 import { createAuditLog } from '../../../../lib/audit';
 import { createAppointmentHistoryInTransaction } from '../../../../lib/appointment-history';
 
-// PUT - 更新預約狀態
+// PUT - 更新预约状态
 export async function PUT(request: Request) {
   const session = await getServerSession(authOptions);
   if (!session) {
@@ -19,13 +19,13 @@ export async function PUT(request: Request) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
 
-    // 驗證狀態值
+// 验证状态值
     const validStatuses = ['PENDING', 'CANCELLED', 'COMPLETED', 'NO_SHOW'];
     if (!validStatuses.includes(status)) {
       return NextResponse.json({ error: 'Invalid status' }, { status: 400 });
     }
 
-    // 獲取預約信息
+// 获取预约信息
     const appointment = await prisma.appointment.findUnique({
       where: { id: appointmentId },
       include: {
@@ -39,7 +39,7 @@ export async function PUT(request: Request) {
       return NextResponse.json({ error: 'Appointment not found' }, { status: 404 });
     }
 
-    // 權限檢查
+// 权限检查
     if (session.user.role === 'DOCTOR') {
       const userProfile = await prisma.user.findUnique({ 
         where: { id: session.user.id }, 
@@ -67,25 +67,25 @@ export async function PUT(request: Request) {
       appointmentDate.setHours(0, 0, 0, 0);
 
       if (appointmentDate.getTime() === today.getTime()) {
-        // 當日取消，視為爽約
-        finalReason = '當日病人當天取消預約';
+// 当日取消，视为爽约
+finalReason = '病人当天取消预约';
         credibilityChange = -5;
       } else if (appointmentDate > today) {
-        // 提前取消
-        finalReason = '病人預約日之前提前取消';
+// 提前取消
+finalReason = '病人预约日之前提前取消';
       } else {
-        return NextResponse.json({ error: '無法取消已過期的預約' }, { status: 400 });
+return NextResponse.json({ error: '无法取消已过期的预约' }, { status: 400 });
       }
     } else if (status === 'NO_SHOW' && appointment.status === 'COMPLETED') {
-      // 醫生標記爽約
-      finalReason = '醫生確認爽約';
+// 医生标记爽约
+finalReason = '医生确认爽约';
       credibilityChange = -5;
     } else if (status === 'COMPLETED' && appointment.status === 'PENDING') {
       // 自動完成
       finalReason = finalReason || '自動到期完成就診';
     }
 
-    // 更新預約狀態
+// 更新预约状态
     const updatedAppointment = await prisma.$transaction(async (tx) => {
       const updated = await tx.appointment.update({
         where: { id: appointmentId },
@@ -95,7 +95,7 @@ export async function PUT(request: Request) {
         }
       });
 
-      // 創建預約歷史記錄
+// 创建预约历史记录
       await createAppointmentHistoryInTransaction(tx, {
         appointmentId: appointmentId,
         operatorName: session.user.name || session.user.username || 'Unknown',
@@ -105,7 +105,7 @@ export async function PUT(request: Request) {
         action: `UPDATE_STATUS_TO_${status}`,
       });
 
-      // 如果需要扣分，更新病人信用分數
+// 如果需要扣分，更新病人信用分数
       if (credibilityChange !== 0) {
         await tx.patient.update({
           where: { id: appointment.patientId },
@@ -120,7 +120,7 @@ export async function PUT(request: Request) {
       return updated;
     });
 
-    // 記錄審計日誌
+// 记录审计日志
     await createAuditLog(
       session, 
       'UPDATE_APPOINTMENT_STATUS', 
@@ -142,7 +142,7 @@ export async function PUT(request: Request) {
   }
 }
 
-// POST - 自動更新過期預約狀態
+// POST - 自动更新过期预约状态
 // 共享的自動更新邏輯，供 POST/GET 調用（兼容 Vercel Cron）
 async function autoUpdateExpiredAppointments(context?: { requestId?: string }) {
   try {
@@ -157,7 +157,7 @@ async function autoUpdateExpiredAppointments(context?: { requestId?: string }) {
     const pickSafeTz = (candidate?: string): string | undefined => {
       if (!candidate) return undefined;
       try {
-        // 驗證候選時區是否為有效 IANA 名稱
+// 验证候选时区是否为有效 IANA 名称
         new Intl.DateTimeFormat('en-US', { timeZone: candidate }).format(now);
         return candidate;
       } catch {
@@ -183,7 +183,7 @@ async function autoUpdateExpiredAppointments(context?: { requestId?: string }) {
       hour12: false,
     }).format(now);
 
-    // 查找所有待就診且已過期的預約（以所屬時段的開始時間判斷過期）
+// 查找所有待就诊且已过期的预约（以所属时段的开始时间判断过期）
     const expiredAppointments = await prisma.appointment.findMany({
       where: {
         status: 'PENDING',
@@ -196,7 +196,7 @@ async function autoUpdateExpiredAppointments(context?: { requestId?: string }) {
               },
             },
           },
-          // 今天且時段開始時間已過期
+// 今天且时段开始时间已过期
           {
             schedule: { date: today },
             timeSlot: { startTime: { lt: currentTime } },
@@ -219,10 +219,10 @@ async function autoUpdateExpiredAppointments(context?: { requestId?: string }) {
       });
     }
 
-    // 批量更新為已完成狀態並新增歷史記錄（幂等：僅 PENDING -> COMPLETED）
+// 批量更新为已完成状态并新增历史记录（幂等：仅 PENDING -> COMPLETED）
     for (const appointment of expiredAppointments) {
       await prisma.$transaction(async (tx) => {
-        // 更新主記錄狀態與原因
+// 更新主记录状态与原因
         await tx.appointment.update({
           where: { id: appointment.id },
           data: {
@@ -231,7 +231,7 @@ async function autoUpdateExpiredAppointments(context?: { requestId?: string }) {
           },
         });
 
-        // 新增歷史記錄（操作時間為函式觸發時間）
+// 新增历史记录（操作时间为函数触发时间）
         await tx.appointmentHistory.create({
           data: {
             appointmentId: appointment.id,
@@ -259,7 +259,7 @@ async function autoUpdateExpiredAppointments(context?: { requestId?: string }) {
   }
 }
 
-// POST - 自動更新過期預約狀態（手動/本地腳本）
+// POST - 自动更新过期预约状态（手动/本地脚本）
 export async function POST() {
   return autoUpdateExpiredAppointments();
 }
@@ -275,7 +275,7 @@ export async function GET(request: Request) {
 
   console.log(`[appointments/status][GET] reqId=${reqId} hasSecret=${hasSecret} hasAuth=${hasAuth} authOk=${authOk}`);
 
-  // 若設置了 CRON_SECRET，則要求 Authorization: Bearer <CRON_SECRET>
+// 若设置了 CRON_SECRET，则要求 Authorization: Bearer <CRON_SECRET>
   if (hasSecret && !authOk) {
     console.warn(`[appointments/status][GET] unauthorized reqId=${reqId}`);
     return NextResponse.json({ error: 'Unauthorized', requestId: reqId }, { status: 401 });

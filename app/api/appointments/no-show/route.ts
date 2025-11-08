@@ -20,12 +20,12 @@ export async function PUT(request: NextRequest) {
 
     if (!appointmentId) {
       return NextResponse.json(
-        { error: '缺少預約ID' },
+  { error: '缺少预约ID' },
         { status: 400 }
       );
     }
 
-    // 查找預約記錄
+// 查找预约记录
     const appointment = await prisma.appointment.findUnique({
       where: { id: appointmentId },
       include: {
@@ -46,28 +46,28 @@ export async function PUT(request: NextRequest) {
 
     if (!appointment) {
       return NextResponse.json(
-        { error: '預約記錄不存在' },
+  { error: '预约记录不存在' },
         { status: 404 }
       );
     }
 
-    // 檢查預約是否屬於當前醫生
+// 检查预约是否属于当前医生
     if (appointment.doctor.user.id !== session.user.id) {
       return NextResponse.json(
-        { error: '您只能標記自己的預約為爽約' },
+  { error: '您只能标记自己的预约为爽约' },
         { status: 403 }
       );
     }
 
-    // 檢查預約狀態是否可以標記為爽約
+// 检查预约状态是否可以标记为爽约
     if (appointment.status !== 'PENDING' && appointment.status !== 'COMPLETED') {
       return NextResponse.json(
-        { error: '只能標記待就診或已完成的預約為爽約' },
+  { error: '只能标记待就诊或已完成的预约为爽约' },
         { status: 400 }
       );
     }
 
-    // 檢查預約是否已過期（只對PENDING狀態檢查）
+// 检查预约是否已过期（只对 PENDING 状态检查）
     if (appointment.status === 'PENDING') {
       const now = new Date();
       const chinaTime = new Date(now.getTime() + (8 * 60 * 60 * 1000));
@@ -75,7 +75,7 @@ export async function PUT(request: NextRequest) {
       
       if (appointmentDateTime >= chinaTime) {
         return NextResponse.json(
-          { error: '只能標記已過期的預約為爽約' },
+  { error: '只能标记已过期的预约为爽约' },
           { status: 400 }
         );
       }
@@ -83,26 +83,26 @@ export async function PUT(request: NextRequest) {
 
     // 開始事務處理
     const result = await prisma.$transaction(async (tx) => {
-      // 更新預約狀態為爽約
+// 更新预约状态为爽约
       const updatedAppointment = await tx.appointment.update({
         where: { id: appointmentId },
         data: { 
           status: 'NO_SHOW',
-          reason: '醫生確認爽約'
+  reason: '医生确认爽约'
         }
       });
 
-      // 寫入預約歷史記錄
+// 写入预约历史记录
       await createAppointmentHistoryInTransaction(tx, {
         appointmentId,
         operatorName: session.user.name || session.user.username || 'Unknown',
         operatorId: session.user.id,
         status: 'NO_SHOW',
-        reason: '醫生確認爽約',
+  reason: '医生确认爽约',
         action: 'MARK_NO_SHOW',
       });
 
-      // 扣除病人5分
+// 扣除病人5分
       const updatedPatient = await tx.patient.update({
         where: { id: appointment.patient.id },
         data: {
@@ -112,7 +112,7 @@ export async function PUT(request: NextRequest) {
         }
       });
 
-      // 記錄審計日誌
+// 记录审计日志
       await createAuditLog(
         session,
         'MARK_NO_SHOW',
@@ -135,15 +135,15 @@ export async function PUT(request: NextRequest) {
     });
 
     return NextResponse.json({
-      message: '已成功標記為爽約',
+  message: '已成功标记为爽约',
       appointment: result.appointment,
       patientScore: result.patient.credibilityScore
     });
 
   } catch (error) {
-    console.error('標記爽約錯誤:', error);
+  console.error('标记爽约错误:', error);
     return NextResponse.json(
-      { error: '標記爽約時發生錯誤' },
+  { error: '标记爽约时发生错误' },
       { status: 500 }
     );
   }

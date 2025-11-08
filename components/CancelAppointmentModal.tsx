@@ -23,29 +23,29 @@ export default function CancelAppointmentModal({ isOpen, info, onClose, onConfir
     <div className="mobile-dialog-overlay" aria-modal="true" role="dialog">
       <div className="mobile-dialog">
         <div className="mobile-dialog-header">
-          <h3 className="mobile-dialog-title">確認取消預約</h3>
+          <h3 className="mobile-dialog-title">确认取消预约</h3>
           <button 
             onClick={onClose} 
             className="mobile-dialog-close-btn mobile-dialog-close" 
-            aria-label="關閉" 
+            aria-label="关闭" 
             disabled={isProcessing}
           >
             ×
           </button>
         </div>
         <div className="mobile-dialog-content">
-          <p className="mobile-dialog-text">將取消 {info.patientName} 的預約。</p>
+          <p className="mobile-dialog-text">将取消 {info.patientName} 的预约。</p>
           <div className="mobile-dialog-details mobile-dialog-appointment-info">
             <div className="mobile-dialog-detail-row mobile-dialog-info-row">
               <span className="mobile-dialog-detail-label mobile-dialog-label">日期</span>
               <span className="mobile-dialog-detail-value mobile-dialog-value">{info.date}</span>
             </div>
             <div className="mobile-dialog-detail-row mobile-dialog-info-row">
-              <span className="mobile-dialog-detail-label mobile-dialog-label">時間</span>
+              <span className="mobile-dialog-detail-label mobile-dialog-label">时间</span>
               <span className="mobile-dialog-detail-value mobile-dialog-value">{info.time}</span>
             </div>
             <div className="mobile-dialog-detail-row mobile-dialog-info-row">
-              <span className="mobile-dialog-detail-label mobile-dialog-label">診室</span>
+              <span className="mobile-dialog-detail-label mobile-dialog-label">诊室</span>
               <span className="mobile-dialog-detail-value mobile-dialog-value">{info.roomName}</span>
             </div>
             <div className="mobile-dialog-detail-row mobile-dialog-info-row">
@@ -66,7 +66,7 @@ export default function CancelAppointmentModal({ isOpen, info, onClose, onConfir
               className="mobile-dialog-confirm-btn" 
               disabled={isProcessing}
             >
-              {isProcessing ? '處理中...' : '確認取消'}
+              {isProcessing ? '处理中...' : '确认取消'}
             </button>
           </div>
         </div>

@@ -1,5 +1,5 @@
 // scripts/find-expired-pending.js
-// 查找所有「已過期但仍為待就診(PENDING)」的預約，輸出關鍵信息用於排查
+// 查找所有「已过期但仍为待就诊(PENDING)」的预约，输出关键信息用于排查
 
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();

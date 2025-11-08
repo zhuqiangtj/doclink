@@ -15,7 +15,7 @@ async function checkAppointmentStatus() {
     });
     
     if (appointment) {
-      console.log('預約詳情：', {
+console.log('预约详情：', {
         id: appointment.id,
         patient: appointment.patient.user.name,
         doctor: appointment.doctor.user.name,
@@ -26,11 +26,11 @@ async function checkAppointmentStatus() {
         room: appointment.room.name
       });
     } else {
-      console.log('預約已被刪除或不存在');
+console.log('预约已被删除或不存在');
     }
     
   } catch (error) {
-    console.error('檢查預約狀態時發生錯誤：', error);
+console.error('检查预约状态时发生错误：', error);
   } finally {
     await prisma.$disconnect();
   }

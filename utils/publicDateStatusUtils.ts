@@ -30,7 +30,7 @@ export async function fetchPublicDateStatusesForMonth(
     const overviewData = await overviewRes.json();
     const scheduledDates: string[] = overviewData.scheduledDates || [];
 
-    // 對每一天抓取詳情（包含各時段與appointments計數）
+// 对每一天抓取详情（包含各时段与 appointments 计数）
     const detailedSchedulesData: { [dateString: string]: Schedule[] } = {};
     const detailPromises = scheduledDates.map(async (dateStr) => {
       const detailsRes = await fetch(`/api/public/schedules?doctorId=${doctorId}&date=${dateStr}`);

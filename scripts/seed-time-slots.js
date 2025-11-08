@@ -4,7 +4,7 @@ const prisma = new PrismaClient();
 
 // 預設時間段模板
 const DEFAULT_TIME_SLOTS = [
-  // 上午時段
+// 上午时段
   {
     startTime: '08:00',
     endTime: '09:00',
@@ -29,7 +29,7 @@ const DEFAULT_TIME_SLOTS = [
     bedCount: 2,
     type: 'MORNING'
   },
-  // 下午時段
+// 下午时段
   {
     startTime: '13:30',
     endTime: '14:30',
@@ -61,7 +61,7 @@ async function seedTimeSlots() {
       }
     });
 
-    console.log(`找到 ${schedules.length} 個排班記錄`);
+console.log(`找到 ${schedules.length} 个排班记录`);
 
     for (const schedule of schedules) {
       // 如果該排班還沒有時間段，則添加預設時間段
@@ -105,7 +105,7 @@ if (require.main === module) {
       process.exit(0);
     })
     .catch((error) => {
-      console.error('腳本執行失敗:', error);
+console.error('脚本执行失败:', error);
       process.exit(1);
     });
 }

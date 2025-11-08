@@ -13,7 +13,7 @@ export async function GET(request: Request, { params }: { params: { id: string }
   const { id: appointmentId } = await params;
 
   try {
-    // 首先驗證預約是否存在，並檢查權限
+// 首先验证预约是否存在，并检查权限
     const appointment = await prisma.appointment.findUnique({
       where: { id: appointmentId },
       include: {
@@ -26,7 +26,7 @@ export async function GET(request: Request, { params }: { params: { id: string }
       return NextResponse.json({ error: 'Appointment not found' }, { status: 404 });
     }
 
-    // 權限檢查：只有相關的醫生、病人或管理員可以查看歷史記錄
+// 权限检查：只有相关的医生、病人或管理员可以查看历史记录
     let hasPermission = false;
 
     if (session.user.role === 'ADMIN') {
@@ -45,11 +45,11 @@ export async function GET(request: Request, { params }: { params: { id: string }
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
-    // 獲取歷史記錄
+// 获取历史记录
     const history = await getAppointmentHistory(appointmentId);
 
-    // 格式化返回數據，包含預約基本信息
-    // 若歷史記錄中缺少已取消條目，但當前狀態為已取消，則補齊一條回退記錄（用於兼容早期數據）
+// 格式化返回数据，包含预约基本信息
+// 若历史记录中缺少已取消条目，但当前状态为已取消，则补齐一条回退记录（用于兼容早期数据）
     const hasCancelledHistory = history.some(h => h.status === 'CANCELLED');
     const normalizedHistory = hasCancelledHistory || appointment.status !== 'CANCELLED'
       ? history
@@ -60,7 +60,7 @@ export async function GET(request: Request, { params }: { params: { id: string }
             operatorName: '系統',
             operatedAt: new Date(),
             status: 'CANCELLED',
-            reason: appointment.reason || '已取消',
+reason: appointment.reason || '已取消',
             action: 'UPDATE_STATUS_TO_CANCELLED',
           } as any,
         ];

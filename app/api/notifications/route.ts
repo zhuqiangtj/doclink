@@ -27,7 +27,7 @@ export async function GET() {
       take: 50, // Limit to the last 50 notifications
     });
 
-    // 獲取預約詳細信息
+// 获取预约详细信息
     const notificationsWithAppointments = await Promise.all(
       notifications.map(async (notification) => {
         if (notification.appointmentId) {

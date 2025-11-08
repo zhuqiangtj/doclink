@@ -4,12 +4,12 @@ const prisma = new PrismaClient();
 
 async function testDoctorCancel() {
   try {
-    console.log('=== 測試醫生取消預約功能 ===\n');
+console.log('=== 测试医生取消预约功能 ===\n');
 
-    // 1. 創建一個測試預約
-    console.log('1. 創建測試預約...');
+// 1. 创建一个测试预约
+console.log('1. 创建测试预约...');
     
-    // 獲取一個病人和醫生
+// 获取一个病人和医生
     const patient = await prisma.patient.findFirst({
       include: { user: true }
     });
@@ -19,7 +19,7 @@ async function testDoctorCancel() {
     });
 
     if (!patient || !doctor) {
-      console.log('❌ 找不到病人或醫生資料');
+console.log('❌ 找不到病人或医生资料');
       return;
     }
 
@@ -41,7 +41,7 @@ async function testDoctorCancel() {
       return;
     }
 
-    // 創建測試預約
+// 创建测试预约
     const testAppointment = await prisma.appointment.create({
       data: {
         userId: patient.userId,
@@ -52,7 +52,7 @@ async function testDoctorCancel() {
         bedId: 1, // 添加必需的bedId字段
         time: '10:00',
         status: 'PENDING',
-        reason: '測試醫生取消功能'
+reason: '测试医生取消功能'
       },
       include: {
         patient: { include: { user: true } },
@@ -61,62 +61,62 @@ async function testDoctorCancel() {
       }
     });
 
-    console.log(`✅ 創建測試預約成功:`);
-    console.log(`   預約ID: ${testAppointment.id}`);
-    console.log(`   病人: ${testAppointment.patient.user.name}`);
-    console.log(`   醫生: ${testAppointment.doctor.user.name}`);
+console.log(`✅ 创建测试预约成功:`);
+  console.log(`   预约ID: ${testAppointment.id}`);
+  console.log(`   病人: ${testAppointment.patient.user.name}`);
+  console.log(`   医生: ${testAppointment.doctor.user.name}`);
     console.log(`   狀態: ${testAppointment.status}`);
 
-    // 2. 檢查病人當前信用分數
-    console.log('\n2. 檢查病人當前信用分數...');
+// 2. 检查病人当前信用分数
+console.log('\n2. 检查病人当前信用分数...');
     const patientBefore = await prisma.patient.findUnique({
       where: { id: patient.id },
       select: { credibilityScore: true }
     });
-    console.log(`   病人當前信用分數: ${patientBefore.credibilityScore}`);
+console.log(`   病人当前信用分数: ${patientBefore.credibilityScore}`);
 
-    // 3. 模擬醫生取消預約的API調用
-    console.log('\n3. 模擬醫生取消預約...');
+// 3. 模拟医生取消预约的 API 调用
+console.log('\n3. 模拟医生取消预约...');
     
-    // 這裡我們直接調用數據庫操作，模擬醫生取消的邏輯
+// 这里我们直接调用数据库操作，模拟医生取消的逻辑
     await prisma.$transaction(async (tx) => {
-      // 更新預約狀態
+// 更新预约状态
       await tx.appointment.update({
         where: { id: testAppointment.id },
         data: { 
           status: 'CANCELLED',
-          reason: '醫生取消預約'
+reason: '医生取消预约'
         }
       });
 
-      // 醫生取消不應該影響病人信用分數
-      console.log('   ✅ 預約已取消，醫生取消不扣除病人分數');
+// 医生取消不应该影响病人信用分数
+console.log('   ✅ 预约已取消，医生取消不扣除病人分数');
     });
 
-    // 4. 檢查病人取消後的信用分數
-    console.log('\n4. 檢查病人取消後的信用分數...');
+// 4. 检查病人取消后的信用分数
+console.log('\n4. 检查病人取消后的信用分数...');
     const patientAfter = await prisma.patient.findUnique({
       where: { id: patient.id },
       select: { credibilityScore: true }
     });
-    console.log(`   病人取消後信用分數: ${patientAfter.credibilityScore}`);
+console.log(`   病人取消后信用分数: ${patientAfter.credibilityScore}`);
 
-    // 5. 驗證分數沒有變化
+// 5. 验证分数没有变化
     if (patientBefore.credibilityScore === patientAfter.credibilityScore) {
-      console.log('   ✅ 驗證通過：醫生取消預約沒有扣除病人分數');
+console.log('   ✅ 验证通过：医生取消预约没有扣除病人分数');
     } else {
-      console.log('   ❌ 驗證失敗：病人分數發生了變化');
+console.log('   ❌ 验证失败：病人分数发生了变化');
     }
 
-    // 6. 檢查預約狀態
-    console.log('\n5. 檢查預約最終狀態...');
+// 6. 检查预约状态
+console.log('\n5. 检查预约最终状态...');
     const finalAppointment = await prisma.appointment.findUnique({
       where: { id: testAppointment.id },
       select: { status: true, reason: true }
     });
     
-    console.log(`   預約狀態: ${finalAppointment.status}`);
-    console.log(`   取消原因: ${finalAppointment.reason}`);
+console.log(`   预约状态: ${finalAppointment.status}`);
+console.log(`   取消原因: ${finalAppointment.reason}`);
 
     // 7. 清理測試數據
     console.log('\n6. 清理測試數據...');

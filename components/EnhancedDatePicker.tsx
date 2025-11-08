@@ -6,11 +6,11 @@ import './EnhancedDatePicker.css';
 
 export interface DateStatus {
   date: string; // YYYY-MM-DD format
-  hasSchedule: boolean; // 該日期是否有任何排班時段（不論是否過期）
-  hasAppointments: boolean; // 已預約數量是否大於 0（不論是否過期）
-  bookedBeds: number; // 當天已預約總數（所有時段）
-  totalBeds: number; // 當天總床位數（所有時段）
-  isPast: boolean; // 日期早於今天，或今日但所有時段已結束
+  hasSchedule: boolean; // 该日期是否有任何排班时段（不论是否过期）
+  hasAppointments: boolean; // 已预约数量是否大于 0（不论是否过期）
+  bookedBeds: number; // 当天已预约总数（所有时段）
+  totalBeds: number; // 当天总床位数（所有时段）
+  isPast: boolean; // 日期早于今天，或今日但所有时段已结束
 }
 
 interface EnhancedDatePickerProps {
@@ -161,7 +161,7 @@ const EnhancedDatePicker: React.FC<EnhancedDatePickerProps> = ({
     }
   };
 
-  // Get status indicator for a date：右下角始終顯示「已預約/總床位」
+  // Get status indicator for a date：右下角始终显示「已预约/总床位」
   const getStatusIndicator = (date: Date) => {
     const status = getDateStatus(date);
     if (!status || !status.hasSchedule) return null;
@@ -231,7 +231,7 @@ const EnhancedDatePicker: React.FC<EnhancedDatePickerProps> = ({
                 return (
                   <div className="schedule-summary-inline">
                     {status.isPast ? (
-                      <span className="past-notice">已過期</span>
+        <span className="past-notice">已过期</span>
                     ) : (
                       <span className="appointment-notice">
                         {status.bookedBeds}/{status.totalBeds}
@@ -240,7 +240,7 @@ const EnhancedDatePicker: React.FC<EnhancedDatePickerProps> = ({
                   </div>
                 );
               } else {
-                return <span className="no-schedule">無排班</span>;
+      return <span className="no-schedule">无排班</span>;
               }
             })()}
           </div>

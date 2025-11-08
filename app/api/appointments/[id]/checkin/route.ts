@@ -35,21 +35,21 @@ export async function POST(request: NextRequest, context: { params: { id: string
                       today.getMonth() === appointmentDate.getMonth() &&
                       today.getDate() === appointmentDate.getDate();
 
-    // 僅允許當天且當前狀態為 PENDING 的預約可報到
+// 仅允许当日且当前状态为 PENDING 的预约可报到
     if (appointment.status !== 'PENDING' || !isSameDay) {
         return NextResponse.json({ error: 'Check-in is not available for this appointment at this time.' }, { status: 400 });
     }
-    // 不再更新預約記錄的狀態為 CHECKED_IN，僅記錄報到行為
+// 不再更新预约记录的状态为 CHECKED_IN，仅记录报到行为
     const updatedAppointment = appointment;
 
-    // 創建預約歷史記錄
+// 创建预约历史记录
     await createAppointmentHistory({
       appointmentId: appointmentId,
       operatorName: session.user.name || session.user.username || 'Unknown',
       operatorId: session.user.id,
-      // 保留當前預約狀態（四狀態之一），只記錄報到行為
+// 保留当前预约状态（四状态之一），只记录报到行为
       status: appointment.status,
-      reason: '病人已報到',
+reason: '病人已报到',
       action: 'CHECKIN',
     });
 

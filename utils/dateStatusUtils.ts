@@ -21,10 +21,10 @@ interface Schedule {
 }
 
 /**
- * 轉換排班數據為日期狀態數據
+ * 转换排班数据为日期状态数据
  * @param highlightedDates 有排班的日期列表
- * @param schedulesData 所有排班數據（可選，用於獲取預約信息）
- * @returns DateStatus數組
+ * @param schedulesData 所有排班数据（可选，用于获取预约信息）
+ * @returns DateStatus 数组
  */
 export function convertToDateStatuses(
   highlightedDates: Date[],
@@ -38,9 +38,9 @@ export function convertToDateStatuses(
     const dateStr = formatDateToYYYYMMDD(date);
     const isDateBeforeToday = date < today;
 
-    // 獲取該日期的排班數據
+    // 获取该日期的排班数据
     const daySchedules = schedulesData?.[dateStr] || [];
-    // 按照需求：統計「當天所有時段」的數據（不論是否已過期）
+// 按照需求：统计「当天所有时段」的数据（不论是否已过期）
     const daySlots: TimeSlot[] = [];
     for (const schedule of daySchedules) {
       for (const slot of schedule.timeSlots) {
@@ -48,9 +48,9 @@ export function convertToDateStatuses(
       }
     }
 
-    // 計算當天總床位與已預約數量
-    // 需求：已預約數量為「所有時段的已預約總數」（不管是否過期）
-    // 使用 appointments.length 更精準地表達已預約數量
+// 计算当天总床位与已预约数量
+// 需求：已预约数量为「所有时段的已预约总数」（不管是否过期）
+// 使用 appointments.length 更精准地表达已预约数量
     let totalBeds = 0;
     let bookedBeds = 0;
     for (const slot of daySlots) {
@@ -60,11 +60,11 @@ export function convertToDateStatuses(
     }
 
     const hasAppointments = bookedBeds > 0;
-    // 若今日所有時段均已結束，或日期早於今天，視為「已過期」
-    // 這裡保留 isPast 的判定，但不影響統計的顯示（角標將始終顯示數字）
+// 若今日所有时段均已结束，或日期早于今天，视为「已过期」
+    // 这里保留 isPast 的判定，但不影响统计的显示（角标将始终显示数字）
     const allSlotsEndedToday = (() => {
       if (date.toDateString() !== today.toDateString()) return false;
-      // 若今日但所有槽位的結束時間均在「現在」之前，視為已過期
+// 若今日但所有槽位的结束时间均在「现在」之前，视为已过期
       if (daySlots.length === 0) return true;
       return daySlots.every(slot => {
         const slotEnd = new Date(`${dateStr}T${slot.endTime}:00`);
@@ -75,10 +75,10 @@ export function convertToDateStatuses(
 
     return {
       date: dateStr,
-      // 該日期只要存在任何時段，即視為「有排班」
+// 该日期只要存在任何时段，即视为「有排班」
       hasSchedule: daySlots.length > 0,
       hasAppointments,
-      // 將右下角標示為 已預約數量/總床位數
+// 将右下角标示为 已预约数量/总床位数
       bookedBeds,
       totalBeds,
       isPast,
@@ -87,10 +87,10 @@ export function convertToDateStatuses(
 }
 
 /**
- * 獲取指定月份的日期狀態數據
+ * 获取指定月份的日期状态数据
  * @param year 年份
  * @param month 月份 (0-11)
- * @param doctorId 醫生ID
+ * @param doctorId 医生 ID
  * @returns Promise<DateStatus[]>
  */
 export async function fetchDateStatusesForMonth(
@@ -101,23 +101,23 @@ export async function fetchDateStatusesForMonth(
   try {
     const monthStr = `${year}-${String(month + 1).padStart(2, '0')}`;
     
-    // 獲取該月份有排班的日期
+    // 获取该月份有排班的日期
     const schedulesRes = await fetch(`/api/schedules?month=${monthStr}`);
     if (!schedulesRes.ok) {
       throw new Error('Failed to fetch schedules');
     }
     const schedulesData = await schedulesRes.json();
     
-    // 轉換日期字符串為Date對象
+    // 转换日期字符串为 Date 对象
     const highlightedDates = schedulesData.scheduledDates.map((dateStr: string) => {
       const [y, m, d] = dateStr.split('-').map(Number);
       return new Date(y || 0, (m || 1) - 1, d || 1);
     });
 
-    // 獲取每個日期的詳細排班和預約信息
+    // 获取每个日期的详细排班和预约信息
     const detailedSchedulesData: { [dateString: string]: Schedule[] } = {};
     
-    // 批量獲取所有日期的詳細信息
+    // 批量获取所有日期的详细信息
     const detailPromises = schedulesData.scheduledDates.map(async (dateStr: string) => {
       try {
         const detailsRes = await fetch(`/api/schedules/details?date=${dateStr}`);
@@ -141,7 +141,7 @@ export async function fetchDateStatusesForMonth(
 }
 
 /**
- * 格式化日期為 YYYY-MM-DD 字符串
+ * 格式化日期为 YYYY-MM-DD 字符串
  */
 export function formatDateToYYYYMMDD(date: Date): string {
   const y = date.getFullYear();
@@ -151,7 +151,7 @@ export function formatDateToYYYYMMDD(date: Date): string {
 }
 
 /**
- * 從 YYYY-MM-DD 字符串創建Date對象
+ * 从 YYYY-MM-DD 字符串创建 Date 对象
  */
 export function parseDateFromYYYYMMDD(dateString: string): Date {
   const [y, m, d] = dateString.split('-').map(Number);
@@ -159,7 +159,7 @@ export function parseDateFromYYYYMMDD(dateString: string): Date {
 }
 
 /**
- * 檢查日期是否為今天
+ * 检查日期是否为今天
  */
 export function isToday(date: Date): boolean {
   const today = new Date();
@@ -167,7 +167,7 @@ export function isToday(date: Date): boolean {
 }
 
 /**
- * 檢查日期是否為過去
+ * 检查日期是否为过去
  */
 export function isPastDate(date: Date): boolean {
   const today = new Date();
