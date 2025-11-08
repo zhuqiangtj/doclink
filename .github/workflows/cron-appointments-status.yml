@@ -1,0 +1,22 @@
+name: appointments-status-cron
+
+on:
+  schedule:
+    - cron: "*/5 * * * *" # Runs every 5 minutes (UTC)
+  workflow_dispatch:
+
+jobs:
+  trigger-status-update:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Call appointments status endpoint
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          TARGET_URL="https://doclinkany.info/api/appointments/status"
+          if [ -z "$CRON_SECRET" ]; then
+            echo "ERROR: secrets.CRON_SECRET is not set (must match Vercel project's CRON_SECRET)";
+            exit 1;
+          fi
+          echo "Pinging: $TARGET_URL"
+          curl -sS -X GET "$TARGET_URL" -H "Authorization: Bearer $CRON_SECRET" || exit 1
