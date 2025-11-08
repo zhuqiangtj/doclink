@@ -19,4 +19,14 @@ jobs:
             exit 1;
           fi
           echo "Pinging: $TARGET_URL"
-          curl -sS -X GET "$TARGET_URL" -H "Authorization: Bearer $CRON_SECRET" || exit 1
+          # Follow redirects (-L), retry transient failures, and capture HTTP status
+          HTTP_CODE=$(curl -sS -o /tmp/resp.json -w "%{http_code}" -L --retry 3 --retry-delay 5 \
+            -H "Authorization: Bearer $CRON_SECRET" \
+            -H "Accept: application/json" \
+            "$TARGET_URL")
+          echo "HTTP Status: $HTTP_CODE"
+          cat /tmp/resp.json || true
+          if [ "$HTTP_CODE" -lt 200 ] || [ "$HTTP_CODE" -ge 300 ]; then
+            echo "Request failed with HTTP $HTTP_CODE";
+            exit 1;
+          fi
