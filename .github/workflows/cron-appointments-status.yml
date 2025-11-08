@@ -13,18 +13,21 @@ jobs:
         env:
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
         run: |
-          TARGET_URL="https://doclinkany.info/api/appointments/status"
+          # 使用 www 域名避免 apex -> www 重定向導致 Authorization 丟失
+          TARGET_URL="https://www.doclinkany.info/api/appointments/status"
           if [ -z "$CRON_SECRET" ]; then
             echo "ERROR: secrets.CRON_SECRET is not set (must match Vercel project's CRON_SECRET)";
             exit 1;
           fi
           echo "Pinging: $TARGET_URL"
           # Follow redirects (-L), retry transient failures, and capture HTTP status
-          HTTP_CODE=$(curl -sS -o /tmp/resp.json -w "%{http_code}" -L --retry 3 --retry-delay 5 \
+          HTTP_CODE=$(curl -sS -o /tmp/resp.json -w "%{http_code}" -L --retry 3 --retry-delay 5 -D /tmp/headers.txt \
             -H "Authorization: Bearer $CRON_SECRET" \
             -H "Accept: application/json" \
             "$TARGET_URL")
           echo "HTTP Status: $HTTP_CODE"
+          echo "Response headers:"
+          cat /tmp/headers.txt || true
           cat /tmp/resp.json || true
           if [ "$HTTP_CODE" -lt 200 ] || [ "$HTTP_CODE" -ge 300 ]; then
             echo "Request failed with HTTP $HTTP_CODE";
