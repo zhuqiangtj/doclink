@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, FormEvent, useMemo } from 'react';
 import { useSession } from 'next-auth/react';
+import CancelAppointmentModal from '../../../components/CancelAppointmentModal';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 import './mobile.css';
@@ -141,6 +142,19 @@ export default function DoctorSchedulePage() {
   const [deletingSlots, setDeletingSlots] = useState<Set<string>>(new Set());
   // 注意：統一使用 savingTimeSlots 來追蹤各時段的保存狀態
   const [savingSlots, setSavingSlots] = useState<Set<string>>(new Set());
+  // 取消預約模態框狀態
+  const [showCancelDialog, setShowCancelDialog] = useState(false);
+  const [cancelLoading, setCancelLoading] = useState(false);
+  const [selectedAppointmentForCancel, setSelectedAppointmentForCancel] = useState<{
+    appointmentId: string;
+    scheduleId: string;
+    slotIndex: number;
+    patientName: string;
+    date: string;
+    time: string;
+    roomName: string;
+    credibilityScore?: number | null;
+  } | null>(null);
 
   const getSlotValue = (scheduleId: string, slotIndex: number, field: 'startTime' | 'endTime' | 'bedCount' | 'type' | 'roomId', originalValue: any) => {
     const key = `${scheduleId}-${slotIndex}`;
@@ -700,31 +714,51 @@ export default function DoctorSchedulePage() {
     }
   };
 
-  const handleDeleteAppointment = async (appointmentId: string, scheduleId: string, slotIndex: number, patientName: string) => {
-    if (!confirm(`確定要取消 ${patientName} 的預約嗎？`)) {
-      return;
-    }
+  // 開啟取消預約模態框
+  const openCancelDialog = (appointment: Appointment, schedule: Schedule, slotIndex: number) => {
+    setSelectedAppointmentForCancel({
+      appointmentId: appointment.id,
+      scheduleId: schedule.id,
+      slotIndex,
+      patientName: appointment.patient.user.name,
+      date: schedule.date,
+      time: appointment.time,
+      roomName: schedule.room.name,
+      credibilityScore: appointment.patient.credibilityScore ?? null,
+    });
+    setShowCancelDialog(true);
+  };
 
+  const closeCancelDialog = () => {
+    if (cancelLoading) return;
+    setShowCancelDialog(false);
+    setSelectedAppointmentForCancel(null);
+  };
+
+  const confirmCancelAppointment = async () => {
+    if (!selectedAppointmentForCancel) return;
+    setCancelLoading(true);
     try {
-      const response = await fetch(`/api/appointments?appointmentId=${appointmentId}`, {
+      const response = await fetch(`/api/appointments?appointmentId=${selectedAppointmentForCancel.appointmentId}`, {
         method: 'DELETE'
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
+        const errorData = await response.json().catch(() => ({}));
         throw new Error(errorData.error || '取消預約失敗');
       }
 
       setSchedulesForSelectedDay(
         prev => 
           prev.map(schedule => {
-            if (schedule.id === scheduleId) {
+            if (schedule.id === selectedAppointmentForCancel.scheduleId) {
               const updatedTimeSlots = [...schedule.timeSlots];
-              updatedTimeSlots[slotIndex] = {
-                ...updatedTimeSlots[slotIndex],
-                availableBeds: updatedTimeSlots[slotIndex].availableBeds + 1,
-                appointments: updatedTimeSlots[slotIndex].appointments.filter(
-                  appointment => appointment.id !== appointmentId
+              const idx = selectedAppointmentForCancel.slotIndex;
+              updatedTimeSlots[idx] = {
+                ...updatedTimeSlots[idx],
+                availableBeds: updatedTimeSlots[idx].availableBeds + 1,
+                appointments: updatedTimeSlots[idx].appointments.filter(
+                  appointment => appointment.id !== selectedAppointmentForCancel.appointmentId
                 )
               };
               return { ...schedule, timeSlots: updatedTimeSlots };
@@ -733,10 +767,14 @@ export default function DoctorSchedulePage() {
           })
       );
 
-      setSuccess(`已成功取消 ${patientName} 的預約`);
+      setShowCancelDialog(false);
+      setSelectedAppointmentForCancel(null);
+      setSuccess(`已成功取消 ${selectedAppointmentForCancel.patientName} 的預約`);
       setTimeout(() => setSuccess(null), 3000);
     } catch (error) {
       setError(error instanceof Error ? error.message : '取消預約失敗');
+    } finally {
+      setCancelLoading(false);
     }
   };
 
@@ -1201,7 +1239,7 @@ export default function DoctorSchedulePage() {
                               </div>
                               {!isPast && appointment.status === 'PENDING' && (
                                 <button
-                                  onClick={() => handleDeleteAppointment(appointment.id, schedule.id, index, appointment.patient.user.name)}
+                                  onClick={() => openCancelDialog(appointment, schedule, index)}
                                   className="mobile-patient-delete-btn-inline"
                                   title="取消預約"
                                 >
@@ -1431,6 +1469,22 @@ export default function DoctorSchedulePage() {
             </div>
           </div>
         </div>
+      )}
+
+      {showCancelDialog && selectedAppointmentForCancel && (
+        <CancelAppointmentModal
+          isOpen={showCancelDialog}
+          info={{
+            patientName: selectedAppointmentForCancel.patientName,
+            credibilityScore: selectedAppointmentForCancel.credibilityScore ?? null,
+            date: formatDate(selectedAppointmentForCancel.date),
+            time: selectedAppointmentForCancel.time,
+            roomName: selectedAppointmentForCancel.roomName,
+          }}
+          onClose={closeCancelDialog}
+          onConfirm={confirmCancelAppointment}
+          isProcessing={cancelLoading}
+        />
       )}
 
       {isAddTimeSlotModalOpen && (

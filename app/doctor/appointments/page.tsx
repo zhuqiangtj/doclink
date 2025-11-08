@@ -7,6 +7,7 @@ import { FaCalendarAlt, FaHospital, FaFilter, FaChevronLeft, FaChevronRight, FaT
 import './mobile.css';
 import { getStatusText } from '../../../utils/statusText';
 import AppointmentHistoryModal from '../../../components/AppointmentHistoryModal';
+import CancelAppointmentModal from '../../../components/CancelAppointmentModal';
 
 // --- Interfaces ---
 interface Patient {
@@ -95,6 +96,9 @@ export default function DoctorAppointmentsPage() {
   const [showNoShowDialog, setShowNoShowDialog] = useState(false);
   const [selectedAppointmentForNoShow, setSelectedAppointmentForNoShow] = useState<Appointment | null>(null);
   const [noShowLoading, setNoShowLoading] = useState(false);
+  const [showCancelDialog, setShowCancelDialog] = useState(false);
+  const [selectedAppointmentForCancel, setSelectedAppointmentForCancel] = useState<Appointment | null>(null);
+  const [cancelLoading, setCancelLoading] = useState(false);
   
   // --- History Modal States ---
   const [showHistoryModal, setShowHistoryModal] = useState(false);
@@ -267,13 +271,22 @@ export default function DoctorAppointmentsPage() {
     }
   }, [unreadNotifications]);
 
-  const handleCancelAppointment = async (appointmentId: string, patientName: string) => {
-    if (!confirm(`確定要取消 ${patientName} 的預約嗎？`)) {
-      return;
-    }
+  const openCancelDialog = (appointment: Appointment) => {
+    setSelectedAppointmentForCancel(appointment);
+    setShowCancelDialog(true);
+  };
 
+  const closeCancelDialog = () => {
+    if (cancelLoading) return; // 處理中時禁止關閉
+    setShowCancelDialog(false);
+    setSelectedAppointmentForCancel(null);
+  };
+
+  const confirmCancelAppointment = async () => {
+    if (!selectedAppointmentForCancel) return;
     try {
-      const response = await fetch(`/api/appointments?appointmentId=${appointmentId}`, {
+      setCancelLoading(true);
+      const response = await fetch(`/api/appointments?appointmentId=${selectedAppointmentForCancel.id}`, {
         method: 'DELETE'
       });
 
@@ -282,14 +295,15 @@ export default function DoctorAppointmentsPage() {
         throw new Error(errorData.error || '取消預約失敗');
       }
 
-      const result = await response.json();
-
-      // 重新獲取預約列表以確保數據同步
+      await response.json();
       await fetchAppointments();
-      setSuccess(`已成功取消 ${patientName} 的預約`);
+      setSuccess(`已成功取消 ${selectedAppointmentForCancel.patient.user.name} 的預約`);
       setTimeout(() => setSuccess(null), 3000);
+      closeCancelDialog();
     } catch (error) {
       setError(error instanceof Error ? error.message : '取消預約失敗');
+    } finally {
+      setCancelLoading(false);
     }
   };
 
@@ -613,7 +627,7 @@ export default function DoctorAppointmentsPage() {
                 
                 {apt.status === 'PENDING' && (
                   <button 
-                    onClick={() => handleCancelAppointment(apt.id, apt.patient.user.name)}
+                    onClick={() => openCancelDialog(apt)}
                     className="mobile-cancel-appointment-btn"
                   >
                     取消預約
@@ -727,6 +741,23 @@ export default function DoctorAppointmentsPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* 取消預約模態框 */}
+      {showCancelDialog && (
+        <CancelAppointmentModal
+          isOpen={showCancelDialog}
+          info={selectedAppointmentForCancel ? {
+            patientName: selectedAppointmentForCancel.patient.user.name,
+            credibilityScore: selectedAppointmentForCancel.patient.credibilityScore,
+            date: selectedAppointmentForCancel.date,
+            time: selectedAppointmentForCancel.time,
+            roomName: selectedAppointmentForCancel.room.name,
+          } : null}
+          onClose={closeCancelDialog}
+          onConfirm={confirmCancelAppointment}
+          isProcessing={cancelLoading}
+        />
       )}
 
       {/* 歷史記錄模態框 */}
