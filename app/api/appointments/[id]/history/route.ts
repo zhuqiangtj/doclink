@@ -49,6 +49,22 @@ export async function GET(request: Request, { params }: { params: { id: string }
     const history = await getAppointmentHistory(appointmentId);
 
     // 格式化返回數據，包含預約基本信息
+    // 若歷史記錄中缺少已取消條目，但當前狀態為已取消，則補齊一條回退記錄（用於兼容早期數據）
+    const hasCancelledHistory = history.some(h => h.status === 'CANCELLED');
+    const normalizedHistory = hasCancelledHistory || appointment.status !== 'CANCELLED'
+      ? history
+      : [
+          ...history,
+          {
+            id: `synthetic-${appointment.id}-cancelled`,
+            operatorName: '系統',
+            operatedAt: new Date(),
+            status: 'CANCELLED',
+            reason: appointment.reason || '已取消',
+            action: 'UPDATE_STATUS_TO_CANCELLED',
+          } as any,
+        ];
+
     const response = {
       appointment: {
         id: appointment.id,
@@ -59,7 +75,7 @@ export async function GET(request: Request, { params }: { params: { id: string }
         doctorName: appointment.doctor.user.name,
         createTime: appointment.createTime
       },
-      history: history.map(record => ({
+      history: normalizedHistory.map(record => ({
         id: record.id,
         operatorName: record.operatorName,
         operatedAt: record.operatedAt,

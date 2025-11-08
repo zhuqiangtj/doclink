@@ -34,16 +34,16 @@ export async function GET() {
     const appointments = await prisma.appointment.findMany({
       where: whereClause,
       include: {
-        patient: { include: { user: { select: { name: true } } } },
+        patient: { select: { credibilityScore: true, user: { select: { name: true } } } },
         doctor: { include: { user: { select: { name: true } } } },
         room: { select: { name: true } },
         schedule: { select: { date: true } }, // Get date from schedule
-        timeSlot: { 
-          select: { 
-            startTime: true, 
-            endTime: true, 
-            type: true 
-          } 
+        timeSlot: {
+          select: {
+            startTime: true,
+            endTime: true,
+            type: true
+          }
         },
       },
       orderBy: {
@@ -72,8 +72,10 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
   }
 
+  // 將請求體解析移到 try 外，避免在 catch 中引用未定義變量導致再次拋錯
+  const { userId, patientId, doctorId, timeSlotId, roomId } = await request.json();
+
   try {
-    const { userId, patientId, doctorId, timeSlotId, roomId } = await request.json();
 
     // Authorization check: Patients can only book for themselves. Doctors can book for any patient.
     if (session.user.role === 'PATIENT' && session.user.id !== userId) {
@@ -85,6 +87,14 @@ export async function POST(request: Request) {
     }
 
     const result = await prisma.$transaction(async (tx) => {
+      // 驗證病人積分，積分小於或等於 0 無法預約
+      const patientProfile = await tx.patient.findUnique({ where: { id: patientId } });
+      if (!patientProfile) {
+        throw new Error('Patient profile not found.');
+      }
+      if ((patientProfile.credibilityScore ?? 0) <= 0) {
+        throw new Error('病人积分不足，无法预约');
+      }
       // 獲取時間段信息並檢查可用性
       const timeSlot = await tx.timeSlot.findUnique({
         where: { id: timeSlotId },
@@ -185,6 +195,7 @@ export async function POST(request: Request) {
     return NextResponse.json(result, { status: 201 });
 
   } catch (error) {
+    // 確保不會因為引用未定義變量而在錯誤處理時再次拋出異常
     console.error('Error creating appointment:', {
       error: error instanceof Error ? error.message : error,
       stack: error instanceof Error ? error.stack : undefined,
@@ -201,6 +212,8 @@ export async function POST(request: Request) {
       message === 'Time slot not found.' ? 404 :
       message === 'This time slot is not active.' ? 400 :
       message === 'This time slot is fully booked.' ? 400 :
+      message === '病人积分不足，无法预约' ? 400 :
+      message === 'Patient profile not found.' ? 404 :
       500;
     return NextResponse.json({ error: message }, { status });
   }

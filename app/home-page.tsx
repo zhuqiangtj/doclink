@@ -413,7 +413,7 @@ export default function PatientScheduleHome() {
             <div className="mobile-modal-info">时段：{confirmBookingData.slot.startTime} - {confirmBookingData.slot.endTime}</div>
             <div className="mobile-modal-info">床位：余 {Math.max(0, confirmBookingData.slot.availableBeds)} / 总 {confirmBookingData.slot.bedCount}</div>
             <div className="mobile-modal-actions">
-              <button className="mobile-modal-btn mobile-modal-btn-cancel" onClick={() => { setIsConfirmOpen(false); setConfirmBookingData(null); }}>
+              <button className="mobile-modal-btn mobile-modal-btn-cancel" onClick={() => { if (isConfirmSubmitting) return; setIsConfirmOpen(false); setConfirmBookingData(null); }} disabled={isConfirmSubmitting}>
                 取消
               </button>
               <button className="mobile-modal-btn mobile-modal-btn-confirm" onClick={confirmBooking} disabled={isConfirmSubmitting}>

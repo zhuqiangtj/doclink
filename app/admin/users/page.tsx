@@ -42,6 +42,7 @@ export default function AdminUsersPage() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'all' | 'doctors' | 'patients' | 'admins'>('all');
+  const [isSubmitting, setIsSubmitting] = useState(false);
   
   // --- Modal States ---
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -128,6 +129,7 @@ export default function AdminUsersPage() {
   };
 
   const closeModal = () => {
+    if (isSubmitting) return;
     setIsModalOpen(false);
     setSelectedUser(null);
     setError(null);
@@ -139,6 +141,7 @@ export default function AdminUsersPage() {
     e.preventDefault();
     setError(null);
     setSuccess(null);
+    setIsSubmitting(true);
 
     const url = modalMode === 'add' ? '/api/users' : `/api/users?userId=${selectedUser?.id}`;
     const method = modalMode === 'add' ? 'POST' : 'PUT';
@@ -176,6 +179,8 @@ export default function AdminUsersPage() {
       closeModal();
     } catch (err) {
       setError(err instanceof Error ? err.message : '发生未知错误');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -335,8 +340,8 @@ export default function AdminUsersPage() {
               )}
 
               <div className="mobile-modal-actions">
-                <button type="button" onClick={closeModal} className="mobile-cancel-btn">取消</button>
-                <button type="submit" className="mobile-save-btn">保存</button>
+                <button type="button" onClick={closeModal} className="mobile-cancel-btn" disabled={isSubmitting}>取消</button>
+                <button type="submit" className="mobile-save-btn" disabled={isSubmitting}>{isSubmitting ? '保存中…' : '保存'}</button>
               </div>
             </form>
           </div>

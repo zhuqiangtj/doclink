@@ -332,6 +332,17 @@
   box-sizing: border-box;
 }
 
+/* 未到診整卡高亮：背景與文字顏色顯著區分 */
+.mobile-appointment-card.status-no-show {
+  background: #fff1f2;              /* 更亮的淡紅背景 */
+  border-left: 4px solid #ef4444;    /* 左側紅色強提示 */
+}
+.mobile-appointment-card.status-no-show .mobile-patient-name,
+.mobile-appointment-card.status-no-show .mobile-detail-label,
+.mobile-appointment-card.status-no-show .mobile-detail-value {
+  color: #7f1d1d; /* 深紅文字，與普通狀態區分 */
+}
+
 .mobile-appointment-header {
   display: flex;
   justify-content: space-between;
@@ -387,9 +398,13 @@
   color: #991b1b;
 }
 
-.status-no-show {
-  background: #f3f4f6;
-  color: #374151;
+/* 未到診狀態徽章：前景與背景更醒目 */
+.mobile-status-badge.status-no-show {
+  background: #fee2e2; /* 淡紅背景 */
+  color: #b91c1c;      /* 深紅文字 */
+  font-weight: 700;
+  border: 1px solid #fca5a5;
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.6);
 }
 
 .status-default {
@@ -765,6 +780,11 @@
   border-color: #9ca3af;
 }
 
+.mobile-dialog-cancel-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 .mobile-dialog-confirm-btn {
   flex: 1;
   background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
@@ -786,6 +806,11 @@
 
 .mobile-dialog-confirm-btn:disabled {
   opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.mobile-dialog-close:disabled {
+  opacity: 0.5;
   cursor: not-allowed;
 }
 

@@ -39,6 +39,7 @@ export default function DoctorRoomsPage() {
   const [showModal, setShowModal] = useState(false);
   const [modalMode, setModalMode] = useState<'add' | 'edit'>('add');
   const [selectedRoom, setSelectedRoom] = useState<Room | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // --- Effects ---
   // Auth check and initial data load
@@ -84,6 +85,7 @@ export default function DoctorRoomsPage() {
   };
 
   const closeModal = () => {
+    if (isSubmitting) return;
     setShowModal(false);
     setSelectedRoom(null);
     setRoomName('');
@@ -96,6 +98,7 @@ export default function DoctorRoomsPage() {
     if (!roomName || bedCount < 1 || !doctorProfile) return;
     setError(null);
     setSuccess(null);
+    setIsSubmitting(true);
 
     try {
       if (modalMode === 'add') {
@@ -134,6 +137,8 @@ export default function DoctorRoomsPage() {
       closeModal();
     } catch (err) {
       setError(err instanceof Error ? err.message : '发生未知错误');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -251,11 +256,11 @@ export default function DoctorRoomsPage() {
               </div>
             </form>
             <div className="mobile-modal-actions">
-              <button type="button" onClick={closeModal} className="mobile-cancel-btn">
+              <button type="button" onClick={closeModal} className="mobile-cancel-btn" disabled={isSubmitting}>
                 取消
               </button>
-              <button type="submit" onClick={handleSubmit} className="mobile-save-btn">
-                {modalMode === 'add' ? '添加' : '保存'}
+              <button type="submit" onClick={handleSubmit} className="mobile-save-btn" disabled={isSubmitting}>
+                {isSubmitting ? '处理中…' : (modalMode === 'add' ? '添加' : '保存')}
               </button>
             </div>
           </div>

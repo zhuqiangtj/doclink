@@ -39,6 +39,7 @@ export default function AdminRoomsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   
   // --- Modal States ---
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -99,6 +100,7 @@ export default function AdminRoomsPage() {
   };
 
   const closeModal = () => {
+    if (isSubmitting) return;
     setIsModalOpen(false);
     setSelectedRoom(null);
     setError(null);
@@ -110,6 +112,7 @@ export default function AdminRoomsPage() {
     e.preventDefault();
     setError(null);
     setSuccess(null);
+    setIsSubmitting(true);
 
     if (!selectedDoctorId) {
       setError('请为诊室选择一位医生。');
@@ -141,6 +144,8 @@ export default function AdminRoomsPage() {
       closeModal();
     } catch (err) {
       setError(err instanceof Error ? err.message : '发生未知错误');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -238,8 +243,8 @@ export default function AdminRoomsPage() {
               </div>
 
               <div className="mobile-modal-actions">
-                <button type="button" onClick={closeModal} className="mobile-cancel-btn">取消</button>
-                <button type="submit" className="mobile-save-btn">保存</button>
+                <button type="button" onClick={closeModal} className="mobile-cancel-btn" disabled={isSubmitting}>取消</button>
+                <button type="submit" className="mobile-save-btn" disabled={isSubmitting}>{isSubmitting ? '保存中…' : '保存'}</button>
               </div>
             </form>
           </div>

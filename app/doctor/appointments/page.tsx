@@ -12,6 +12,7 @@ import AppointmentHistoryModal from '../../../components/AppointmentHistoryModal
 interface Patient {
   user: { name: string };
   birthDate?: string;
+  credibilityScore?: number;
 }
 
 interface Doctor {
@@ -348,6 +349,8 @@ export default function DoctorAppointmentsPage() {
 
   // 關閉爽約確認對話框
   const closeNoShowDialog = () => {
+    // 處理中時不可關閉對話框
+    if (noShowLoading) return;
     setShowNoShowDialog(false);
     setSelectedAppointmentForNoShow(null);
   };
@@ -559,13 +562,18 @@ export default function DoctorAppointmentsPage() {
       <div className="mobile-content-card">
         <div className="mobile-appointments-list">
           {paginatedAppointments.length > 0 ? paginatedAppointments.map(apt => (
-            <div key={apt.id} className="mobile-appointment-card">
+            <div key={apt.id} className={`mobile-appointment-card ${getActualStatus(apt) === 'NO_SHOW' ? 'status-no-show' : ''}`}>
               <div className="mobile-appointment-header">
                 <div className="mobile-patient-info">
                   <h3 className="mobile-patient-name">{apt.patient.user.name}</h3>
-                  <span className="mobile-patient-age">
-                    {calculateAge(apt.patient.birthDate)}
-                  </span>
+                  <div className="flex items-center gap-2">
+                    {apt.patient.birthDate && (
+                      <span className="mobile-patient-age">
+                        {calculateAge(apt.patient.birthDate)}
+                      </span>
+                    )}
+                    <span className="text-xs text-gray-600">積分：{apt.patient.credibilityScore ?? '未知'}</span>
+                  </div>
                 </div>
                 <span className={`mobile-status-badge ${getStatusColor(getActualStatus(apt))}`}>
                   {getStatusText(getActualStatus(apt))}
@@ -666,6 +674,7 @@ export default function DoctorAppointmentsPage() {
               <button 
                 onClick={closeNoShowDialog}
                 className="mobile-dialog-close"
+                disabled={noShowLoading}
               >
                 <FaTimes />
               </button>
@@ -704,6 +713,7 @@ export default function DoctorAppointmentsPage() {
               <button 
                 onClick={closeNoShowDialog}
                 className="mobile-dialog-cancel-btn"
+                disabled={noShowLoading}
               >
                 取消
               </button>

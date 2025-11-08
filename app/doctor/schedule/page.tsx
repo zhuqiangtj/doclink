@@ -6,6 +6,8 @@ import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 import './mobile.css';
 import './mobile-overrides.css';
+import '../appointments/mobile.css';
+import { getStatusText } from '../../../utils/statusText';
 import { FaTrash, FaSave, FaUserPlus, FaPlusCircle } from 'react-icons/fa';
 import EnhancedDatePicker, { DateStatus } from '../../../components/EnhancedDatePicker';
 import { fetchDateStatusesForMonth } from '../../../utils/dateStatusUtils';
@@ -15,7 +17,7 @@ interface Room { id: string; name: string; bedCount: number; }
 interface DoctorProfile { id: string; name: string; Room: Room[]; }
 interface Appointment { 
   id: string; 
-  patient: { user: { name: string } }; 
+  patient: { user: { name: string }, credibilityScore?: number }; 
   user: { name: string; role: string }; 
   status: string; 
   time: string;
@@ -39,7 +41,7 @@ interface Schedule {
   room: Room;
   timeSlots: TimeSlot[];
 }
-interface PatientSearchResult { id: string; userId: string; name: string; username: string; }
+interface PatientSearchResult { id: string; userId: string; name: string; username: string; credibilityScore?: number; }
 
 const DEFAULT_TIMES = ["08:00", "09:00", "10:00", "11:00", "14:00", "15:00", "16:00"];
 
@@ -64,6 +66,17 @@ const toYYYYMMDD = (date: Date): string => {
 const fromYYYYMMDD = (dateString: string): Date => {
   const parts = dateString.split('-').map(part => parseInt(part, 10));
   return new Date(parts[0], parts[1] - 1, parts[2]);
+};
+
+// 將 YYYY-MM-DD 字串格式化為本地日期顯示
+const formatDate = (dateString: string): string => {
+  try {
+    const d = fromYYYYMMDD(dateString);
+    if (isNaN(d.getTime())) return dateString;
+    return d.toLocaleDateString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit' });
+  } catch {
+    return dateString;
+  }
 };
 
 // 判斷時間點是否已過
@@ -108,6 +121,8 @@ export default function DoctorSchedulePage() {
   const [success, setSuccess] = useState<string | null>(null);
   const [isTemplateModalOpen, setIsTemplateModalOpen] = useState(false);
   const [selectedRoomIdForTemplate, setSelectedRoomIdForTemplate] = useState<string>('');
+  const [isTemplateApplying, setIsTemplateApplying] = useState(false);
+  const [isAddingTimeSlot, setIsAddingTimeSlot] = useState(false);
   const [modifiedTimeSlots, setModifiedTimeSlots] = useState<Set<string>>(new Set());
   const [savingTimeSlots, setSavingTimeSlots] = useState<Set<string>>(new Set());
   const [activeRoomTab, setActiveRoomTab] = useState<string>('');
@@ -228,7 +243,7 @@ export default function DoctorSchedulePage() {
 
   const handleApplyTemplate = async () => {
     if (!selectedRoomIdForTemplate) return;
-    
+    setIsTemplateApplying(true);
     setIsLoading(true);
     setError(null);
     
@@ -331,7 +346,13 @@ export default function DoctorSchedulePage() {
       setError('Error applying template.');
     } finally {
       setIsLoading(false);
+      setIsTemplateApplying(false);
     }
+  };
+
+  const closeTemplateModal = () => {
+    if (isTemplateApplying) return;
+    setIsTemplateModalOpen(false);
   };
 
   const handleSaveTimeSlot = async (scheduleId: string, slotIndex: number) => {
@@ -478,6 +499,7 @@ export default function DoctorSchedulePage() {
     let addedOk = false;
     try {
       setIsLoading(true);
+      setIsAddingTimeSlot(true);
       setError(null);
 
       // 自動推斷時段類型：12:00 之前為上午，之後為下午
@@ -567,6 +589,7 @@ export default function DoctorSchedulePage() {
       setError(error instanceof Error ? error.message : '新增時段失敗');
     } finally {
       setIsLoading(false);
+      setIsAddingTimeSlot(false);
       // 保險措施：如成功，確保模態框已關閉且表單重置
       if (addedOk) {
         setIsAddTimeSlotModalOpen(false);
@@ -575,11 +598,21 @@ export default function DoctorSchedulePage() {
     }
   };
 
+  const closeAddTimeSlotModal = () => {
+    if (isAddingTimeSlot) return;
+    setIsAddTimeSlotModalOpen(false);
+    setNewTimeSlotData({ startTime: '', endTime: '', bedCount: '' });
+  };
+
   const handleBookingSubmit = async (e: FormEvent) => {
     e.preventDefault();
     
     if (!selectedPatient || !selectedScheduleForBooking || selectedSlotIndexForBooking === null || !doctorProfile) {
       setError('Please select patient and time slot');
+      return;
+    }
+    if ((selectedPatient.credibilityScore ?? 0) <= 0) {
+      setError('該病人積分小於或等於 0，無法預約');
       return;
     }
     
@@ -632,11 +665,14 @@ export default function DoctorSchedulePage() {
               updatedTimeSlots[selectedSlotIndexForBooking] = {
                 ...updatedTimeSlots[selectedSlotIndexForBooking],
                 availableBeds: updatedTimeSlots[selectedSlotIndexForBooking].availableBeds - 1,
-                appointments: [
+                  appointments: [
                   ...updatedTimeSlots[selectedSlotIndexForBooking].appointments,
                   {
                     id: `temp-${Date.now()}`,
-                    patient: { user: { name: selectedPatient.name } },
+                    patient: { 
+                      user: { name: selectedPatient.name },
+                      credibilityScore: selectedPatient.credibilityScore
+                    },
                     user: { name: doctorProfile?.name || session?.user?.name || '醫生', role: 'DOCTOR' },
                     status: 'PENDING',
                     time: selectedTimeSlot.startTime,
@@ -704,11 +740,41 @@ export default function DoctorSchedulePage() {
     }
   };
 
-  const handleMarkNoShow = async (appointmentId: string, scheduleId: string, slotIndex: number, patientName: string) => {
-    if (!confirm(`確認將 ${patientName} 標記為爽約嗎？病人將扣除 5 分信用分。`)) {
-      return;
-    }
+  // 爽約確認對話框狀態與操作
+  const [showNoShowDialog, setShowNoShowDialog] = useState(false);
+  const [selectedAppointmentForNoShow, setSelectedAppointmentForNoShow] = useState<{
+    appointmentId: string;
+    scheduleId: string;
+    slotIndex: number;
+    patientName: string;
+    date: string;
+    time: string;
+    roomName: string;
+    credibilityScore?: number;
+  } | null>(null);
+  const [noShowLoading, setNoShowLoading] = useState(false);
 
+  const openNoShowDialog = (appointment: Appointment, schedule: Schedule, slotIndex: number) => {
+    setSelectedAppointmentForNoShow({
+      appointmentId: appointment.id,
+      scheduleId: schedule.id,
+      slotIndex,
+      patientName: appointment.patient.user.name,
+      date: schedule.date,
+      time: appointment.time,
+      roomName: schedule.room.name,
+      credibilityScore: appointment.patient.credibilityScore,
+    });
+    setShowNoShowDialog(true);
+  };
+
+  const closeNoShowDialog = () => {
+    if (noShowLoading) return;
+    setShowNoShowDialog(false);
+    setSelectedAppointmentForNoShow(null);
+  };
+
+  const handleMarkNoShow = async (appointmentId: string, scheduleId: string, slotIndex: number, patientName: string) => {
     try {
       const response = await fetch(`/api/appointments/${appointmentId}/no-show`, {
         method: 'POST'
@@ -728,7 +794,15 @@ export default function DoctorSchedulePage() {
                 ...updatedTimeSlots[slotIndex],
                 appointments: updatedTimeSlots[slotIndex].appointments.map(
                   appointment => appointment.id === appointmentId 
-                    ? { ...appointment, status: 'NO_SHOW' } 
+                    ? { 
+                        ...appointment, 
+                        status: 'NO_SHOW',
+                        // 前端即時更新病人積分，與後端扣除5分保持一致
+                        patient: {
+                          ...appointment.patient,
+                          credibilityScore: ((appointment.patient.credibilityScore ?? 0) - 5)
+                        }
+                      } 
                     : appointment
                 )
               };
@@ -737,6 +811,12 @@ export default function DoctorSchedulePage() {
             return schedule;
           })
       );
+
+      // 同步更新對話框中顯示的積分（若仍在顯示）
+      setSelectedAppointmentForNoShow(prev => prev ? { 
+        ...prev, 
+        credibilityScore: ((prev.credibilityScore ?? 0) - 5) 
+      } : prev);
 
       setSuccess(`已標記 ${patientName} 為爽約並扣分`);
       setTimeout(() => setSuccess(null), 3000);
@@ -1096,21 +1176,14 @@ export default function DoctorSchedulePage() {
                             : `${schedule.date} ${appointment.time}`;
 
                           const statusKey = appointment.status === 'CONFIRMED' ? 'PENDING' : appointment.status;
-                          const statusText = statusKey === 'PENDING'
-                            ? '待就診'
-                            : statusKey === 'COMPLETED'
-                            ? '已完成'
-                            : statusKey === 'CANCELLED'
-                            ? '已取消'
-                            : statusKey === 'NO_SHOW'
-                            ? '已爽約'
-                            : appointment.status;
+                          const statusText = getStatusText(statusKey);
                           const statusClassKey = statusKey.toLowerCase().replace('_', '-');
 
                           return (
-                            <div key={apptIndex} className="mobile-patient-item-inline">
+                            <div key={apptIndex} className={`mobile-patient-item-inline ${statusKey === 'NO_SHOW' ? 'mobile-status-no-show' : ''}`}>
                               <div className="mobile-patient-info-inline">
                                 <span className="mobile-patient-name-inline">{appointment.patient.user.name}</span>
+                                <span className="ml-2 text-xs text-gray-600">積分：{appointment.patient.credibilityScore ?? '未知'}</span>
                                 <span className="mobile-patient-details-inline">
                                   操作時間：{operatedAtString} 操作員：{
                                     // 使用歷史記錄的操作者，否則依據 reason 與當前醫生資訊推斷
@@ -1140,7 +1213,7 @@ export default function DoctorSchedulePage() {
                               )}
                               {isPast && appointment.status !== 'NO_SHOW' && appointment.status !== 'CANCELLED' && (
                                 <button
-                                  onClick={() => handleMarkNoShow(appointment.id, schedule.id, index, appointment.patient.user.name)}
+                                  onClick={() => openNoShowDialog(appointment, schedule, index)}
                                   className="mobile-patient-delete-btn-inline"
                                   title="標記爽約"
                                 >
@@ -1200,8 +1273,9 @@ export default function DoctorSchedulePage() {
             <div className="mobile-modal-footer">
               <button 
                 type="button" 
-                onClick={() => setIsTemplateModalOpen(false)} 
+                onClick={closeTemplateModal} 
                 className="mobile-btn mobile-btn-secondary flex-1"
+                disabled={isTemplateApplying}
               >
                 取消
               </button>
@@ -1212,9 +1286,9 @@ export default function DoctorSchedulePage() {
                     ? 'mobile-btn-primary' 
                     : 'mobile-btn-disabled'
                 }`}
-                disabled={!doctorProfile?.Room || doctorProfile.Room.length === 0}
+                disabled={isTemplateApplying || !doctorProfile?.Room || doctorProfile.Room.length === 0}
               >
-                套用
+                {isTemplateApplying ? '套用中…' : '套用'}
               </button>
             </div>
           </div>
@@ -1265,6 +1339,7 @@ export default function DoctorSchedulePage() {
                         className="mobile-search-item"
                       >
                         {patient.name} ({patient.username})
+                        <span className="ml-2 text-xs text-gray-600">積分：{patient.credibilityScore ?? '未知'}</span>
                       </button>
                     ))}
                   </div>
@@ -1275,26 +1350,84 @@ export default function DoctorSchedulePage() {
                 <div className="mobile-selected-patient">
                   <div className="text-sm text-gray-600">已選擇患者:</div>
                   <div className="font-medium">{selectedPatient.name} ({selectedPatient.username})</div>
+                  <div className="text-sm mt-1">積分：{selectedPatient.credibilityScore ?? '未知'}</div>
+                  {((selectedPatient.credibilityScore ?? 0) <= 0) && (
+                    <div className="text-xs text-red-600 mt-1">該病人積分為 0 或以下，無法預約</div>
+                  )}
                 </div>
               )}
             </form>
             <div className="mobile-modal-footer">
               <button
                 type="button"
-                onClick={() => setIsBookingModalOpen(false)}
+                onClick={() => { if (isBookingSubmitting) return; setIsBookingModalOpen(false); }}
                 className="mobile-btn mobile-btn-secondary flex-1"
+                disabled={isBookingSubmitting}
               >
                 取消
               </button>
               <button
                 type="submit"
                 form="bookingForm"
-                disabled={!selectedPatient || isBookingSubmitting}
+                disabled={!selectedPatient || isBookingSubmitting || ((selectedPatient?.credibilityScore ?? 0) <= 0)}
                 className="mobile-btn mobile-btn-primary flex-1 disabled:opacity-50 disabled:cursor-not-allowed"
                 aria-busy={isBookingSubmitting}
               >
                 {isBookingSubmitting ? '確認中…' : '確認預約'}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showNoShowDialog && selectedAppointmentForNoShow && (
+        <div className="mobile-dialog-overlay">
+          <div className="mobile-dialog">
+            <div className="mobile-dialog-header">
+              <h3 className="mobile-dialog-title">確認標記爽約</h3>
+              <button onClick={closeNoShowDialog} className="mobile-dialog-close-btn" aria-label="關閉" disabled={noShowLoading}>×</button>
+            </div>
+            <div className="mobile-dialog-content">
+              <p className="mobile-dialog-text">將標記 {selectedAppointmentForNoShow.patientName} 爽約並扣除信用分。</p>
+              <div className="mobile-dialog-details">
+                <div className="mobile-dialog-detail-row">
+                  <span className="mobile-dialog-detail-label">日期</span>
+                  <span className="mobile-dialog-detail-value">{formatDate(selectedAppointmentForNoShow.date)}</span>
+                </div>
+                <div className="mobile-dialog-detail-row">
+                  <span className="mobile-dialog-detail-label">時間</span>
+                  <span className="mobile-dialog-detail-value">{selectedAppointmentForNoShow.time}</span>
+                </div>
+                <div className="mobile-dialog-detail-row">
+                  <span className="mobile-dialog-detail-label">診室</span>
+                  <span className="mobile-dialog-detail-value">{selectedAppointmentForNoShow.roomName}</span>
+                </div>
+                <div className="mobile-dialog-detail-row">
+                  <span className="mobile-dialog-detail-label">病人信用分</span>
+                  <span className="mobile-dialog-detail-value">{selectedAppointmentForNoShow.credibilityScore ?? '—'}</span>
+                </div>
+              </div>
+              <div className="mobile-dialog-actions">
+                <button className="mobile-btn-secondary" onClick={closeNoShowDialog} disabled={noShowLoading}>取消</button>
+                <button
+                  className="mobile-dialog-confirm-btn"
+                  onClick={async () => {
+                    if (!selectedAppointmentForNoShow) return;
+                    setNoShowLoading(true);
+                    await handleMarkNoShow(
+                      selectedAppointmentForNoShow.appointmentId,
+                      selectedAppointmentForNoShow.scheduleId,
+                      selectedAppointmentForNoShow.slotIndex,
+                      selectedAppointmentForNoShow.patientName
+                    );
+                    setNoShowLoading(false);
+                    closeNoShowDialog();
+                  }}
+                  disabled={noShowLoading}
+                >
+                  {noShowLoading ? '提交中…' : '確認標記爽約'}
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -1367,24 +1500,22 @@ export default function DoctorSchedulePage() {
             </div>
             <div className="mobile-modal-footer">
               <button
-                  type="button"
-                  onClick={() => {
-                    setIsAddTimeSlotModalOpen(false);
-                    setNewTimeSlotData({ startTime: '', endTime: '', bedCount: '' });
-                  }}
-                  className="mobile-btn mobile-btn-outline flex-1"
-                >
-                  取消
-                </button>
-                <button
-                  type="button"
-                  onClick={handleAddTimeSlot}
-                  disabled={isLoading || !selectedRoomIdForTemplate || !newTimeSlotData.startTime || !newTimeSlotData.endTime || !newTimeSlotData.bedCount || (newTimeSlotData.endTime <= newTimeSlotData.startTime)}
-                  className="mobile-btn mobile-btn-success flex-1 disabled:opacity-50 disabled:cursor-not-allowed"
-                  aria-busy={isLoading}
-                >
-                  {isLoading ? '提交中…' : '新增時段'}
-                </button>
+                type="button"
+                onClick={closeAddTimeSlotModal}
+                className="mobile-btn mobile-btn-outline flex-1"
+                disabled={isAddingTimeSlot}
+              >
+                取消
+              </button>
+              <button
+                type="button"
+                onClick={handleAddTimeSlot}
+                disabled={isAddingTimeSlot || !selectedRoomIdForTemplate || !newTimeSlotData.startTime || !newTimeSlotData.endTime || !newTimeSlotData.bedCount || (newTimeSlotData.endTime <= newTimeSlotData.startTime)}
+                className="mobile-btn mobile-btn-success flex-1 disabled:opacity-50 disabled:cursor-not-allowed"
+                aria-busy={isAddingTimeSlot}
+              >
+                {isAddingTimeSlot ? '提交中…' : '新增時段'}
+              </button>
             </div>
           </div>
         </div>

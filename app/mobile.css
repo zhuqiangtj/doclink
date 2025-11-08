@@ -353,6 +353,10 @@
 .mobile-modal-btn-cancel:hover {
   background: #d1d5db;
 }
+.mobile-modal-btn-cancel:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
 
 .mobile-modal-btn-confirm {
   background: #3b82f6;
@@ -361,6 +365,10 @@
 
 .mobile-modal-btn-confirm:hover {
   background: #2563eb;
+}
+.mobile-modal-btn-confirm:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 /* Loading state */

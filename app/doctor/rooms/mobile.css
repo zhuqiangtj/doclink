@@ -401,6 +401,13 @@ body {
   color: var(--text-primary);
 }
 
+.mobile-cancel-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  background: #e5e7eb;
+  color: #9ca3af;
+}
+
 .mobile-save-btn {
   flex: 1;
   padding: var(--spacing-sm) var(--spacing-md);
@@ -420,6 +427,12 @@ body {
   background: var(--primary-hover);
   transform: translateY(-1px);
   box-shadow: var(--shadow-md);
+}
+
+.mobile-save-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  background: #93c5fd;
 }
 
 .mobile-cancel-btn:active,

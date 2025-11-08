@@ -19,6 +19,7 @@ export function getActionText(action: string): string {
     UPDATE_STATUS_TO_COMPLETED: '更新為已完成',
     UPDATE_STATUS_TO_CANCELLED: '更新為已取消',
     UPDATE_STATUS_TO_NO_SHOW: '更新為未到診',
+    CANCEL_APPOINTMENT: '取消預約',
     CHECKIN: '病人報到',
     MARK_NO_SHOW: '標記未到診',
   };

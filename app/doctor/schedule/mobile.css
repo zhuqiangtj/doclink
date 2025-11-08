@@ -219,6 +219,12 @@ body {
   transform: translateY(-1px);
 }
 
+/* Dialog close button disabled state */
+.mobile-dialog-close-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 /* 圖標按鈕 */
 .mobile-icon-btn {
   display: flex;

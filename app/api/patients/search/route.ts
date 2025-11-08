@@ -48,6 +48,7 @@ export async function GET(request: Request) {
       },
       select: {
         id: true,
+        credibilityScore: true,
         user: {
           select: {
             id: true, // User ID is needed for creating the appointment
@@ -65,6 +66,7 @@ export async function GET(request: Request) {
       userId: p.user.id, // This is the User ID
       username: p.user.username,
       name: p.user.name,
+      credibilityScore: p.credibilityScore,
     }));
 
     return NextResponse.json(formattedPatients);

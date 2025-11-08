@@ -51,10 +51,11 @@ export async function GET(request: Request) {
                 status: { not: 'CANCELLED' }
               },
               include: {
-                patient: { 
-                  select: { 
-                    user: { select: { name: true } } 
-                  } 
+                patient: {
+                  select: {
+                    credibilityScore: true,
+                    user: { select: { name: true } }
+                  }
                 },
                 user: { select: { name: true, role: true } },
                 history: {

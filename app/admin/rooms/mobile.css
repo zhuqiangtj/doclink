@@ -322,6 +322,13 @@
   background: #e5e7eb;
 }
 
+.mobile-cancel-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  background: #e5e7eb;
+  color: #9ca3af;
+}
+
 .mobile-save-btn {
   flex: 1;
   padding: 0.75rem;
@@ -338,6 +345,12 @@
 
 .mobile-save-btn:hover {
   background: #2563eb;
+}
+
+.mobile-save-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  background: #93c5fd;
 }
 
 .mobile-cancel-btn:active,
