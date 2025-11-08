@@ -3,6 +3,7 @@ import "./globals.css";
 import Providers from "./providers";
 import BottomNav from "@/components/BottomNav";
 import SessionLogger from "@/components/SessionLogger";
+import PatientCreditBadge from "@/components/PatientCreditBadge";
 
 export const metadata: Metadata = {
   title: "DocLink",
@@ -20,6 +21,8 @@ export default function RootLayout({
       >
         <Providers>
           <SessionLogger />
+          {/* 患者右上角积分徽标（仅在患者角色显示） */}
+          <PatientCreditBadge />
           <main className="pb-20">{children}</main>
           <BottomNav />
         </Providers>

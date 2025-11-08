@@ -31,6 +31,9 @@ export default function BottomNav() {
   const pathname = usePathname();
   const [unreadCount, setUnreadCount] = useState(0);
 
+  // 在認證相關頁面（登入/註冊）判斷，於所有 Hooks 之後再決定是否渲染
+  const isAuthPage = !!(pathname && pathname.startsWith('/auth'));
+
   useEffect(() => {
     if (session?.user?.role === 'DOCTOR') {
       const fetchUnreadCount = async () => {
@@ -79,7 +82,7 @@ export default function BottomNav() {
     return null; // Don't show nav while loading
   }
 
-  if (status !== 'authenticated' || !session) {
+  if (isAuthPage || status !== 'authenticated' || !session) {
     return null; // Don't show nav if not logged in
   }
 

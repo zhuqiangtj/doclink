@@ -44,7 +44,8 @@
 .selected-date-inline .selected-date-text {
   font-size: 14px;
   font-weight: 600;
-  color: #ffd700;
+  /* 選中日期文字調整為淺紅色系 */
+  color: #fca5a5; /* red-300 */
 }
 
 .schedule-summary-inline {
@@ -195,7 +196,8 @@
 /* 選中日期的hover效果 */
 .enhanced-date-cell.selected:hover {
   transform: scale(1.12) !important;
-  box-shadow: 0 0 0 4px rgba(245, 158, 11, 0.6), 0 12px 24px rgba(245, 158, 11, 0.4) !important;
+  /* hover 光暈改為紅色系 */
+  box-shadow: 0 0 0 4px rgba(220, 38, 38, 0.5), 0 12px 24px rgba(220, 38, 38, 0.35) !important; /* red-600 */
 }
 
 .date-number {
@@ -223,11 +225,12 @@
 }
 
 .enhanced-date-cell.selected {
-  border-color: #f59e0b !important;
-  background: linear-gradient(135deg, #fbbf24, #f59e0b) !important;
-  color: #ffffff !important;
+  /* 選中日期改為淺紅色背景與邊框 */
+  border-color: #ef4444 !important; /* red-500 */
+  background: linear-gradient(135deg, #fecaca, #fca5a5) !important; /* red-200 -> red-300 */
+  color: #7f1d1d !important; /* red-900 文本，保證可讀性 */
   font-weight: 800 !important;
-  box-shadow: 0 0 0 4px rgba(245, 158, 11, 0.4), 0 8px 20px rgba(245, 158, 11, 0.3) !important;
+  box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.3), 0 8px 20px rgba(239, 68, 68, 0.25) !important; /* red-500 */
   transform: scale(1.1) !important;
   z-index: 10;
   position: relative;

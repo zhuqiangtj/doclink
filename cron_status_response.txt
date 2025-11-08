@@ -1,0 +1,36 @@
+HTTP/1.1 307 Temporary Redirect
+Date: Sat, 08 Nov 2025 05:25:04 GMT
+Content-Type: application/json
+Transfer-Encoding: chunked
+Connection: keep-alive
+Cache-Control: public, max-age=0, must-revalidate
+location: https://www.doclinkany.info/api/appointments/status
+Server: cloudflare
+strict-transport-security: max-age=63072000
+x-vercel-id: fra1::w9589-1762579504764-125b1cbcb29e
+cf-cache-status: DYNAMIC
+Nel: {"report_to":"cf-nel","success_fraction":0.0,"max_age":604800}
+Report-To: {"group":"cf-nel","max_age":604800,"endpoints":[{"url":"https://a.nel.cloudflare.com/report/v4?s=AKVHTq7i8mMvaxoFLb9xMJrFIXLYmCve4slcbrxVDmw3%2FCvQncAcliEHf0Yd4950oDCDJqNiXiIY2pFuFKkA0OrBGWFiM06jGET8Ojqm%2Bw%3D%3D"}]}
+CF-RAY: 99b2a5d0afcf882b-FRA
+alt-svc: h3=":443"; ma=86400
+
+HTTP/1.1 401 Unauthorized
+Date: Sat, 08 Nov 2025 05:25:06 GMT
+Content-Type: application/json
+Transfer-Encoding: chunked
+Connection: keep-alive
+Age: 0
+Cache-Control: public, max-age=0, must-revalidate
+Server: cloudflare
+strict-transport-security: max-age=63072000
+vary: rsc, next-router-state-tree, next-router-prefetch, next-router-segment-prefetch
+x-matched-path: /api/appointments/status
+x-vercel-cache: MISS
+x-vercel-id: fra1::iad1::gps7z-1762579506000-bc82b1ae0c1d
+cf-cache-status: DYNAMIC
+Nel: {"report_to":"cf-nel","success_fraction":0.0,"max_age":604800}
+Report-To: {"group":"cf-nel","max_age":604800,"endpoints":[{"url":"https://a.nel.cloudflare.com/report/v4?s=PM54pyrsgE5ek4eMwarOVw40a9Og2R9GoY5%2FgZtFl4Un%2FSzbYbXRZmGLIyWh6204OsEV6kOpCVath0ksXTsWYrynKa4gL3WiBm9NkUoPfWX65rM%3D"}]}
+CF-RAY: 99b2a5d8686aa401-FRA
+alt-svc: h3=":443"; ma=86400
+
+{"error":"Unauthorized","requestId":"4161fd7d-7327-4007-a573-d910d4477bc2"}

@@ -129,7 +129,6 @@ export default function AdminUsersPage() {
   };
 
   const closeModal = () => {
-    if (isSubmitting) return;
     setIsModalOpen(false);
     setSelectedUser(null);
     setError(null);
@@ -150,7 +149,7 @@ export default function AdminUsersPage() {
     if (modalMode === 'add') {
       Object.assign(body, { username, name, phone, dateOfBirth, gender, password, role });
     } else if (modalMode === 'edit') {
-      Object.assign(body, { username, name, phone, dateOfBirth, gender, role, credibilityScore, isSuspended });
+      Object.assign(body, { username, name, phone, dateOfBirth, gender, role, credibilityScore });
     } else if (modalMode === 'reset_password') {
       Object.assign(body, { password: '123456' }); // Default password for reset
     }
@@ -241,7 +240,7 @@ export default function AdminUsersPage() {
                   {user.phone && <p className="mobile-user-detail">电话: {user.phone}</p>}
                   {user.dateOfBirth && <p className="mobile-user-detail">年龄: {calculateAge(user.dateOfBirth)}</p>}
                   {user.gender && <p className="mobile-user-detail">性别: {genderMap[user.gender] || user.gender}</p>}
-                  {user.patientProfile && <p className="mobile-user-detail">患者 (信誉分: {user.patientProfile.credibilityScore}, 是否暂停: {user.patientProfile.isSuspended ? '是' : '否'})</p>}
+                  {user.patientProfile && <p className="mobile-user-detail">患者 (信誉分: {user.patientProfile.credibilityScore})</p>}
                 </div>
               </div>
               <div className="mobile-user-actions">
@@ -331,10 +330,6 @@ export default function AdminUsersPage() {
                   <div className="mobile-form-group">
                     <label className="mobile-form-label">信誉分</label>
                     <input type="number" value={credibilityScore} onChange={e => setCredibilityScore(parseInt(e.target.value))} className="mobile-form-input" />
-                  </div>
-                  <div className="mobile-checkbox-group">
-                    <input type="checkbox" checked={isSuspended} onChange={e => setIsSuspended(e.target.checked)} id="isSuspended" className="mobile-checkbox" />
-                    <label htmlFor="isSuspended" className="mobile-checkbox-label">是否暂停</label>
                   </div>
                 </>
               )}

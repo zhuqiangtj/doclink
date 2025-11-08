@@ -293,3 +293,50 @@ main {
   color: white !important;
   border-radius: 50% !important;
 }
+
+/* ========================= */
+/* 患者积分徽标（右上角固定） */
+/* ========================= */
+.patient-credit-badge {
+  position: fixed;
+  top: max(10px, env(safe-area-inset-top));
+  right: max(12px, env(safe-area-inset-right));
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: 999px;
+  font-weight: 700;
+  box-shadow: 0 6px 16px rgba(0,0,0,0.15);
+  z-index: 1000;
+  border: 2px solid rgba(255,255,255,0.8);
+}
+
+.patient-credit-badge .credit-label {
+  opacity: 0.9;
+}
+
+.patient-credit-badge .credit-value {
+  font-variant-numeric: tabular-nums;
+}
+
+/* 色系映射 */
+.patient-credit-badge.credit-good {
+  background: linear-gradient(135deg, #22c55e, #16a34a); /* green-500/600 */
+  color: #ffffff;
+}
+
+.patient-credit-badge.credit-medium {
+  background: linear-gradient(135deg, #f59e0b, #d97706); /* amber-500/600 */
+  color: #ffffff;
+}
+
+.patient-credit-badge.credit-low {
+  background: linear-gradient(135deg, #ef4444, #dc2626); /* red-500/600 */
+  color: #ffffff;
+}
+
+.patient-credit-badge.credit-neutral {
+  background: linear-gradient(135deg, #9ca3af, #6b7280); /* gray-400/500 */
+  color: #ffffff;
+}

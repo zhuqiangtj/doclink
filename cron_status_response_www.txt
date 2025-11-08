@@ -1,0 +1,20 @@
+HTTP/1.1 500 Internal Server Error
+Date: Sat, 08 Nov 2025 05:26:42 GMT
+Content-Type: application/json
+Transfer-Encoding: chunked
+Connection: keep-alive
+Cache-Control: public, max-age=0, must-revalidate
+Server: cloudflare
+strict-transport-security: max-age=63072000
+vary: rsc, next-router-state-tree, next-router-prefetch, next-router-segment-prefetch
+x-matched-path: /api/appointments/status
+x-request-id: 88e03902-8fae-4b3d-b179-0cb8ac7fd171
+x-vercel-cache: BYPASS
+x-vercel-id: fra1::iad1::n96c6-1762579602001-5cf654c0b6f7
+cf-cache-status: DYNAMIC
+Nel: {"report_to":"cf-nel","success_fraction":0.0,"max_age":604800}
+Report-To: {"group":"cf-nel","max_age":604800,"endpoints":[{"url":"https://a.nel.cloudflare.com/report/v4?s=nzXWwuc94ZBe9vT2ceorFrhivTZWmpTG7Sz%2FIXRl31fDiFviXvi%2BFz8369XVbLe0%2BBBdVQFOuWr8wuxxW265azHuZAswCKXP%2Bs7lzE0MWWno%2FAs%3D"}]}
+CF-RAY: 99b2a8307f29291b-FRA
+alt-svc: h3=":443"; ma=86400
+
+{"error":"Internal Server Error","requestId":"88e03902-8fae-4b3d-b179-0cb8ac7fd171"}

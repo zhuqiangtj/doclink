@@ -18,9 +18,17 @@
 
 /* Main container */
 .mobile-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  min-height: calc(100vh - 80px);
   padding: 1rem;
-  max-width: 100%;
+  background-color: var(--background);
+  width: 100%;
+  max-width: 1200px;
   margin: 0 auto;
+  padding-bottom: 100px; /* Account for bottom nav */
 }
 
 /* Header section */
@@ -29,6 +37,11 @@
   flex-direction: column;
   gap: 1rem;
   margin-bottom: 1.5rem;
+  width: 100%;
+  max-width: 600px !important; /* 與設置頁面一致的寬度 */
+  margin-left: auto;
+  margin-right: auto;
+  box-sizing: border-box;
 }
 
 .mobile-header {
@@ -89,6 +102,11 @@
   padding: 1rem;
   border-radius: 0.75rem;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  width: 100%;
+  max-width: 600px !important; /* 與設置頁面一致的寬度 */
+  margin-left: auto;
+  margin-right: auto;
+  box-sizing: border-box; /* 確保padding不影響總寬度 */
 }
 
 /* Tabs */
@@ -140,6 +158,7 @@
   display: flex;
   flex-direction: column;
   gap: 1rem;
+  width: 100%;
 }
 
 .mobile-user-item {
@@ -147,6 +166,8 @@
   border: 1px solid #e5e7eb;
   border-radius: 0.5rem;
   background: #f9fafb;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .mobile-user-info {
@@ -262,6 +283,8 @@
   /* 確保居中並只佔用必要空間 */
   align-self: center;
   justify-self: center;
+  max-height: 90vh;
+  overflow: hidden; /* 由內部表單區域滾動 */
 }
 
 @keyframes modalSlideIn {
@@ -286,11 +309,11 @@
 }
 
 .mobile-modal-form {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
   gap: 0.75rem;
   padding: 8px 12px;
-  flex: none;
+  flex: 1; /* 填滿剩餘空間，確保底部按鈕可見 */
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
 }
@@ -372,6 +395,23 @@
   padding: 8px 12px;
   border-top: 1px solid #e5e7eb;
   flex: none;
+  position: sticky; /* 讓操作區固定在可視區底部 */
+  bottom: 0;
+  background: white;
+  z-index: 1;
+  grid-column: 1 / -1; /* 跨越兩列 */
+}
+
+/* 讓某些寬內容跨列顯示 */
+.mobile-checkbox-group {
+  grid-column: 1 / -1;
+}
+
+/* 小屏幕回退為單列，避免過度擁擠 */
+@media (max-width: 380px) {
+  .mobile-modal-form {
+    grid-template-columns: 1fr;
+  }
 }
 
 .mobile-cancel-btn {
@@ -484,5 +524,20 @@
   
   .mobile-modal-actions {
     flex-direction: row;
+  }
+}
+
+/* 響應式寬度與設置頁面保持一致 */
+@media (min-width: 640px) {
+  .mobile-header-section,
+  .mobile-content-section {
+    max-width: 640px !important;
+  }
+}
+
+@media (min-width: 768px) {
+  .mobile-header-section,
+  .mobile-content-section {
+    max-width: 768px !important;
   }
 }

@@ -1,0 +1,20 @@
+HTTP/1.1 200 OK
+Date: Sat, 08 Nov 2025 06:13:32 GMT
+Content-Type: application/json
+Transfer-Encoding: chunked
+Connection: keep-alive
+Cache-Control: public, max-age=0, must-revalidate
+Report-To: {"group":"cf-nel","max_age":604800,"endpoints":[{"url":"https://a.nel.cloudflare.com/report/v4?s=vh2URV4RfwEUkXVD9tUp4Wo6JZq6VrLm5%2B70S5RfWd5tMMol%2F5QdYSSEUVRHpDi3xN%2BJpGrUXmT2JVFtphAPH6uWHNh2gAUxqR8V53LOnRZGxbg%3D"}]}
+Server: cloudflare
+strict-transport-security: max-age=63072000
+vary: rsc, next-router-state-tree, next-router-prefetch, next-router-segment-prefetch
+vary: accept-encoding
+x-matched-path: /api/appointments/status
+x-request-id: caa80f81-adf7-4a9c-a73b-d8aae87be35e
+x-vercel-cache: BYPASS
+x-vercel-id: fra1::iad1::jlqzh-1762582411786-547dfbd77d9f
+cf-cache-status: DYNAMIC
+Nel: {"report_to":"cf-nel","success_fraction":0.0,"max_age":604800}
+CF-RAY: 99b2ecc98c6c372c-FRA
+alt-svc: h3=":443"; ma=86400
+
