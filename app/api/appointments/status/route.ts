@@ -164,8 +164,8 @@ async function autoUpdateExpiredAppointments(context?: { requestId?: string }) {
         return undefined;
       }
     };
-    // 優先使用 Asia/Taipei 作為預設，避免本地時段字串（如 "08:00"）與 UTC 比較導致誤判
-    const tz = pickSafeTz(tzCandidate) || pickSafeTz('Asia/Taipei') || 'UTC';
+    // 在中國北京使用：優先 Asia/Shanghai，其次使用候選值，再回退 UTC
+    const tz = pickSafeTz(tzCandidate) || pickSafeTz('Asia/Shanghai') || 'UTC';
     console.log(`[appointments/status][auto] start reqId=${reqId} tzRaw=${tzRaw ?? 'undefined'} tz=${tz} at=${now.toISOString()}`);
 
     // 以指定時區生成 YYYY-MM-DD 與 HH:MM 字串，避免 Vercel UTC 造成誤判
