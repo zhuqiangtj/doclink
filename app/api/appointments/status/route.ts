@@ -147,9 +147,25 @@ export async function PUT(request: Request) {
 async function autoUpdateExpiredAppointments(context?: { requestId?: string }) {
   try {
     const now = new Date();
-    const tz = process.env.APP_TIMEZONE || process.env.TZ || 'Asia/Taipei';
     const reqId = context?.requestId || 'none';
-    console.log(`[appointments/status][auto] start reqId=${reqId} tz=${tz} at=${now.toISOString()}`);
+    // 時區解析：兼容像 ":UTC" 的值，並提供安全回退
+    const tzRaw = process.env.APP_TIMEZONE || process.env.TZ;
+    let tzCandidate = tzRaw?.trim();
+    if (tzCandidate?.startsWith(':')) {
+      tzCandidate = tzCandidate.slice(1);
+    }
+    const pickSafeTz = (candidate?: string): string | undefined => {
+      if (!candidate) return undefined;
+      try {
+        // 驗證候選時區是否為有效 IANA 名稱
+        new Intl.DateTimeFormat('en-US', { timeZone: candidate }).format(now);
+        return candidate;
+      } catch {
+        return undefined;
+      }
+    };
+    const tz = pickSafeTz(tzCandidate) || pickSafeTz('UTC') || 'Asia/Taipei';
+    console.log(`[appointments/status][auto] start reqId=${reqId} tzRaw=${tzRaw ?? 'undefined'} tz=${tz} at=${now.toISOString()}`);
 
     // 以指定時區生成 YYYY-MM-DD 與 HH:MM 字串，避免 Vercel UTC 造成誤判
     const today = new Intl.DateTimeFormat('en-CA', {
