@@ -1379,10 +1379,11 @@ export default function DoctorSchedulePage() {
                 <button
                   type="button"
                   onClick={handleAddTimeSlot}
-                  disabled={!selectedRoomIdForTemplate || !newTimeSlotData.startTime || !newTimeSlotData.endTime || !newTimeSlotData.bedCount || (newTimeSlotData.endTime <= newTimeSlotData.startTime)}
-                  className="mobile-btn mobile-btn-primary flex-1 disabled:opacity-50 disabled:cursor-not-allowed"
+                  disabled={isLoading || !selectedRoomIdForTemplate || !newTimeSlotData.startTime || !newTimeSlotData.endTime || !newTimeSlotData.bedCount || (newTimeSlotData.endTime <= newTimeSlotData.startTime)}
+                  className="mobile-btn mobile-btn-success flex-1 disabled:opacity-50 disabled:cursor-not-allowed"
+                  aria-busy={isLoading}
                 >
-                  新增時段
+                  {isLoading ? '提交中…' : '新增時段'}
                 </button>
             </div>
           </div>
