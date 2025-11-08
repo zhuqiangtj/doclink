@@ -144,10 +144,12 @@ export async function PUT(request: Request) {
 
 // POST - 自動更新過期預約狀態
 // 共享的自動更新邏輯，供 POST/GET 調用（兼容 Vercel Cron）
-async function autoUpdateExpiredAppointments() {
+async function autoUpdateExpiredAppointments(context?: { requestId?: string }) {
   try {
     const now = new Date();
     const tz = process.env.APP_TIMEZONE || process.env.TZ || 'Asia/Taipei';
+    const reqId = context?.requestId || 'none';
+    console.log(`[appointments/status][auto] start reqId=${reqId} tz=${tz} at=${now.toISOString()}`);
 
     // 以指定時區生成 YYYY-MM-DD 與 HH:MM 字串，避免 Vercel UTC 造成誤判
     const today = new Intl.DateTimeFormat('en-CA', {
@@ -190,12 +192,13 @@ async function autoUpdateExpiredAppointments() {
       },
     });
 
-    console.log(`Found ${expiredAppointments.length} expired appointments to update (tz=${tz}, today=${today}, time=${currentTime})`);
+    console.log(`[appointments/status][auto] found=${expiredAppointments.length} tz=${tz} today=${today} time=${currentTime} reqId=${reqId}`);
 
     if (expiredAppointments.length === 0) {
       return NextResponse.json({
         message: 'No expired appointments to update',
         updatedCount: 0,
+        requestId: reqId,
       });
     }
 
@@ -226,13 +229,16 @@ async function autoUpdateExpiredAppointments() {
       });
     }
 
+    console.log(`[appointments/status][auto] completed updatedCount=${expiredAppointments.length} reqId=${reqId}`);
     return NextResponse.json({
       message: `Updated ${expiredAppointments.length} expired appointments to COMPLETED status`,
       updatedCount: expiredAppointments.length,
+      requestId: reqId,
     });
   } catch (error) {
-    console.error('Error auto-updating appointment statuses:', error);
-    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+    const reqId = context?.requestId || 'none';
+    console.error(`[appointments/status][auto] error reqId=${reqId}:`, error);
+    return NextResponse.json({ error: 'Internal Server Error', requestId: reqId }, { status: 500 });
   }
 }
 
@@ -245,11 +251,24 @@ export async function POST() {
 export async function GET(request: Request) {
   const secret = process.env.CRON_SECRET;
   const authHeader = request.headers.get('authorization');
+  const reqId = (globalThis as any).crypto?.randomUUID?.() || Math.random().toString(36).slice(2);
+  const hasSecret = !!secret;
+  const hasAuth = !!authHeader;
+  const authOk = hasSecret ? authHeader === `Bearer ${secret}` : true;
+
+  console.log(`[appointments/status][GET] reqId=${reqId} hasSecret=${hasSecret} hasAuth=${hasAuth} authOk=${authOk}`);
 
   // 若設置了 CRON_SECRET，則要求 Authorization: Bearer <CRON_SECRET>
-  if (secret && authHeader !== `Bearer ${secret}`) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  if (hasSecret && !authOk) {
+    console.warn(`[appointments/status][GET] unauthorized reqId=${reqId}`);
+    return NextResponse.json({ error: 'Unauthorized', requestId: reqId }, { status: 401 });
   }
 
-  return autoUpdateExpiredAppointments();
+  const res = await autoUpdateExpiredAppointments({ requestId: reqId });
+  try {
+    res.headers.set('X-Request-ID', reqId);
+  } catch {
+    // ignore header set failure
+  }
+  return res;
 }
