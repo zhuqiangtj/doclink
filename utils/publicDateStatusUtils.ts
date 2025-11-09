@@ -1,6 +1,10 @@
 import { DateStatus } from '../components/EnhancedDatePicker';
 import { convertToDateStatuses } from './dateStatusUtils';
 
+// 月度緩存：doctorId + YYYY-MM -> DateStatus[]
+const monthCache = new Map<string, DateStatus[]>();
+const keyFor = (doctorId: string, year: number, month: number) => `${doctorId}:${year}-${String(month + 1).padStart(2, '0')}`;
+
 interface TimeSlot {
   startTime: string;
   endTime: string;
@@ -21,37 +25,48 @@ export async function fetchPublicDateStatusesForMonth(
   month: number,
   doctorId: string
 ): Promise<DateStatus[]> {
+  const cacheKey = keyFor(doctorId, year, month);
+  const cached = monthCache.get(cacheKey);
+  if (cached) return cached;
+
   try {
     const monthStr = `${year}-${String(month + 1).padStart(2, '0')}`;
 
-    // 先獲取該月份內有排班的日期
-    const overviewRes = await fetch(`/api/public/schedules?doctorId=${doctorId}&month=${monthStr}`);
-    if (!overviewRes.ok) throw new Error('Failed to fetch public monthly overview');
-    const overviewData = await overviewRes.json();
-    const scheduledDates: string[] = overviewData.scheduledDates || [];
+    // 單次請求獲取整月詳細時段（aggregate=1），前端自行分組
+    const aggregateRes = await fetch(`/api/public/schedules?doctorId=${doctorId}&month=${monthStr}&aggregate=1`);
+    if (!aggregateRes.ok) throw new Error('Failed to fetch public monthly aggregated details');
+    const aggregateData: { scheduledDates: string[]; schedules: Schedule[] } = await aggregateRes.json();
+    const scheduledDates: string[] = aggregateData.scheduledDates || [];
 
-// 对每一天抓取详情（包含各时段与 appointments 计数）
+    // 分組為按日期的詳細資料
     const detailedSchedulesData: { [dateString: string]: Schedule[] } = {};
-    const detailPromises = scheduledDates.map(async (dateStr) => {
-      const detailsRes = await fetch(`/api/public/schedules?doctorId=${doctorId}&date=${dateStr}`);
-      if (detailsRes.ok) {
-        const details: Schedule[] = await detailsRes.json();
-        detailedSchedulesData[dateStr] = details;
-      } else {
-        detailedSchedulesData[dateStr] = [];
-      }
-    });
-    await Promise.all(detailPromises);
+    for (const s of (aggregateData.schedules || [])) {
+      if (!detailedSchedulesData[s.date]) detailedSchedulesData[s.date] = [];
+      detailedSchedulesData[s.date].push(s);
+    }
 
-    // 轉換成 EnhancedDatePicker 需要的狀態
     const highlightedDates = scheduledDates.map((dateStr) => {
       const [y, m, d] = dateStr.split('-').map(Number);
       return new Date(y || 0, (m || 1) - 1, d || 1);
     });
 
-    return convertToDateStatuses(highlightedDates, detailedSchedulesData);
+    const statuses = convertToDateStatuses(highlightedDates, detailedSchedulesData);
+    monthCache.set(cacheKey, statuses);
+    return statuses;
   } catch (error) {
     console.error('Error fetching public date statuses:', error);
     return [];
+  }
+}
+
+// 預取相鄰月份：把結果放入緩存，不改變 UI 狀態
+export async function prefetchPublicMonthStatuses(year: number, month: number, doctorId: string): Promise<void> {
+  const cacheKey = keyFor(doctorId, year, month);
+  if (monthCache.has(cacheKey)) return;
+  try {
+    const statuses = await fetchPublicDateStatusesForMonth(year, month, doctorId);
+    // fetchPublicDateStatusesForMonth 本身會寫入緩存
+  } catch {
+    // 静默失败：预取不影响当前 UI
   }
 }

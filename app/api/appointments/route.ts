@@ -4,8 +4,10 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '../auth/[...nextauth]/route';
 import { createAuditLog } from '../../../lib/audit'; // Import from shared utility
 import { createAppointmentHistoryInTransaction } from '../../../lib/appointment-history';
+import { prisma } from '@/lib/prisma';
+import { publishDoctorEvent, publishPatientEvent } from '@/lib/realtime';
 
-const prisma = new PrismaClient();
+// 使用全局 Prisma 单例，避免开发环境热刷新导致连接过多和请求失败
 
 // GET appointments (for doctors or patients)
 export async function GET() {
@@ -192,6 +194,23 @@ reason: session.user.role === 'DOCTOR' ? '医生预约' : '病人预约',
     });
 
     await createAuditLog(session, 'CREATE_APPOINTMENT', 'Appointment', result.id, { userId, patientId, doctorId, timeSlotId, roomId });
+    // Publish realtime notifications for doctor and patient channels
+    try {
+      await Promise.all([
+        publishDoctorEvent(doctorId, 'APPOINTMENT_CREATED', {
+          appointmentId: result.id,
+          timeSlotId,
+          actorRole: session.user.role,
+        }),
+        publishPatientEvent(patientId, 'APPOINTMENT_CREATED', {
+          appointmentId: result.id,
+          timeSlotId,
+          actorRole: session.user.role,
+        }),
+      ]);
+    } catch (e) {
+      console.error('[Realtime] APPOINTMENT_CREATED publish failed', e);
+    }
     return NextResponse.json(result, { status: 201 });
 
   } catch (error) {
@@ -389,6 +408,23 @@ message: `您的预约 (预约时间: ${appointment.timeSlot?.startTime || appoi
       console.error('Failed to create notifications:', notificationError);
     }
 
+    // Publish realtime cancellation to doctor and patient channels
+    try {
+      await Promise.all([
+        publishDoctorEvent(appointment.doctorId, 'APPOINTMENT_CANCELLED', {
+          appointmentId: appointment.id,
+          actorRole: session.user.role,
+          reason,
+        }),
+        publishPatientEvent(appointment.patientId, 'APPOINTMENT_CANCELLED', {
+          appointmentId: appointment.id,
+          actorRole: session.user.role,
+          reason,
+        }),
+      ]);
+    } catch (e) {
+      console.error('[Realtime] APPOINTMENT_CANCELLED publish failed', e);
+    }
     return NextResponse.json({ message: 'Appointment cancelled successfully' });
 
   } catch (error) {

@@ -1,11 +1,11 @@
 import { NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '@/lib/prisma';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '../auth/[...nextauth]/route';
 import { createAuditLog } from '@/lib/audit';
 import { DEFAULT_TIME_SLOTS } from '@/scripts/seed-time-slots';
+import { publishDoctorEvent } from '@/lib/realtime';
 
-const prisma = new PrismaClient();
 
 interface Appointment {
   id: string;
@@ -128,6 +128,17 @@ export async function POST(request: Request) {
     });
 
     await createAuditLog(session, 'CREATE_SCHEDULE_TIMESLOT', 'TimeSlot', timeSlot.id, { date, startTime, endTime });
+    try {
+      await publishDoctorEvent(doctorProfile.id, 'TIMESLOT_CREATED', {
+        timeSlotId: timeSlot.id,
+        date,
+        startTime,
+        endTime,
+        roomId,
+      });
+    } catch (e) {
+      console.error('[Realtime] TIMESLOT_CREATED publish failed', e);
+    }
     return NextResponse.json(timeSlot, { status: 201 });
   } catch (error) {
     console.error('Error creating schedule timeslot:', error);
@@ -171,13 +182,19 @@ export async function PUT(request: Request) {
       return NextResponse.json({ error: 'TimeSlot not found or you do not have permission to update it.' }, { status: 404 });
     }
 
-// 检查是否有预约，如果有则不能减少床位数
-// 当前 Appointment 模型不包含状态栏位，统计该时段的所有预约数即可
+// 检查是否有预约，若有则禁止任何编辑（包含时间与床位数）。
+// 目前“取消预约”在本页面语义为删除记录，因此只要存在任何关联预约记录，就视为有预约。
     const appointmentCount = await prisma.appointment.count({
       where: { 
         timeSlotId: timeSlotId
       }
     });
+
+    if (appointmentCount > 0) {
+      return NextResponse.json({
+        error: `此时段已有预约记录（${appointmentCount} 笔），禁止编辑。请先取消所有预约。`
+      }, { status: 400 });
+    }
 
     const newBedCount = Number(bedCount);
 // 校验：结束时间必须大于开始时间，床位数必须大于 0
@@ -190,11 +207,7 @@ export async function PUT(request: Request) {
     if (isNaN(newBedCount) || newBedCount <= 0) {
       return NextResponse.json({ error: 'Bed count must be greater than 0.' }, { status: 400 });
     }
-    if (appointmentCount > newBedCount) {
-      return NextResponse.json({ 
-        error: `Cannot reduce bed count to ${newBedCount}. There are ${appointmentCount} confirmed appointments.` 
-      }, { status: 400 });
-    }
+    // 无预约时，允许编辑；有预约时已在上方直接拦截。
 
     // 重新推斷類型以滿足資料庫欄位，但不對外暴露或要求
     const inferredType = startTime < '12:00' ? 'MORNING' : 'AFTERNOON';
@@ -212,6 +225,17 @@ export async function PUT(request: Request) {
     });
 
     await createAuditLog(session, 'UPDATE_SCHEDULE_TIMESLOT', 'TimeSlot', updatedTimeSlot.id, { timeSlotId });
+    try {
+      await publishDoctorEvent(doctorProfile.id, 'TIMESLOT_UPDATED', {
+        timeSlotId,
+        startTime,
+        endTime,
+        bedCount: newBedCount,
+        isActive: isActive !== undefined ? isActive : timeSlot.isActive,
+      });
+    } catch (e) {
+      console.error('[Realtime] TIMESLOT_UPDATED publish failed', e);
+    }
     return NextResponse.json(updatedTimeSlot);
   } catch (error) {
     console.error('Error updating schedule timeslot:', error);
@@ -266,6 +290,11 @@ error: `此时段已有预约记录（${appointmentCount} 笔），无法删除�
     await prisma.timeSlot.delete({ where: { id: timeSlotId } });
 
     await createAuditLog(session, 'DELETE_SCHEDULE_TIMESLOT', 'TimeSlot', timeSlotId, { timeSlotId });
+    try {
+      await publishDoctorEvent(doctorProfile.id, 'TIMESLOT_DELETED', { timeSlotId });
+    } catch (e) {
+      console.error('[Realtime] TIMESLOT_DELETED publish failed', e);
+    }
     return NextResponse.json({ message: 'TimeSlot deleted successfully' });
   } catch (error) {
     console.error('Error deleting schedule timeslot:', error);

@@ -1,9 +1,8 @@
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '@/lib/prisma';
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '../../auth/[...nextauth]/route';
 
-const prisma = new PrismaClient();
 
 // GET patients search (for doctors to search)
 export async function GET(request: Request) {
@@ -54,6 +53,8 @@ export async function GET(request: Request) {
             id: true, // User ID is needed for creating the appointment
             username: true,
             name: true,
+            gender: true,
+            dateOfBirth: true,
           },
         },
       },
@@ -67,6 +68,8 @@ export async function GET(request: Request) {
       username: p.user.username,
       name: p.user.name,
       credibilityScore: p.credibilityScore,
+      gender: p.user.gender ?? null,
+      dateOfBirth: p.user.dateOfBirth ? p.user.dateOfBirth.toISOString() : null,
     }));
 
     return NextResponse.json(formattedPatients);

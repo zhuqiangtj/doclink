@@ -39,10 +39,17 @@ export default function BottomNav() {
       const fetchUnreadCount = async () => {
         try {
           const res = await fetch('/api/notifications');
-          if (res.ok) {
-            const data = await res.json();
-            setUnreadCount(data.unreadCount || 0);
+          if (!res.ok) {
+            setUnreadCount(0);
+            return;
           }
+          const ct = res.headers.get('content-type') || '';
+          if (!ct.includes('application/json')) {
+            setUnreadCount(0);
+            return;
+          }
+          const data = await res.json();
+          setUnreadCount(data.unreadCount || 0);
         } catch (error) {
           console.error('Failed to fetch unread count:', error);
         }
@@ -65,6 +72,15 @@ export default function BottomNav() {
       const fetchUnreadCount = async () => {
         try {
           const res = await fetch('/api/patient-notifications');
+          if (!res.ok) {
+            setUnreadCount(0);
+            return;
+          }
+          const ct = res.headers.get('content-type') || '';
+          if (!ct.includes('application/json')) {
+            setUnreadCount(0);
+            return;
+          }
           const notifications: Notification[] = await res.json();
           const count = notifications.filter(n => !n.isRead).length;
           setUnreadCount(count);

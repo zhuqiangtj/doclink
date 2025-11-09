@@ -1,10 +1,9 @@
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '@/lib/prisma';
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '../auth/[...nextauth]/route';
 import { createAuditLog } from '@/lib/audit'; // Import from shared utility
 
-const prisma = new PrismaClient();
 
 // GET rooms (Admin gets all, Doctor gets their own)
 export async function GET() {

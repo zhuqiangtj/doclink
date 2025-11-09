@@ -21,6 +21,7 @@ export default function PatientNotificationsPage() {
   const [notifications, setNotifications] = useState<PatientNotification[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [patientId, setPatientId] = useState<string | null>(null);
 
   useEffect(() => {
     if (status === 'unauthenticated') {
@@ -30,24 +31,72 @@ export default function PatientNotificationsPage() {
     }
   }, [status, session, router]);
 
+  const fetchNotifications = async () => {
+    setIsLoading(true);
+    try {
+      const res = await fetch('/api/patient-notifications');
+      if (!res.ok) throw new Error('Failed to fetch notifications.');
+      const data = await res.json();
+      setNotifications(data);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'An unknown error occurred');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   useEffect(() => {
     if (status === 'authenticated') {
-      const fetchNotifications = async () => {
-        setIsLoading(true);
-        try {
-          const res = await fetch('/api/patient-notifications');
-          if (!res.ok) throw new Error('Failed to fetch notifications.');
-          const data = await res.json();
-          setNotifications(data);
-        } catch (err) {
-          setError(err instanceof Error ? err.message : 'An unknown error occurred');
-        } finally {
-          setIsLoading(false);
-        }
-      };
       fetchNotifications();
     }
   }, [status]);
+
+  // 拉取患者身份以接入 SSE
+  useEffect(() => {
+    if (status !== 'authenticated') return;
+    (async () => {
+      try {
+        const res = await fetch('/api/user');
+        if (!res.ok) return;
+        const data = await res.json();
+        if (data?.patientProfile?.id) {
+          setPatientId(data.patientProfile.id);
+        }
+      } catch {
+        // 靜默失敗
+      }
+    })();
+  }, [status]);
+
+  // SSE：订阅患者频道的预约相关事件，实时刷新通知列表
+  useEffect(() => {
+    if (status !== 'authenticated') return;
+    if (!patientId) return;
+    try {
+      const es = new EventSource(`/api/realtime/subscribe?kind=patient&id=${patientId}`);
+      es.onmessage = async (ev) => {
+        try {
+          const evt = JSON.parse(ev.data);
+          const type = evt?.type as string | undefined;
+          switch (type) {
+            case 'APPOINTMENT_CREATED':
+            case 'APPOINTMENT_CANCELLED':
+            case 'APPOINTMENT_STATUS_UPDATED':
+              await fetchNotifications();
+              break;
+            default:
+              break;
+          }
+        } catch {}
+      };
+      es.onerror = () => {
+        // EventSource 自動重連
+      };
+      return () => es.close();
+    } catch (err) {
+      console.error('SSE subscribe (patient notifications) failed:', err);
+    }
+  }, [status, patientId]);
 
   const handleMarkAsRead = async (notificationId: string) => {
     try {

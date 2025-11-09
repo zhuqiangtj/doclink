@@ -18,7 +18,10 @@ interface Room { id: string; name: string; bedCount: number; }
 interface DoctorProfile { id: string; name: string; Room: Room[]; }
 interface Appointment { 
   id: string; 
-  patient: { user: { name: string }, credibilityScore?: number }; 
+  patient: { 
+    user: { name: string; gender?: string; dateOfBirth?: string }, 
+    credibilityScore?: number,
+  }; 
   user: { name: string; role: string }; 
   status: string; 
   time: string;
@@ -42,7 +45,7 @@ interface Schedule {
   room: Room;
   timeSlots: TimeSlot[];
 }
-interface PatientSearchResult { id: string; userId: string; name: string; username: string; credibilityScore?: number; }
+interface PatientSearchResult { id: string; userId: string; name: string; username: string; credibilityScore?: number; gender?: string | null; dateOfBirth?: string | null; }
 
 const DEFAULT_TIMES = ["08:00", "09:00", "10:00", "11:00", "14:00", "15:00", "16:00"];
 
@@ -78,6 +81,37 @@ const formatDate = (dateString: string): string => {
   } catch {
     return dateString;
   }
+};
+
+// 根據出生日期計算年齡（歲）
+const calcAgeFromBirthDate = (birthDate?: string): number | null => {
+  if (!birthDate) return null;
+  try {
+    const d = new Date(birthDate);
+    if (isNaN(d.getTime())) return null;
+    const now = new Date();
+    let age = now.getFullYear() - d.getFullYear();
+    const m = now.getMonth() - d.getMonth();
+    if (m < 0 || (m === 0 && now.getDate() < d.getDate())) age--;
+    return age >= 0 ? age : null;
+  } catch {
+    return null;
+  }
+};
+
+// 以積分決定顏色類名，與全局 PatientCreditBadge 門檻保持一致
+const getCreditColorClass = (score?: number | null): 'credit-good' | 'credit-medium' | 'credit-low' | 'credit-neutral' => {
+  if (score == null) return 'credit-neutral';
+  if (score >= 15) return 'credit-good';
+  if (score >= 10) return 'credit-medium';
+  return 'credit-low';
+};
+
+const getGenderInfo = (gender?: string): { text: string; className: 'gender-male' | 'gender-female' | 'gender-other' } => {
+  const g = (gender || '').toUpperCase();
+  if (g === 'MALE' || g === 'M') return { text: '男', className: 'gender-male' };
+  if (g === 'FEMALE' || g === 'F') return { text: '女', className: 'gender-female' };
+  return { text: '其他', className: 'gender-other' };
 };
 
 // 判斷時間點是否已過
@@ -177,7 +211,8 @@ export default function DoctorSchedulePage() {
     setError(null);
     
     try {
-      const profileRes = await fetch('/api/user');
+      // 禁用缓存，确保 SSE 事件后立即获取最新数据
+      const profileRes = await fetch('/api/user', { cache: 'no-store' });
       if (!profileRes.ok) throw new Error('Failed to fetch doctor profile.');
       const userData = await profileRes.json();
       if (!userData.doctorProfile) throw new Error('Doctor profile not found.');
@@ -187,9 +222,21 @@ export default function DoctorSchedulePage() {
         setSelectedRoomIdForTemplate(userData.doctorProfile.Room[0].id);
       }
 
-      const detailsRes = await fetch(`/api/schedules/details?date=${toYYYYMMDD(date)}`);
+      // 並行拉取當日排班詳情與當月高亮日期，縮短等待時間
+      const currentMonth = toYYYYMMDD(date).substring(0, 7);
+      const [detailsRes, highlightsRes] = await Promise.all([
+        fetch(`/api/schedules/details?date=${toYYYYMMDD(date)}`, { cache: 'no-store' }),
+        fetch(`/api/schedules?month=${currentMonth}`, { cache: 'no-store' })
+      ]);
+
       if (!detailsRes.ok) throw new Error('Failed to fetch schedule details.');
-      const detailsData = await detailsRes.json();
+      if (!highlightsRes.ok) throw new Error('Failed to fetch highlighted dates.');
+
+      const [detailsData, highlightsData] = await Promise.all([
+        detailsRes.json(),
+        highlightsRes.json()
+      ]);
+
       setSchedulesForSelectedDay(detailsData);
 
       const initialCollapsedState: Record<string, boolean> = {};
@@ -204,20 +251,8 @@ export default function DoctorSchedulePage() {
       if (detailsData.length > 0 && !activeRoomTab) {
         setActiveRoomTab(detailsData[0].room.id);
       }
-
-      const currentMonth = toYYYYMMDD(date).substring(0, 7); // 獲取 YYYY-MM 格式
-      const highlightsRes = await fetch(`/api/schedules?month=${currentMonth}`);
-      if (!highlightsRes.ok) throw new Error('Failed to fetch highlighted dates.');
-      const highlightsData = await highlightsRes.json();
       setHighlightedDates(highlightsData.scheduledDates.map((dateStr: string) => fromYYYYMMDD(dateStr)));
-
-      // 獲取日期狀態數據
-      const dateStatusData = await fetchDateStatusesForMonth(
-        date.getFullYear(),
-        date.getMonth(),
-        userData.doctorProfile.id
-      );
-      setDateStatuses(dateStatusData);
+      // 日期狀態的獲取由下方月份監聽 useEffect 觸發，避免阻塞初始渲染
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred while fetching data');
     } finally {
@@ -234,6 +269,42 @@ export default function DoctorSchedulePage() {
       fetchAllDataForDate(selectedDate);
     }
   }, [selectedDate, status, fetchAllDataForDate]);
+
+  // SSE：订阅医生频道事件，自动刷新当天排班与高亮
+  useEffect(() => {
+    if (status !== 'authenticated') return;
+    if (!doctorProfile?.id) return;
+    try {
+      const es = new EventSource(`/api/realtime/subscribe?kind=doctor&id=${doctorProfile.id}`);
+      es.onmessage = async (ev) => {
+        try {
+          const evt = JSON.parse(ev.data);
+          const type = evt?.type as string | undefined;
+          switch (type) {
+            case 'TIMESLOT_CREATED':
+            case 'TIMESLOT_UPDATED':
+            case 'TIMESLOT_DELETED':
+            case 'SCHEDULE_CREATED':
+            case 'SCHEDULE_UPDATED':
+            case 'SCHEDULE_DELETED':
+            case 'APPOINTMENT_CREATED':
+            case 'APPOINTMENT_CANCELLED':
+            case 'APPOINTMENT_STATUS_UPDATED':
+              await fetchAllDataForDate(selectedDate);
+              break;
+            default:
+              break;
+          }
+        } catch {}
+      };
+      es.onerror = () => {
+        // EventSource 自动重连，无需特殊处理
+      };
+      return () => es.close();
+    } catch (err) {
+      console.error('SSE subscribe (doctor schedule) failed:', err);
+    }
+  }, [status, doctorProfile?.id, selectedDate, fetchAllDataForDate]);
 
   // 監聽月份變化，重新獲取日期狀態數據
   useEffect(() => {
@@ -670,7 +741,8 @@ export default function DoctorSchedulePage() {
         }
         throw new Error(errorMessage);
       }
-
+      // 使用後端返回的新預約ID與狀態，避免臨時ID導致後續操作失效
+      const createdAppointment = await response.json();
       setSchedulesForSelectedDay(
         prev => 
           prev.map(schedule => {
@@ -682,15 +754,19 @@ export default function DoctorSchedulePage() {
                   appointments: [
                   ...updatedTimeSlots[selectedSlotIndexForBooking].appointments,
                   {
-                    id: `temp-${Date.now()}`,
+                    id: createdAppointment?.id ?? `temp-${Date.now()}`,
                     patient: { 
-                      user: { name: selectedPatient.name },
+                      user: { 
+                        name: selectedPatient.name,
+                        gender: selectedPatient.gender ?? undefined,
+                        dateOfBirth: selectedPatient.dateOfBirth ?? undefined
+                      },
                       credibilityScore: selectedPatient.credibilityScore
                     },
                     user: { name: doctorProfile?.name || session?.user?.name || '醫生', role: 'DOCTOR' },
-                    status: 'PENDING',
+                    status: createdAppointment?.status ?? 'PENDING',
                     time: selectedTimeSlot.startTime,
-                    reason: '醫生預約',
+                    reason: createdAppointment?.reason ?? '醫生預約',
                     history: [{
                       operatedAt: new Date().toISOString(),
                       operatorName: doctorProfile?.name || session?.user?.name || session?.user?.username || '醫生'
@@ -739,7 +815,7 @@ export default function DoctorSchedulePage() {
     if (!selectedAppointmentForCancel) return;
     setCancelLoading(true);
     try {
-      const response = await fetch(`/api/appointments?appointmentId=${selectedAppointmentForCancel.appointmentId}`, {
+      const response = await fetch(`/api/appointments/${selectedAppointmentForCancel.appointmentId}`, {
         method: 'DELETE'
       });
 
@@ -931,7 +1007,8 @@ export default function DoctorSchedulePage() {
     return schedulesForSelectedDay.filter(schedule => schedule.room.id === activeRoomTab);
   }, [schedulesForSelectedDay, activeRoomTab]);
 
-  if (isLoading && !doctorProfile) return (
+  // 在會話尚未就緒時顯示載入狀態，避免誤報「無法載入」
+  if (status === 'loading') return (
     <div className="mobile-loading">
       <div className="mobile-loading-spinner"></div>
     </div>
@@ -941,7 +1018,8 @@ export default function DoctorSchedulePage() {
       错误: {error}
     </div>
   );
-  if (!doctorProfile) return (
+  // 僅在會話已認證且不在載入中時，才提示無法載入
+  if (status === 'authenticated' && !isLoading && !doctorProfile) return (
     <div className="mobile-message mobile-message-error">
       无法载入医生信息
     </div>
@@ -951,7 +1029,7 @@ export default function DoctorSchedulePage() {
     <div className="page-container space-y-2">
       <div className="mobile-card">
         <div className="w-full flex justify-between items-center mb-2">
-          <p className="text-xs text-gray-500">{doctorProfile.name}</p>
+          <p className="text-xs text-gray-500">{doctorProfile?.name ?? '医生'}</p>
         </div>
         <div style={{ marginBottom: '24px', display: 'flex', justifyContent: 'center', width: '100%' }}>
           <EnhancedDatePicker
@@ -979,24 +1057,82 @@ export default function DoctorSchedulePage() {
             onClick={() => setIsTemplateModalOpen(true)}
             className="mobile-btn mobile-btn-primary w-full flex items-center justify-center space-x-2"
             title="使用模板填充"
+            disabled={isLoading || isTemplateApplying}
           >
-            <FaPlusCircle className="w-4 h-4" />
-            <span>使用模板填充</span>
+            {isTemplateApplying ? (
+              <span className="mobile-btn-spinner" aria-hidden="true" />
+            ) : (
+              <FaPlusCircle className="w-4 h-4" />
+            )}
+            <span>{isTemplateApplying ? '处理中...' : '使用模板填充'}</span>
           </button>
           <button
             onClick={() => setIsAddTimeSlotModalOpen(true)}
             className="mobile-btn mobile-btn-success w-full flex items-center justify-center space-x-2"
             title="新增自定义时段"
+            disabled={isLoading}
           >
-            <FaPlusCircle className="w-4 h-4" />
-            <span>新增自定义时段</span>
+            {isLoading ? (
+              <span className="mobile-btn-spinner" aria-hidden="true" />
+            ) : (
+              <FaPlusCircle className="w-4 h-4" />
+            )}
+            <span>{isLoading ? '加载中...' : '新增自定义时段'}</span>
           </button>
         </div>
       </div>
 
       {isLoading ? (
-        <div className="mobile-loading">
-          <div className="mobile-loading-spinner"></div>
+        <div className="space-y-2 w-full flex flex-col items-center">
+          {/* 骨架：诊室选择（标签与下拉） */}
+          <div className="mobile-card w-full">
+            <div className="mobile-skeleton-line mobile-skeleton-w33 mobile-skeleton-mb8"></div>
+            <div className="mobile-skeleton-input mobile-skeleton-w100"></div>
+          </div>
+
+          {/* 骨架：排班卡片列表（更貼近時段表單佈局） */}
+          <div className="mobile-card w-full">
+            {/* 卡片標題 */}
+            <div className="mobile-skeleton-line mobile-skeleton-w50 mobile-skeleton-mb12"></div>
+            {/* 時段信息行（開始時間、結束時間、占用、床位數） */}
+            <div className="mobile-time-slot-info-row mobile-time-slot-info-row-grid mobile-skeleton-mb12">
+              <div className="mobile-skeleton-input" style={{ maxWidth: '110px', width: '100%' }}></div>
+              <div className="mobile-skeleton-input" style={{ maxWidth: '110px', width: '100%' }}></div>
+              <div className="mobile-skeleton-chip mobile-skeleton-w100"></div>
+              <div className="mobile-skeleton-input mobile-skeleton-w100"></div>
+            </div>
+            {/* 二行示例 */}
+            <div className="mobile-time-slot-info-row mobile-time-slot-info-row-grid mobile-skeleton-mb12">
+              <div className="mobile-skeleton-input" style={{ maxWidth: '110px', width: '100%' }}></div>
+              <div className="mobile-skeleton-input" style={{ maxWidth: '110px', width: '100%' }}></div>
+              <div className="mobile-skeleton-chip mobile-skeleton-w100"></div>
+              <div className="mobile-skeleton-input mobile-skeleton-w100"></div>
+            </div>
+            {/* 操作按鈕行（新增、保存、刪除、展開） */}
+            <div className="mobile-slot-actions-row mobile-slot-actions-row-grid">
+              <div className="mobile-skeleton-btn"></div>
+              <div className="mobile-skeleton-btn"></div>
+              <div className="mobile-skeleton-btn"></div>
+              <div className="mobile-skeleton-btn"></div>
+            </div>
+          </div>
+
+          {/* 第二張卡片骨架 */}
+          <div className="mobile-card w-full">
+            <div className="mobile-skeleton-line mobile-skeleton-w50 mobile-skeleton-mb12"></div>
+            <div className="mobile-time-slot-info-row mobile-time-slot-info-row-grid mobile-skeleton-mb12">
+              <div className="mobile-skeleton-input" style={{ maxWidth: '110px', width: '100%' }}></div>
+              <div className="mobile-skeleton-input" style={{ maxWidth: '110px', width: '100%' }}></div>
+              <div className="mobile-skeleton-chip mobile-skeleton-w100"></div>
+              <div className="mobile-skeleton-input mobile-skeleton-w100"></div>
+            </div>
+            <div className="mobile-slot-actions-row mobile-slot-actions-row-grid">
+              <div className="mobile-skeleton-btn"></div>
+              <div className="mobile-skeleton-btn"></div>
+              <div className="mobile-skeleton-btn"></div>
+              <div className="mobile-skeleton-btn"></div>
+            </div>
+          </div>
         </div>
       ) : schedulesForSelectedDay.length === 0 ? (
         <div className="mobile-empty-state">
@@ -1012,6 +1148,7 @@ export default function DoctorSchedulePage() {
               value={activeRoomTab}
               onChange={(e) => setActiveRoomTab(e.target.value)}
               className="mobile-input w-full"
+              disabled={isLoading}
             >
               {uniqueRooms.map(room => (
                 <option key={room.id} value={room.id}>
@@ -1031,12 +1168,14 @@ export default function DoctorSchedulePage() {
                 const key = `${schedule.id}-${index}`;
                 const isModified = modifiedTimeSlots.has(key);
                 const isSaving = savingTimeSlots.has(key);
+                const isDeleting = deletingSlots.has(`${schedule.id}-${slot.id}`);
                 const isExpanded = expandedTimeSlots.has(key);
                 const editedStart = getSlotValue(schedule.id, index, 'startTime', slot.startTime) as string;
                 const editedEnd = getSlotValue(schedule.id, index, 'endTime', slot.endTime) as string;
                 const editedBedCount = Number(getSlotValue(schedule.id, index, 'bedCount', slot.bedCount));
                 const isValidEdit = !!editedStart && !!editedEnd && (editedEnd > editedStart) && editedBedCount > 0 && editedBedCount <= schedule.room.bedCount;
                 const isPast = isTimeSlotPast(selectedDate, slot.startTime);
+                const hasAppointments = (slot.appointments && slot.appointments.length > 0);
 
                 return (
                   <div key={index} className={`mobile-time-slot-single-line ${
@@ -1054,8 +1193,12 @@ export default function DoctorSchedulePage() {
                         }}
                         onKeyDown={(e) => { if (e.key === 'Enter') e.preventDefault(); }}
                         className="mobile-time-input-inline mobile-time-input-fluid"
-                        disabled={isPast}
-                        title={isPast ? '時間已過，不可編輯' : '開始時間'}
+                        disabled={isPast || hasAppointments}
+                        title={
+                          isPast
+                            ? '時間已過，不可編輯'
+                            : (hasAppointments ? '已有预约，不可编辑该时段' : '開始時間')
+                        }
                       />
                       
                       {/* 結束時間輸入 */}
@@ -1068,8 +1211,12 @@ export default function DoctorSchedulePage() {
                         }}
                         onKeyDown={(e) => { if (e.key === 'Enter') e.preventDefault(); }}
                         className="mobile-time-input-inline mobile-time-input-fluid"
-                        disabled={isPast}
-                        title={isPast ? '時間已過，不可編輯' : '結束時間'}
+                        disabled={isPast || hasAppointments}
+                        title={
+                          isPast
+                            ? '時間已過，不可編輯'
+                            : (hasAppointments ? '已有预约，不可编辑该时段' : '結束時間')
+                        }
                       />
                       
                       {/* 床位輸入 */}
@@ -1089,8 +1236,12 @@ export default function DoctorSchedulePage() {
                         onKeyDown={(e) => { if (e.key === 'Enter') e.preventDefault(); }}
                         className="mobile-total-input-inline mobile-total-input-fluid"
                         placeholder="床位数"
-                        disabled={isPast}
-                        title={isPast ? '时间已过，不可编辑' : `可预约人数（最大 ${schedule.room.bedCount}）`}
+                        disabled={isPast || hasAppointments}
+                        title={
+                          isPast
+                            ? '时间已过，不可编辑'
+                            : (hasAppointments ? '已有预约，不可编辑该时段' : `可预约人数（最大 ${schedule.room.bedCount}）`)
+                        }
                       />
 
                       {/* 預約狀態信息 */}
@@ -1130,19 +1281,22 @@ export default function DoctorSchedulePage() {
                       <button
                         type="button"
                         onClick={() => handleSaveTimeSlot(schedule.id, index)}
-                        disabled={isPast || !isModified || isSaving || !isValidEdit}
+                        disabled={isPast || hasAppointments || !isModified || isSaving || isDeleting || !isValidEdit}
                         className={`mobile-icon-btn-colored ${
-                          !isPast && isModified && !isSaving && isValidEdit
+                          !isPast && !hasAppointments && isModified && !isSaving && !isDeleting && isValidEdit
                             ? 'mobile-icon-btn-save-colored'
                             : 'mobile-icon-btn-disabled-colored'
                         }`}
-                        title={isPast ? '时间已过，不可编辑' : (isModified ? (isValidEdit ? "保存变更" : "时间或床位数不合法") : "无变更")}
+                        title={
+                          isPast
+                            ? '时间已过，不可编辑'
+                            : hasAppointments
+                              ? '已有预约，不可编辑该时段'
+                              : (isModified ? (isValidEdit ? '保存变更' : '时间或床位数不合法') : '无变更')
+                        }
                       >
                         {isSaving ? (
-                          <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
-                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                            <path className="opacity-75" fill="currentColor" d="m4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                          </svg>
+                          <span className="mobile-btn-spinner" aria-hidden="true" />
                         ) : (
                           <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
                             <path d="M7.707 10.293a1 1 0 10-1.414 1.414l2 2a1 1 0 001.414 0l4-4a1 1 0 00-1.414-1.414L9 11.586l-1.293-1.293z"/>
@@ -1154,16 +1308,24 @@ export default function DoctorSchedulePage() {
                       <button
                         type="button"
                         onClick={() => handleDeleteTimeSlot(schedule.id, slot.id)}
-                        disabled={isPast || isSaving}
+                        disabled={isPast || hasAppointments || isSaving || isDeleting}
                         className={`mobile-icon-btn-colored mobile-icon-btn-delete-colored ${
-                          (isPast || isSaving) ? 'mobile-icon-btn-disabled-colored' : ''
+                          (isPast || hasAppointments || isSaving || isDeleting) ? 'mobile-icon-btn-disabled-colored' : ''
                         }`}
-                        title={isPast ? '時間已過，不可刪除' : '刪除時段'}
+                        title={
+                          isPast
+                            ? '時間已過，不可刪除'
+                            : (hasAppointments ? '已有预约，不可刪除該時段' : '刪除時段')
+                        }
                       >
-                        <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                          <path fillRule="evenodd" d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z" clipRule="evenodd" />
-                          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-                        </svg>
+                        {isDeleting ? (
+                          <span className="mobile-btn-spinner" aria-hidden="true" />
+                        ) : (
+                          <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                            <path fillRule="evenodd" d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z" clipRule="evenodd" />
+                            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                          </svg>
+                        )}
                       </button>
 
                       {/* 展開患者列表按鈕 */}
@@ -1220,8 +1382,30 @@ export default function DoctorSchedulePage() {
                           return (
                             <div key={apptIndex} className={`mobile-patient-item-inline ${statusKey === 'NO_SHOW' ? 'mobile-status-no-show' : ''}`}>
                               <div className="mobile-patient-info-inline">
-                                <span className="mobile-patient-name-inline">{appointment.patient.user.name}</span>
-                                <span className="ml-2 text-xs text-gray-600">积分：{appointment.patient.credibilityScore ?? '未知'}</span>
+                                <span className="mobile-patient-name-inline">
+                                  {appointment.patient.user.name}
+                                  {(() => {
+                                    const score = appointment.patient.credibilityScore ?? null;
+                                    const colorClass = getCreditColorClass(score);
+                                    return (
+                                      <span className={`credit-inline-badge ${colorClass}`} title="積分">
+                                        {score ?? '—'}
+                                      </span>
+                                    );
+                                  })()}
+                                  {(() => {
+                                    const { text, className } = getGenderInfo(appointment.patient.user.gender);
+                                    return (
+                                      <span className={`gender-inline-badge ${className}`} title="性別">{text}</span>
+                                    );
+                                  })()}
+                                  {(() => {
+                                    const age = calcAgeFromBirthDate(appointment.patient.user.dateOfBirth);
+                                    return (
+                                      <span className="age-inline-badge" title="年齡">{age != null ? `${age}歲` : '年齡未知'}</span>
+                                    );
+                                  })()}
+                                </span>
                                 <span className="mobile-patient-details-inline">
                                   操作时间：{operatedAtString} 操作员：{
                                     // 使用歷史記錄的操作者，否則依據 reason 與當前醫生資訊推斷
@@ -1376,8 +1560,16 @@ export default function DoctorSchedulePage() {
                         }}
                         className="mobile-search-item"
                       >
-                        {patient.name} ({patient.username})
-                        <span className="ml-2 text-xs text-gray-600">積分：{patient.credibilityScore ?? '未知'}</span>
+                        <div className="flex items-center justify-between w-full">
+                          <div className="truncate">
+                            {patient.name} ({patient.username})
+                          </div>
+                          <div className="flex items-center ml-2 shrink-0 space-x-1">
+                            <span className={`credit-inline-badge ${getCreditColorClass(patient.credibilityScore)}`}>{typeof patient.credibilityScore === 'number' ? patient.credibilityScore : '未知'}</span>
+                            {(() => { const g = getGenderInfo(patient.gender ?? undefined); return (<span className={`gender-inline-badge ${g.className}`}>{g.text}</span>); })()}
+                            {(() => { const age = calcAgeFromBirthDate(patient.dateOfBirth ?? undefined); return (<span className="age-inline-badge">{age ?? '未知'}</span>); })()}
+                          </div>
+                        </div>
                       </button>
                     ))}
                   </div>
@@ -1388,7 +1580,11 @@ export default function DoctorSchedulePage() {
                 <div className="mobile-selected-patient">
                   <div className="text-sm text-gray-600">已選擇患者:</div>
                   <div className="font-medium">{selectedPatient.name} ({selectedPatient.username})</div>
-                  <div className="text-sm mt-1">積分：{selectedPatient.credibilityScore ?? '未知'}</div>
+                <div className="flex items-center mt-1 space-x-2">
+                  <span className={`credit-inline-badge ${getCreditColorClass(selectedPatient.credibilityScore)}`}>{typeof selectedPatient.credibilityScore === 'number' ? selectedPatient.credibilityScore : '未知'}</span>
+                  {(() => { const g = getGenderInfo(selectedPatient.gender ?? undefined); return (<span className={`gender-inline-badge ${g.className}`}>{g.text}</span>); })()}
+                  {(() => { const age = calcAgeFromBirthDate(selectedPatient.dateOfBirth ?? undefined); return (<span className="age-inline-badge">{age ?? '未知'}</span>); })()}
+                </div>
                   {((selectedPatient.credibilityScore ?? 0) <= 0) && (
                     <div className="text-xs text-red-600 mt-1">該病人積分為 0 或以下，無法預約</div>
                   )}

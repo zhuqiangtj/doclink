@@ -9,14 +9,8 @@ export async function GET(request: NextRequest) {
         id: true,
         username: true,
         role: true,
-        createdAt: true,
-        doctor: {
-          select: {
-            id: true,
-            name: true,
-            specialization: true
-          }
-        }
+        doctorProfile: { select: { id: true } },
+        patientProfile: { select: { id: true } }
       }
     });
 

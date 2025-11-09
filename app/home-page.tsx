@@ -91,8 +91,11 @@ export default function PatientScheduleHome() {
         if (!selectedDoctorId && ds.length > 0) {
           const firstId = ds[0].id;
           setSelectedDoctorId(firstId);
-          await refreshCalendarStatuses(selectedDate, firstId);
-          await refreshDayDetails(selectedDate, firstId);
+          // 并行加载当月日历状态与当天详情，缩短首屏时间
+          await Promise.all([
+            refreshCalendarStatuses(selectedDate, firstId),
+            refreshDayDetails(selectedDate, firstId),
+          ]);
         }
 
         if (!userRes.ok) throw new Error("获取用户资料失败。");
@@ -104,7 +107,10 @@ export default function PatientScheduleHome() {
         const appointments: Appointment[] = await appointmentsRes.json();
         const map: Record<string, string> = {};
         appointments.forEach((apt) => {
-          if (apt.timeSlotId) map[apt.timeSlotId] = apt.id;
+          // 仅将“待进行”预约映射到时间段，避免取消/完成等状态误标记
+          if (apt.timeSlotId && apt.status === "PENDING") {
+            map[apt.timeSlotId] = apt.id;
+          }
         });
         setMyAppointmentsBySlot(map);
       } catch (err) {
@@ -118,8 +124,15 @@ export default function PatientScheduleHome() {
     if (!doctorId) return;
     setIsCalendarLoading(true);
     try {
-      const statuses = await fetchPublicDateStatusesForMonth(date.getFullYear(), date.getMonth(), doctorId);
+      const year = date.getFullYear();
+      const month = date.getMonth();
+      const statuses = await fetchPublicDateStatusesForMonth(year, month, doctorId);
       setDateStatuses(statuses);
+      // 预取相邻月份，提升月份切换体验
+      import('../utils/publicDateStatusUtils').then(({ prefetchPublicMonthStatuses }) => {
+        prefetchPublicMonthStatuses(year, month === 0 ? 11 : month - 1, doctorId);
+        prefetchPublicMonthStatuses(year, month === 11 ? 0 : month + 1, doctorId);
+      });
     } catch (err) {
       console.error(err);
     } finally {
@@ -153,6 +166,24 @@ export default function PatientScheduleHome() {
       } else if (!selectedRoomId || !uniqueRooms.find(r => r.id === selectedRoomId)) {
         setSelectedRoomId(uniqueRooms[0].id);
       }
+
+      // 同步“我的预约”映射：避免医生取消后本页仍显示“已预约”
+      try {
+        const appointmentsRes = await fetch("/api/appointments");
+        if (appointmentsRes.ok) {
+          const appointments: Appointment[] = await appointmentsRes.json();
+          const map: Record<string, string> = {};
+          appointments.forEach((apt) => {
+            if (apt.timeSlotId && apt.status === "PENDING") {
+              map[apt.timeSlotId] = apt.id;
+            }
+          });
+          setMyAppointmentsBySlot(map);
+        }
+      } catch (err) {
+        // 静默失败：不影响主要页面数据加载
+        console.warn("刷新当天详情时同步我的预约映射失败", err);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "发生未知错误");
       setRooms([]);
@@ -170,6 +201,75 @@ export default function PatientScheduleHome() {
       refreshDayDetails(selectedDate, selectedDoctorId);
     }
   }, [selectedDoctorId, selectedDate]);
+
+  // 已移除定期轮询，当天详情与“我的预约”映射由 SSE 驱动
+
+  // SSE: 订阅与患者相关的事件（预约创建/取消/状态变更）并刷新视图
+  useEffect(() => {
+    if (status !== 'authenticated') return;
+    if (!patientId) return;
+    try {
+      const es = new EventSource(`/api/realtime/subscribe?kind=patient&id=${patientId}`);
+      es.onmessage = async (ev) => {
+        try {
+          const evt = JSON.parse(ev.data);
+          const type = evt?.type as string | undefined;
+          if (!type || !selectedDoctorId) return;
+          switch (type) {
+            case 'APPOINTMENT_CREATED':
+            case 'APPOINTMENT_CANCELLED':
+            case 'APPOINTMENT_STATUS_UPDATED':
+              await Promise.all([
+                refreshDayDetails(selectedDate, selectedDoctorId),
+                refreshCalendarStatuses(selectedDate, selectedDoctorId),
+              ]);
+              break;
+            default:
+              break;
+          }
+        } catch {}
+      };
+      es.onerror = () => {
+        // EventSource 会自动重连，这里无需特殊处理
+      };
+      return () => es.close();
+    } catch (err) {
+      console.error('SSE subscribe (patient) failed:', err);
+    }
+  }, [status, patientId, selectedDoctorId, selectedDate]);
+
+  // SSE: 订阅选中医生的排班事件（新建/更新/删除时段）并刷新视图
+  useEffect(() => {
+    if (status !== 'authenticated') return;
+    if (!selectedDoctorId) return;
+    try {
+      const es = new EventSource(`/api/realtime/subscribe?kind=doctor&id=${selectedDoctorId}`);
+      es.onmessage = async (ev) => {
+        try {
+          const evt = JSON.parse(ev.data);
+          const type = evt?.type as string | undefined;
+          switch (type) {
+            case 'TIMESLOT_CREATED':
+            case 'TIMESLOT_UPDATED':
+            case 'TIMESLOT_DELETED':
+              await Promise.all([
+                refreshDayDetails(selectedDate, selectedDoctorId),
+                refreshCalendarStatuses(selectedDate, selectedDoctorId),
+              ]);
+              break;
+            default:
+              break;
+          }
+        } catch {}
+      };
+      es.onerror = () => {
+        // 自动重连
+      };
+      return () => es.close();
+    } catch (err) {
+      console.error('SSE subscribe (doctor) failed:', err);
+    }
+  }, [status, selectedDoctorId, selectedDate]);
 
   const handleDateChange = (date: Date) => {
     setSelectedDate(date);
@@ -214,7 +314,9 @@ export default function PatientScheduleHome() {
       try { appointments = await appointmentsRes.json(); } catch { appointments = []; }
       const map: Record<string, string> = {};
       appointments.forEach((apt) => {
-        if (apt.timeSlotId) map[apt.timeSlotId] = apt.id;
+        if (apt.timeSlotId && apt.status === "PENDING") {
+          map[apt.timeSlotId] = apt.id;
+        }
       });
       setMyAppointmentsBySlot(map);
       // 刷新当天详情与日历状态
@@ -254,7 +356,7 @@ export default function PatientScheduleHome() {
         : true;
       if (!ok) return;
 
-      const res = await fetch(`/api/appointments?appointmentId=${appointmentId}`, { method: "DELETE" });
+      const res = await fetch(`/api/appointments/${appointmentId}`, { method: "DELETE" });
       // 安全解析，避免空響應導致 JSON 解析錯誤
       let data: any = null;
       try { data = await res.json(); } catch {}
@@ -266,7 +368,9 @@ export default function PatientScheduleHome() {
       try { appointments = await appointmentsRes.json(); } catch { appointments = []; }
       const map: Record<string, string> = {};
       appointments.forEach((apt) => {
-        if (apt.timeSlotId) map[apt.timeSlotId] = apt.id;
+        if (apt.timeSlotId && apt.status === "PENDING") {
+          map[apt.timeSlotId] = apt.id;
+        }
       });
       setMyAppointmentsBySlot(map);
       // 刷新当天详情与日历状态

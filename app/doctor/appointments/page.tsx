@@ -83,7 +83,7 @@ export default function DoctorAppointmentsPage() {
     return `${y}-${m}-${d}`;
   };
 
-  const [selectedDate, setSelectedDate] = useState<string>('');
+  const [selectedDate, setSelectedDate] = useState<string>(getCurrentDateInChina());
   const [selectedRoomId, setSelectedRoomId] = useState<string>('');
   const [selectedStatus, setSelectedStatus] = useState<string>('');
 
@@ -113,36 +113,34 @@ export default function DoctorAppointmentsPage() {
   }, [status, session?.user?.role, router]);
 
   // 獲取通知數據（僅在醫生身份下觸發，並對 401/404 友好處理）
+  // 提取為獨立函數，供初始化與 SSE 事件刷新使用
+  const fetchNotifications = async () => {
+    try {
+      const res = await fetch('/api/notifications');
+      if (res.status === 404 || res.status === 401) {
+        // 無醫生資料或未授權：前端不報錯，以空通知呈現
+        setNotifications([]);
+        setUnreadNotifications([]);
+        return;
+      }
+      if (!res.ok) throw new Error('Failed to fetch notifications.');
+      const data = await res.json();
+      const allNotifications = data.notifications || [];
+      setNotifications(allNotifications);
+
+      // 只顯示最近的未讀通知（最多5條）
+      const unread = allNotifications.filter((n: Notification) => !n.isRead).slice(0, 5);
+      setUnreadNotifications(unread);
+    } catch (err) {
+      // 保留日誌但避免不必要的錯誤提示
+      console.error('Failed to fetch notifications:', err);
+    }
+  };
+
+  // 初始化拉取一次通知
   useEffect(() => {
     if (status !== 'authenticated' || session?.user?.role !== 'DOCTOR') return;
-
-    const fetchNotifications = async () => {
-      try {
-        const res = await fetch('/api/notifications');
-        if (res.status === 404 || res.status === 401) {
-          // 無醫生資料或未授權：前端不報錯，以空通知呈現
-          setNotifications([]);
-          setUnreadNotifications([]);
-          return;
-        }
-        if (!res.ok) throw new Error('Failed to fetch notifications.');
-        const data = await res.json();
-        const allNotifications = data.notifications || [];
-        setNotifications(allNotifications);
-
-        // 只顯示最近的未讀通知（最多5條）
-        const unread = allNotifications.filter((n: Notification) => !n.isRead).slice(0, 5);
-        setUnreadNotifications(unread);
-      } catch (err) {
-        // 保留日誌但避免不必要的錯誤提示
-        console.error('Failed to fetch notifications:', err);
-      }
-    };
-
     fetchNotifications();
-    // 每分鐘檢查一次新通知
-    const interval = setInterval(fetchNotifications, 60000);
-    return () => clearInterval(interval);
   }, [status, session?.user?.role]);
 
   // 獨立的獲取預約函數
@@ -181,6 +179,40 @@ export default function DoctorAppointmentsPage() {
 
     fetchData();
   }, [status, session?.user?.id]);
+
+  // 已移除定期輪詢刷新預約列表，改為 SSE 實時驅動
+
+  // SSE：订阅医生频道的实时事件，自动刷新预约列表
+  useEffect(() => {
+    if (status !== 'authenticated') return;
+    if (!doctorProfile?.id) return;
+    try {
+      const es = new EventSource(`/api/realtime/subscribe?kind=doctor&id=${doctorProfile.id}`);
+      es.onmessage = async (ev) => {
+        try {
+          const evt = JSON.parse(ev.data);
+          const type = evt?.type as string | undefined;
+          switch (type) {
+            case 'APPOINTMENT_CREATED':
+            case 'APPOINTMENT_CANCELLED':
+            case 'APPOINTMENT_STATUS_UPDATED':
+              // 同步刷新預約與通知
+              await fetchAppointments();
+              await fetchNotifications();
+              break;
+            default:
+              break;
+          }
+        } catch {}
+      };
+      es.onerror = () => {
+        // EventSource 会自动重连，无需特殊处理
+      };
+      return () => es.close();
+    } catch (err) {
+      console.error('SSE subscribe (doctor appointments) failed:', err);
+    }
+  }, [status, doctorProfile?.id]);
 
   // --- Computed Values ---
   const filteredAppointments = useMemo(() => {
@@ -286,7 +318,7 @@ export default function DoctorAppointmentsPage() {
     if (!selectedAppointmentForCancel) return;
     try {
       setCancelLoading(true);
-      const response = await fetch(`/api/appointments?appointmentId=${selectedAppointmentForCancel.id}`, {
+      const response = await fetch(`/api/appointments/${selectedAppointmentForCancel.id}`, {
         method: 'DELETE'
       });
 

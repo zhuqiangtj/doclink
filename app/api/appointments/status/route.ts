@@ -4,6 +4,7 @@ import { authOptions } from '../../auth/[...nextauth]/route';
 import { prisma } from '../../../../lib/prisma';
 import { createAuditLog } from '../../../../lib/audit';
 import { createAppointmentHistoryInTransaction } from '../../../../lib/appointment-history';
+import { publishDoctorEvent, publishPatientEvent } from '@/lib/realtime';
 
 // PUT - 更新预约状态
 export async function PUT(request: Request) {
@@ -134,6 +135,27 @@ finalReason = '医生确认爽约';
       }
     );
 
+    // Publish realtime status update events
+    try {
+      await Promise.all([
+        publishDoctorEvent(appointment.doctorId, 'APPOINTMENT_STATUS_UPDATED', {
+          appointmentId,
+          oldStatus: appointment.status,
+          newStatus: status,
+          actorRole: session.user.role,
+          reason: finalReason,
+        }),
+        publishPatientEvent(appointment.patientId, 'APPOINTMENT_STATUS_UPDATED', {
+          appointmentId,
+          oldStatus: appointment.status,
+          newStatus: status,
+          actorRole: session.user.role,
+          reason: finalReason,
+        }),
+      ]);
+    } catch (e) {
+      console.error('[Realtime] APPOINTMENT_STATUS_UPDATED publish failed', e);
+    }
     return NextResponse.json(updatedAppointment);
 
   } catch (error) {

@@ -1,10 +1,10 @@
-import { PrismaClient, Role } from '@prisma/client';
+import { Role } from '@prisma/client';
+import { prisma } from '@/lib/prisma';
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '../auth/[...nextauth]/route';
 import bcrypt from 'bcrypt';
 
-const prisma = new PrismaClient();
 
 // GET all doctors (for any authenticated user)
 export async function GET() {

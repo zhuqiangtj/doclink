@@ -43,6 +43,22 @@ export default function MyAppointmentsPage() {
   // --- History Modal States ---
   const [showHistoryModal, setShowHistoryModal] = useState(false);
   const [selectedAppointmentId, setSelectedAppointmentId] = useState<string | null>(null);
+  const [patientId, setPatientId] = useState<string | null>(null);
+
+  // 獨立的獲取預約函數，供初始化與 SSE 事件後刷新使用
+  const fetchAppointments = async () => {
+    setIsLoading(true);
+    try {
+      const res = await fetch('/api/appointments');
+      if (!res.ok) throw new Error('获取预约失败。');
+      const data = await res.json();
+      setAppointments(data);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '发生未知错误');
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   useEffect(() => {
     if (status === 'unauthenticated') {
@@ -54,22 +70,56 @@ export default function MyAppointmentsPage() {
 
   useEffect(() => {
     if (status === 'authenticated') {
-      const fetchAppointments = async () => {
-        setIsLoading(true);
-        try {
-          const res = await fetch('/api/appointments');
-          if (!res.ok) throw new Error('获取预约失败。');
-          const data = await res.json();
-          setAppointments(data);
-        } catch (err) {
-          setError(err instanceof Error ? err.message : '发生未知错误');
-        } finally {
-          setIsLoading(false);
-        }
-      };
       fetchAppointments();
     }
   }, [status]);
+
+  // 拉取患者身份以接入 SSE
+  useEffect(() => {
+    if (status !== 'authenticated') return;
+    (async () => {
+      try {
+        const res = await fetch('/api/user');
+        if (!res.ok) return;
+        const data = await res.json();
+        if (data?.patientProfile?.id) {
+          setPatientId(data.patientProfile.id);
+        }
+      } catch {
+        // 靜默失敗，不影響主要頁面渲染
+      }
+    })();
+  }, [status]);
+
+  // SSE：订阅患者频道的预约事件，自动刷新列表
+  useEffect(() => {
+    if (status !== 'authenticated') return;
+    if (!patientId) return;
+    try {
+      const es = new EventSource(`/api/realtime/subscribe?kind=patient&id=${patientId}`);
+      es.onmessage = async (ev) => {
+        try {
+          const evt = JSON.parse(ev.data);
+          const type = evt?.type as string | undefined;
+          switch (type) {
+            case 'APPOINTMENT_CREATED':
+            case 'APPOINTMENT_CANCELLED':
+            case 'APPOINTMENT_STATUS_UPDATED':
+              await fetchAppointments();
+              break;
+            default:
+              break;
+          }
+        } catch {}
+      };
+      es.onerror = () => {
+        // EventSource 自动重连
+      };
+      return () => es.close();
+    } catch (err) {
+      console.error('SSE subscribe (my appointments) failed:', err);
+    }
+  }, [status, patientId]);
 
   const handleCancel = async (appointmentId: string) => {
     try {
