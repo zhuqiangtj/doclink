@@ -69,41 +69,46 @@
 }
 
 .navIcon {
-  font-size: 24px;
+  font-size: 26px;
   margin-bottom: 4px;
   transition: transform 0.2s ease;
 }
 
 .navItemActive .navIcon {
-  transform: scale(1.1);
+  transform: scale(1.12);
 }
 
 .navLabel {
-  font-size: 11px;
-  font-weight: 500;
+  font-size: 12px;
+  font-weight: 600;
   text-align: center;
-  line-height: 1.2;
+  line-height: 1.3;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  max-width: 60px;
+  max-width: 72px;
+}
+
+.navItem:focus-visible {
+  outline: 3px solid #93c5fd;
+  outline-offset: 2px;
 }
 
 .badge {
   position: absolute;
   top: 4px;
-  right: 38px; /* 從42px調整為38px，繼續往右移動 */
+  right: 38px;
   background: #ff4444;
   color: white;
-  border-radius: 8px;
-  min-width: 16px;
-  height: 16px;
+  border-radius: 9px;
+  min-width: 18px;
+  height: 18px;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 9px;
-  font-weight: 500;
-  padding: 0 4px;
+  font-size: 10px;
+  font-weight: 600;
+  padding: 0 5px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
   z-index: 10;
 }
@@ -128,12 +133,12 @@
   }
   
   .navIcon {
-    font-size: 22px;
+    font-size: 24px;
   }
   
   .navLabel {
-    font-size: 10px;
-    max-width: 50px;
+    font-size: 11px;
+    max-width: 60px;
   }
   
   .badge {
@@ -163,13 +168,13 @@
   }
   
   .navIcon {
-    font-size: 20px;
+    font-size: 22px;
     margin-bottom: 2px;
   }
   
   .navLabel {
-    font-size: 9px;
-    max-width: 45px;
+    font-size: 10px;
+    max-width: 54px;
   }
   
   .badge {
