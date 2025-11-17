@@ -425,12 +425,16 @@ export default function DoctorSchedulePage() {
       // 槽位过滤：
       // 1) 如果是今天，过滤掉開始時間已過的模板時段
       // 2) 过滤掉與當前日期已有時段開始/結束時間完全相同的模板時段
-      const templateToAdd = DEFAULT_TEMPLATE.filter(tpl => {
+      let templateToAdd = DEFAULT_TEMPLATE.filter(tpl => {
         const isPastStart = isToday && isTimeSlotPast(selectedDate, tpl.startTime);
         const isDuplicate = existingSlots.some(s => s.startTime === tpl.startTime && s.endTime === tpl.endTime);
         return !isPastStart && !isDuplicate;
       });
       const skippedCount = DEFAULT_TEMPLATE.length - templateToAdd.length;
+
+      if (isToday && existingSlots.length === 0 && templateToAdd.length === 0) {
+        templateToAdd = [...DEFAULT_TEMPLATE];
+      }
       
       for (const tpl of templateToAdd) {
         // 避免模板床位數超過診室容量
@@ -463,19 +467,21 @@ export default function DoctorSchedulePage() {
             const updated = [...prev];
             updated[existingScheduleIndex] = {
               ...updated[existingScheduleIndex],
-              timeSlots: [
-                ...updated[existingScheduleIndex].timeSlots,
-                {
-                  id: newTimeSlot.id,
-                  startTime: newTimeSlot.startTime,
-                  endTime: newTimeSlot.endTime,
-                  bedCount: newTimeSlot.bedCount,
-                  availableBeds: newTimeSlot.availableBeds,
-                  type: newTimeSlot.type,
-                  isActive: newTimeSlot.isActive,
-                  appointments: []
-                }
-              ]
+              timeSlots: (
+                [
+                  ...updated[existingScheduleIndex].timeSlots,
+                  {
+                    id: newTimeSlot.id,
+                    startTime: newTimeSlot.startTime,
+                    endTime: newTimeSlot.endTime,
+                    bedCount: newTimeSlot.bedCount,
+                    availableBeds: newTimeSlot.availableBeds,
+                    type: newTimeSlot.type,
+                    isActive: newTimeSlot.isActive,
+                    appointments: []
+                  }
+                ]
+              ).sort((a, b) => a.startTime.localeCompare(b.startTime))
             };
             return updated;
           } else {
@@ -510,6 +516,7 @@ export default function DoctorSchedulePage() {
       setSuccess(skippedCount > 0 
         ? `模板已應用，已跳過 ${skippedCount} 個過期或重複時段`
         : '模板已應用');
+      await fetchAllDataForDate(selectedDate);
       setIsTemplateModalOpen(false);
     } catch (err) {
       setError('Error applying template.');
