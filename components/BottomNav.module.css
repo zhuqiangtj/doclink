@@ -7,7 +7,7 @@
   transform: translateX(-50%);
   width: 100%;
   max-width: 1200px; /* 限制最大寬度 */
-  height: 72px; /* 略微降低高度以釋放垂直空間 */
+  height: 78px;
   background: white;
   border-top: 1px solid #e5e7eb;
   display: flex;
@@ -38,8 +38,8 @@
   flex: 1;
   max-width: 120px; /* 限制最大寬度 */
   min-width: 60px; /* 確保最小寬度 */
-  min-height: 60px; /* 確保足夠的觸控區域 */
-  padding: 8px 4px;
+  min-height: 62px; /* 確保足夠的觸控區域 */
+  padding: 10px 6px;
   text-decoration: none;
   transition: all 0.2s ease;
   border-radius: 12px;
@@ -55,12 +55,12 @@
 }
 
 .navItemActive {
-  color: #3b82f6;
-  background: rgba(59, 130, 246, 0.05);
+  color: #2563eb;
+  background: rgba(37, 99, 235, 0.08);
 }
 
 .navItemInactive {
-  color: #6b7280;
+  color: #374151;
 }
 
 .navItemInactive:hover {
@@ -69,7 +69,7 @@
 }
 
 .navIcon {
-  font-size: 26px;
+  font-size: 28px;
   margin-bottom: 4px;
   transition: transform 0.2s ease;
 }
@@ -79,7 +79,7 @@
 }
 
 .navLabel {
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 600;
   text-align: center;
   line-height: 1.3;
@@ -87,6 +87,8 @@
   overflow: hidden;
   text-overflow: ellipsis;
   max-width: 72px;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
 }
 
 .navItem:focus-visible {

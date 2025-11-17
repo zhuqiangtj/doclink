@@ -16,6 +16,7 @@ const NavItem = ({ href, label, active, Icon, badgeCount }: { href: string; labe
     <Link 
       href={href} 
       aria-label={label}
+      aria-current={active ? 'page' : undefined}
       className={`${styles.navItem} ${active ? styles.navItemActive : styles.navItemInactive}`}
     >
       <Icon className={styles.navIcon} />
