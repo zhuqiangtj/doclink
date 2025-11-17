@@ -140,6 +140,7 @@ finalReason = '医生确认爽约';
       await Promise.all([
         publishDoctorEvent(appointment.doctorId, 'APPOINTMENT_STATUS_UPDATED', {
           appointmentId,
+          timeSlotId: appointment.timeSlotId,
           oldStatus: appointment.status,
           newStatus: status,
           actorRole: session.user.role,
@@ -147,6 +148,7 @@ finalReason = '医生确认爽约';
         }),
         publishPatientEvent(appointment.patientId, 'APPOINTMENT_STATUS_UPDATED', {
           appointmentId,
+          timeSlotId: appointment.timeSlotId,
           oldStatus: appointment.status,
           newStatus: status,
           actorRole: session.user.role,

@@ -1,70 +1,44 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
-  // directUrl = env("DIRECT_URL")
-}
-
-enum Role {
-  PATIENT
-  DOCTOR
-  ADMIN
-}
-
-enum AppointmentStatus {
-  PENDING    // 待就診
-  CANCELLED  // 已取消
-  COMPLETED  // 已完成
-  NO_SHOW    // 未到診
-}
-
-enum TimeSlotType {
-  MORNING    // 上午時段
-  AFTERNOON  // 下午時段
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 model User {
-  id          String    @id @default(cuid())
-  username    String    @unique // Now required
-  name        String // New: required for all users
-  phone       String? // New: optional for all users
-  dateOfBirth DateTime? // New: optional for all users
-  gender      String? // New: optional for all users
-  password    String // Now required
-  role        Role      @default(PATIENT)
-
-  accounts Account[]
-  sessions Session[]
-
-  // Relations to specific profiles
-  doctorProfile  Doctor?
-  patientProfile Patient?
-  appointments   Appointment[]
+  id                   String                @id @default(cuid())
+  username             String                @unique
+  name                 String
+  phone                String?
+  dateOfBirth          DateTime?
+  gender               String?
+  password             String
+  role                 Role                  @default(PATIENT)
+  accounts             Account[]
+  appointments         Appointment[]
+  doctorProfile        Doctor?
+  patientProfile       Patient?
   patientNotifications PatientNotification[]
+  sessions             Session[]
 }
 
-// Models for Auth.js adapter
 model Account {
   id                String  @id @default(cuid())
   userId            String
   type              String
   provider          String
   providerAccountId String
-  refresh_token     String? @db.Text
-  access_token      String? @db.Text
+  refresh_token     String?
+  access_token      String?
   expires_at        Int?
   token_type        String?
   scope             String?
-  id_token          String? @db.Text
+  id_token          String?
   session_state     String?
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([provider, providerAccountId])
 }
@@ -89,136 +63,150 @@ model Room {
   id           String        @id @default(cuid())
   name         String
   bedCount     Int
-  // New: One-to-many relationship with Doctor
-  doctor       Doctor        @relation(fields: [doctorId], references: [id])
-  doctorId     String // Foreign key to Doctor
-  schedules    Schedule[]
+  doctorId     String
   appointments Appointment[]
+  doctor       Doctor        @relation(fields: [doctorId], references: [id])
+  schedules    Schedule[]
 }
 
 model Doctor {
   id            String         @id @default(cuid())
-  // name String is now on User model
-  user          User           @relation(fields: [userId], references: [id])
   userId        String         @unique
-  schedules     Schedule[]
   appointments  Appointment[]
+  user          User           @relation(fields: [userId], references: [id])
   notifications Notification[]
   Room          Room[]
+  schedules     Schedule[]
 }
 
 model Schedule {
   id           String        @id @default(cuid())
-  doctor       Doctor        @relation(fields: [doctorId], references: [id])
   doctorId     String
   date         String
-  room         Room          @relation(fields: [roomId], references: [id])
   roomId       String
-  timeSlots    TimeSlot[]    // 新的一對多關係
   appointments Appointment[]
+  doctor       Doctor        @relation(fields: [doctorId], references: [id])
+  room         Room          @relation(fields: [roomId], references: [id])
+  timeSlots    TimeSlot[]
 }
 
 model TimeSlot {
-  id             String        @id @default(cuid())
-  schedule       Schedule      @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
-  scheduleId     String
-  startTime      String        // 開始時間 (例如: "08:00")
-  endTime        String        // 結束時間 (例如: "09:00")
-  bedCount       Int           // 總床位數
-  availableBeds  Int           // 可用床位數
-  type           TimeSlotType  // 時段類型 (上午/下午)
-  isActive       Boolean       @default(true) // 是否啟用
-  appointments   Appointment[]
+  id            String        @id @default(cuid())
+  scheduleId    String
+  startTime     String
+  endTime       String
+  bedCount      Int
+  availableBeds Int
+  type          TimeSlotType
+  isActive      Boolean       @default(true)
+  appointments  Appointment[]
+  schedule      Schedule      @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
 
   @@index([scheduleId])
   @@index([startTime, endTime])
 }
 
 model Appointment {
-  id         String            @id @default(cuid())
-  user       User              @relation(fields: [userId], references: [id])
+  id         String               @id @default(cuid())
   userId     String
-  patient    Patient           @relation(fields: [patientId], references: [id])
   patientId  String
-  doctor     Doctor            @relation(fields: [doctorId], references: [id])
   doctorId   String
-  schedule   Schedule          @relation(fields: [scheduleId], references: [id])
   scheduleId String
-  timeSlot   TimeSlot          @relation(fields: [timeSlotId], references: [id])
   timeSlotId String
-  time       String            // 保留用於向後兼容
-  room       Room              @relation(fields: [roomId], references: [id])
+  time       String
   roomId     String
   bedId      Int
-  status     AppointmentStatus @default(PENDING)
-  reason     String?           // 原因字段：記錄狀態變更的原因
-  createTime DateTime          @default(now())
-  history    AppointmentHistory[] // 一對多關係：預約變更歷史記錄
+  status     AppointmentStatus    @default(PENDING)
+  reason     String?
+  createTime DateTime             @default(now())
+  doctor     Doctor               @relation(fields: [doctorId], references: [id])
+  patient    Patient              @relation(fields: [patientId], references: [id])
+  room       Room                 @relation(fields: [roomId], references: [id])
+  schedule   Schedule             @relation(fields: [scheduleId], references: [id])
+  timeSlot   TimeSlot             @relation(fields: [timeSlotId], references: [id])
+  user       User                 @relation(fields: [userId], references: [id])
+  history    AppointmentHistory[]
 }
 
 model AppointmentHistory {
   id            String            @id @default(cuid())
-  appointment   Appointment       @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
   appointmentId String
-  operatorName  String            // 操作人姓名
-  operatorId    String?           // 操作人ID（可選，用於關聯）
-  operatedAt    DateTime          @default(now()) // 操作時間
-  status        AppointmentStatus // 變更後的預約狀態
-  reason        String?           // 變更後的原因
-  action        String            // 操作類型：CREATE, UPDATE_STATUS, CANCEL, CHECKIN, NO_SHOW等
-  
+  operatorName  String
+  operatorId    String?
+  operatedAt    DateTime          @default(now())
+  status        AppointmentStatus
+  reason        String?
+  action        String
+  appointment   Appointment       @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+
   @@index([appointmentId])
   @@index([operatedAt])
 }
 
 model Patient {
   id               String        @id @default(cuid())
-  // name String is now on User model
-  // phone String? is now on User model
   credibilityScore Int           @default(15)
   isSuspended      Boolean       @default(false)
-  user             User          @relation(fields: [userId], references: [id])
   userId           String        @unique
   appointments     Appointment[]
+  user             User          @relation(fields: [userId], references: [id])
 }
 
 model AuditLog {
   id           String   @id @default(cuid())
   timestamp    DateTime @default(now())
-  userId       String? // User who performed the action
-  userName     String? // Name of the user who performed the action
-  userUsername String? // New: Username of the user who performed the action
-  userRole     Role? // Role of the user who performed the action
-  action       String // e.g., "CREATE_USER", "UPDATE_APPOINTMENT_STATUS"
-  entityType   String // e.g., "User", "Appointment", "Room"
-  entityId     String? // ID of the entity that was affected
-  details      Json? // Additional details about the action (e.g., old/new values)
+  userId       String?
+  userName     String?
+  userUsername String?
+  userRole     Role?
+  action       String
+  entityType   String
+  entityId     String?
+  details      Json?
 }
 
 model Notification {
   id            String   @id @default(cuid())
   createdAt     DateTime @default(now())
   doctorId      String
-  doctor        Doctor   @relation(fields: [doctorId], references: [id], onDelete: Cascade)
   appointmentId String
   patientName   String
   message       String
-  type          String // e.g., 'APPOINTMENT_CREATED', 'APPOINTMENT_CANCELLED'
+  type          String
   isRead        Boolean  @default(false)
+  doctor        Doctor   @relation(fields: [doctorId], references: [id], onDelete: Cascade)
 
   @@index([doctorId])
 }
 
 model PatientNotification {
-  id            String    @id @default(cuid())
-  createdAt     DateTime  @default(now())
+  id            String   @id @default(cuid())
+  createdAt     DateTime @default(now())
   userId        String
-  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   appointmentId String
   doctorName    String
   message       String
-  type          String    // e.g., 'APPOINTMENT_CREATED_BY_DOCTOR', 'APPOINTMENT_CANCELLED_BY_DOCTOR'
-  isRead        Boolean   @default(false)
+  type          String
+  isRead        Boolean  @default(false)
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
+}
+
+enum Role {
+  PATIENT
+  DOCTOR
+  ADMIN
+}
+
+enum AppointmentStatus {
+  PENDING
+  CANCELLED
+  COMPLETED
+  NO_SHOW
+}
+
+enum TimeSlotType {
+  MORNING
+  AFTERNOON
 }

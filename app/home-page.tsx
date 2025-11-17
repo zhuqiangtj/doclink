@@ -7,6 +7,7 @@ import EnhancedDatePicker, { DateStatus } from "../components/EnhancedDatePicker
 import "../components/EnhancedDatePicker.css";
 import "./mobile.css";
 import { fetchPublicDateStatusesForMonth } from "../utils/publicDateStatusUtils";
+import { isPastDate } from "../utils/dateStatusUtils";
 
 interface Doctor { id: string; name: string }
 interface Appointment {
@@ -64,6 +65,7 @@ export default function PatientScheduleHome() {
   const [isConfirmOpen, setIsConfirmOpen] = useState<boolean>(false);
   const [confirmBookingData, setConfirmBookingData] = useState<{ slot: TimeSlot; schedule: Schedule } | null>(null);
   const [isConfirmSubmitting, setIsConfirmSubmitting] = useState<boolean>(false);
+  const [overlayText, setOverlayText] = useState<string | null>(null);
 
   useEffect(() => {
     if (status === "loading") return;
@@ -204,7 +206,7 @@ export default function PatientScheduleHome() {
 
   // 已移除定期轮询，当天详情与“我的预约”映射由 SSE 驱动
 
-  // SSE: 订阅与患者相关的事件（预约创建/取消/状态变更）并刷新视图
+  // SSE: 订阅与患者相关的事件（预约创建/取消/状态变更）并执行精细更新
   useEffect(() => {
     if (status !== 'authenticated') return;
     if (!patientId) return;
@@ -214,15 +216,52 @@ export default function PatientScheduleHome() {
         try {
           const evt = JSON.parse(ev.data);
           const type = evt?.type as string | undefined;
+          const payload = evt?.payload as any;
+          const timeSlotId = payload?.timeSlotId as string | undefined;
+          const appointmentId = payload?.appointmentId as string | undefined;
           if (!type || !selectedDoctorId) return;
+          let msg: string | null = null;
+          if (type === 'APPOINTMENT_CREATED') msg = '新增预约已同步';
+          else if (type === 'APPOINTMENT_CANCELLED') msg = '取消预约已同步';
+          else if (type === 'APPOINTMENT_STATUS_UPDATED') msg = '预约状态已同步';
+          if (msg) setOverlayText(msg);
           switch (type) {
             case 'APPOINTMENT_CREATED':
+              if (timeSlotId && appointmentId) {
+                setMyAppointmentsBySlot(prev => ({ ...prev, [timeSlotId]: appointmentId }));
+                await refreshPublicTimeSlotById(timeSlotId);
+              } else {
+                await refreshDayDetails(selectedDate, selectedDoctorId);
+              }
+              break;
             case 'APPOINTMENT_CANCELLED':
+              if (timeSlotId) {
+                setMyAppointmentsBySlot(prev => {
+                  const copy = { ...prev };
+                  delete copy[timeSlotId];
+                  return copy;
+                });
+                await refreshPublicTimeSlotById(timeSlotId);
+              } else {
+                await refreshDayDetails(selectedDate, selectedDoctorId);
+              }
+              break;
             case 'APPOINTMENT_STATUS_UPDATED':
-              await Promise.all([
-                refreshDayDetails(selectedDate, selectedDoctorId),
-                refreshCalendarStatuses(selectedDate, selectedDoctorId),
-              ]);
+              {
+                const newStatus = (payload?.newStatus as string | undefined) || '';
+                if (timeSlotId && newStatus && newStatus !== 'PENDING') {
+                  setMyAppointmentsBySlot(prev => {
+                    const copy = { ...prev };
+                    delete copy[timeSlotId];
+                    return copy;
+                  });
+                }
+                if (timeSlotId) {
+                  await refreshPublicTimeSlotById(timeSlotId);
+                } else {
+                  await refreshDayDetails(selectedDate, selectedDoctorId);
+                }
+              }
               break;
             default:
               break;
@@ -238,7 +277,7 @@ export default function PatientScheduleHome() {
     }
   }, [status, patientId, selectedDoctorId, selectedDate]);
 
-  // SSE: 订阅选中医生的排班事件（新建/更新/删除时段）并刷新视图
+  // SSE: 订阅选中医生的排班事件（新建/更新/删除时段）并执行精细更新
   useEffect(() => {
     if (status !== 'authenticated') return;
     if (!selectedDoctorId) return;
@@ -248,14 +287,70 @@ export default function PatientScheduleHome() {
         try {
           const evt = JSON.parse(ev.data);
           const type = evt?.type as string | undefined;
+          const payload = evt?.payload as any;
+          const timeSlotId = payload?.timeSlotId as string | undefined;
+          let msg: string | null = null;
+          if (type === 'TIMESLOT_CREATED') msg = '医生新增时段已同步';
+          else if (type === 'TIMESLOT_UPDATED') msg = '医生修改时段已同步';
+          else if (type === 'TIMESLOT_DELETED') msg = '医生删除时段已同步';
+          else if (type === 'APPOINTMENT_CREATED') msg = '新增预约已同步';
+          else if (type === 'APPOINTMENT_CANCELLED') msg = '取消预约已同步';
+          else if (type === 'APPOINTMENT_STATUS_UPDATED') msg = '预约状态已同步';
+          if (msg) setOverlayText(msg);
           switch (type) {
             case 'TIMESLOT_CREATED':
             case 'TIMESLOT_UPDATED':
             case 'TIMESLOT_DELETED':
-              await Promise.all([
-                refreshDayDetails(selectedDate, selectedDoctorId),
-                refreshCalendarStatuses(selectedDate, selectedDoctorId),
-              ]);
+              if (timeSlotId) {
+                if (type === 'TIMESLOT_DELETED') {
+                  setSchedulesForSelectedDay(prev => {
+                    const next = prev.map(s => ({
+                      ...s,
+                      timeSlots: (s.timeSlots || []).filter(t => t.id !== timeSlotId)
+                    }));
+                    const dateStr = toYYYYMMDD(selectedDate);
+                    const totals = next.reduce((acc: { bookedBeds: number; totalBeds: number }, sch) => {
+                      for (const ts of sch.timeSlots || []) {
+                        acc.totalBeds += Number(ts.bedCount || 0);
+                        const used = Number(ts.bedCount || 0) - Number(ts.availableBeds || 0);
+                        acc.bookedBeds += used > 0 ? used : 0;
+                      }
+                      return acc;
+                    }, { bookedBeds: 0, totalBeds: 0 });
+                    const updatedStatus = {
+                      date: dateStr,
+                      hasSchedule: next.some(s => (s.timeSlots || []).length > 0),
+                      hasAppointments: totals.bookedBeds > 0,
+                      bookedBeds: totals.bookedBeds,
+                      totalBeds: totals.totalBeds,
+                      isPast: isPastDate(selectedDate),
+                    };
+                    setDateStatuses(prevStatuses => {
+                      const idx = prevStatuses.findIndex(st => st.date === dateStr);
+                      if (idx >= 0) {
+                        const copy = [...prevStatuses];
+                        copy[idx] = updatedStatus;
+                        return copy;
+                      }
+                      return [...prevStatuses, updatedStatus];
+                    });
+                    return next;
+                  });
+                } else {
+                  await refreshPublicTimeSlotById(timeSlotId);
+                }
+              } else {
+                await refreshDayDetails(selectedDate, selectedDoctorId);
+              }
+              break;
+            case 'APPOINTMENT_CREATED':
+            case 'APPOINTMENT_CANCELLED':
+            case 'APPOINTMENT_STATUS_UPDATED':
+              if (timeSlotId) {
+                await refreshPublicTimeSlotById(timeSlotId);
+              } else {
+                await refreshDayDetails(selectedDate, selectedDoctorId);
+              }
               break;
             default:
               break;
@@ -270,6 +365,73 @@ export default function PatientScheduleHome() {
       console.error('SSE subscribe (doctor) failed:', err);
     }
   }, [status, selectedDoctorId, selectedDate]);
+
+  useEffect(() => {
+    if (!overlayText) return;
+    const t = setTimeout(() => setOverlayText(null), 3000);
+    return () => clearTimeout(t);
+  }, [overlayText]);
+
+  const refreshPublicTimeSlotById = async (id: string) => {
+    if (!selectedDoctorId) return;
+    try {
+      const res = await fetch(`/api/public/schedules?doctorId=${selectedDoctorId}&timeSlotId=${id}`, { cache: 'no-store' });
+      if (!res.ok) return;
+      const arr = await res.json();
+      const updatedSchedule: Schedule | null = Array.isArray(arr) ? arr[0] : null;
+      if (!updatedSchedule || !updatedSchedule.timeSlots || updatedSchedule.timeSlots.length === 0) return;
+      const updatedSlot = updatedSchedule.timeSlots[0];
+
+      const selectedDateStr = toYYYYMMDD(selectedDate);
+      if (updatedSchedule.date !== selectedDateStr) {
+        return;
+      }
+
+      setSchedulesForSelectedDay(prev => {
+        let scheduleExists = prev.some(s => s.id === updatedSchedule.id);
+        const next = prev.map(s => {
+          if (s.id === updatedSchedule.id) {
+            const has = s.timeSlots.some(t => t.id === updatedSlot.id);
+            const mergedSlots = has
+              ? s.timeSlots.map(t => (t.id === updatedSlot.id ? updatedSlot : t))
+              : [...s.timeSlots, updatedSlot].sort((a, b) => a.startTime.localeCompare(b.startTime));
+            return { ...s, timeSlots: mergedSlots };
+          }
+          return s;
+        });
+        const finalNext = scheduleExists ? next : [...next, updatedSchedule];
+
+        const dateStr = selectedDateStr;
+        const totals = finalNext.reduce((acc: { bookedBeds: number; totalBeds: number }, sch) => {
+          for (const ts of sch.timeSlots || []) {
+            acc.totalBeds += Number(ts.bedCount || 0);
+            const used = Number(ts.bedCount || 0) - Number(ts.availableBeds || 0);
+            acc.bookedBeds += used > 0 ? used : 0;
+          }
+          return acc;
+        }, { bookedBeds: 0, totalBeds: 0 });
+        const updatedStatus = {
+          date: dateStr,
+          hasSchedule: finalNext.some(s => (s.timeSlots || []).length > 0),
+          hasAppointments: totals.bookedBeds > 0,
+          bookedBeds: totals.bookedBeds,
+          totalBeds: totals.totalBeds,
+          isPast: isPastDate(selectedDate),
+        };
+        setDateStatuses(prevStatuses => {
+          const idx = prevStatuses.findIndex(st => st.date === dateStr);
+          if (idx >= 0) {
+            const copy = [...prevStatuses];
+            copy[idx] = updatedStatus;
+            return copy;
+          }
+          return [...prevStatuses, updatedStatus];
+        });
+
+        return finalNext;
+      });
+    } catch {}
+  };
 
   const handleDateChange = (date: Date) => {
     setSelectedDate(date);
@@ -385,6 +547,11 @@ export default function PatientScheduleHome() {
 
   return (
     <main className="mobile-container">
+      {overlayText && (
+        <div className="fixed inset-0 flex items-center justify-center pointer-events-none z-50">
+          <div className="bg-black/60 text-white text-sm px-4 py-2 rounded">{overlayText}</div>
+        </div>
+      )}
       {/* 顶部并列选择：医生与诊室（去掉标题） */}
       <div className="mobile-card">
         {doctors.length === 0 ? (

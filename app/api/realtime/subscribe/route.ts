@@ -33,13 +33,22 @@ export async function GET(request: Request) {
     async start(controller) {
       let lastId = initialId;
       let heartbeatTimer: any;
+      let closed = false;
 
-      const send = (line: string) => controller.enqueue(encoder.encode(line));
+      const send = (line: string) => {
+        if (closed) return;
+        try {
+          controller.enqueue(encoder.encode(line));
+        } catch {
+          // Swallow errors when controller is closed to prevent uncaught exceptions
+        }
+      };
       const sendEvent = (event: Record<string, unknown>) => {
         send(`event: message\n`);
         send(`data: ${JSON.stringify(event)}\n\n`);
       };
       const heartbeat = () => {
+        if (closed) return;
         send(`:keepalive ${Date.now()}\n\n`);
       };
 
@@ -126,6 +135,7 @@ export async function GET(request: Request) {
       } catch (err) {
         console.error('[SSE] stream error', err);
       } finally {
+        closed = true;
         if (heartbeatTimer) clearInterval(heartbeatTimer);
         try { controller.close(); } catch {}
       }

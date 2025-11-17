@@ -11,7 +11,7 @@ import '../appointments/mobile.css';
 import { getStatusText } from '../../../utils/statusText';
 import { FaTrash, FaSave, FaUserPlus, FaPlusCircle } from 'react-icons/fa';
 import EnhancedDatePicker, { DateStatus } from '../../../components/EnhancedDatePicker';
-import { fetchDateStatusesForMonth } from '../../../utils/dateStatusUtils';
+import { fetchDateStatusesForMonth, isPastDate } from '../../../utils/dateStatusUtils';
 
 // --- Interfaces ---
 interface Room { id: string; name: string; bedCount: number; }
@@ -189,6 +189,22 @@ export default function DoctorSchedulePage() {
     roomName: string;
     credibilityScore?: number | null;
   } | null>(null);
+  const [overlayText, setOverlayText] = useState<string | null>(null);
+
+  const refreshMonthStatuses = useCallback(async () => {
+    if (status === 'authenticated' && doctorProfile) {
+      try {
+        const dateStatusData = await fetchDateStatusesForMonth(
+          selectedDate.getFullYear(),
+          selectedDate.getMonth(),
+          doctorProfile.id
+        );
+        setDateStatuses(dateStatusData);
+      } catch (error) {
+        console.error('Error fetching date statuses:', error);
+      }
+    }
+  }, [status, doctorProfile, selectedDate]);
 
   const getSlotValue = (scheduleId: string, slotIndex: number, field: 'startTime' | 'endTime' | 'bedCount' | 'type' | 'roomId', originalValue: any) => {
     const key = `${scheduleId}-${slotIndex}`;
@@ -280,6 +296,17 @@ export default function DoctorSchedulePage() {
         try {
           const evt = JSON.parse(ev.data);
           const type = evt?.type as string | undefined;
+          const payload = evt?.payload as any;
+          const timeSlotId = payload?.timeSlotId as string | undefined;
+          let msg: string | null = null;
+          if (type === 'APPOINTMENT_CREATED') msg = '新增预约已同步';
+          else if (type === 'APPOINTMENT_CANCELLED') msg = '取消预约已同步';
+          else if (type === 'APPOINTMENT_STATUS_UPDATED') msg = '预约状态已同步';
+          else if (type === 'TIMESLOT_CREATED') msg = '新增时段已同步';
+          else if (type === 'TIMESLOT_UPDATED') msg = '时段修改已同步';
+          else if (type === 'TIMESLOT_DELETED') msg = '时段删除已同步';
+          else if (type === 'SCHEDULE_CREATED' || type === 'SCHEDULE_UPDATED' || type === 'SCHEDULE_DELETED') msg = '排班已同步';
+          if (msg) setOverlayText(msg);
           switch (type) {
             case 'TIMESLOT_CREATED':
             case 'TIMESLOT_UPDATED':
@@ -290,7 +317,11 @@ export default function DoctorSchedulePage() {
             case 'APPOINTMENT_CREATED':
             case 'APPOINTMENT_CANCELLED':
             case 'APPOINTMENT_STATUS_UPDATED':
-              await fetchAllDataForDate(selectedDate);
+              if (timeSlotId) {
+                await refreshTimeSlotById(timeSlotId);
+              } else {
+                await fetchAllDataForDate(selectedDate);
+              }
               break;
             default:
               break;
@@ -304,27 +335,80 @@ export default function DoctorSchedulePage() {
     } catch (err) {
       console.error('SSE subscribe (doctor schedule) failed:', err);
     }
-  }, [status, doctorProfile?.id, selectedDate, fetchAllDataForDate]);
+  }, [status, doctorProfile?.id, selectedDate, fetchAllDataForDate, refreshMonthStatuses]);
+  useEffect(() => {
+    if (!overlayText) return;
+    const t = setTimeout(() => setOverlayText(null), 3000);
+    return () => clearTimeout(t);
+  }, [overlayText]);
+  
 
   // 監聽月份變化，重新獲取日期狀態數據
   useEffect(() => {
-    const fetchDateStatusesForCurrentMonth = async () => {
-      if (status === 'authenticated' && doctorProfile) {
-        try {
-          const dateStatusData = await fetchDateStatusesForMonth(
-            selectedDate.getFullYear(),
-            selectedDate.getMonth(),
-            doctorProfile.id
-          );
-          setDateStatuses(dateStatusData);
-        } catch (error) {
-          console.error('Error fetching date statuses:', error);
-        }
-      }
-    };
+    refreshMonthStatuses();
+  }, [selectedDate.getFullYear(), selectedDate.getMonth(), status, doctorProfile, refreshMonthStatuses]);
 
-    fetchDateStatusesForCurrentMonth();
-  }, [selectedDate.getFullYear(), selectedDate.getMonth(), status, doctorProfile]);
+  const refreshTimeSlotById = useCallback(async (id: string) => {
+    try {
+      const res = await fetch(`/api/schedules/details?timeSlotId=${id}`, { cache: 'no-store' });
+      if (!res.ok) return;
+      const arr = await res.json();
+      const updatedSchedule = Array.isArray(arr) ? arr[0] : null;
+      if (!updatedSchedule || !updatedSchedule.timeSlots || updatedSchedule.timeSlots.length === 0) return;
+      const updatedSlot = updatedSchedule.timeSlots[0];
+
+      const selectedDateStr = toYYYYMMDD(selectedDate);
+      if (updatedSchedule.date !== selectedDateStr) {
+        return;
+      }
+
+      setSchedulesForSelectedDay(prev => {
+        let scheduleExists = prev.some(s => s.id === updatedSchedule.id);
+        let slotExists = false;
+        const next = prev.map(s => {
+          if (s.id === updatedSchedule.id) {
+            const has = s.timeSlots.some(t => t.id === updatedSlot.id);
+            slotExists = slotExists || has;
+            const mergedSlots = has
+              ? s.timeSlots.map(t => (t.id === updatedSlot.id ? updatedSlot : t))
+              : [...s.timeSlots, updatedSlot].sort((a, b) => a.startTime.localeCompare(b.startTime));
+            return { ...s, timeSlots: mergedSlots };
+          }
+          return s;
+        });
+        const finalNext = scheduleExists ? next : [...next, updatedSchedule];
+
+        const dateStr = selectedDateStr;
+        const totals = finalNext.reduce((acc: { bookedBeds: number; totalBeds: number }, sch) => {
+          for (const ts of sch.timeSlots || []) {
+            acc.totalBeds += Number(ts.bedCount || 0);
+            const used = Number(ts.bedCount || 0) - Number(ts.availableBeds || 0);
+            acc.bookedBeds += used > 0 ? used : 0;
+          }
+          return acc;
+        }, { bookedBeds: 0, totalBeds: 0 });
+        const updatedStatus = {
+          date: dateStr,
+          hasSchedule: finalNext.some(s => (s.timeSlots || []).length > 0),
+          hasAppointments: totals.bookedBeds > 0,
+          bookedBeds: totals.bookedBeds,
+          totalBeds: totals.totalBeds,
+          isPast: isPastDate(selectedDate),
+        };
+        setDateStatuses(prevStatuses => {
+          const idx = prevStatuses.findIndex(st => st.date === dateStr);
+          if (idx >= 0) {
+            const copy = [...prevStatuses];
+            copy[idx] = updatedStatus;
+            return copy;
+          }
+          return [...prevStatuses, updatedStatus];
+        });
+
+        return finalNext;
+      });
+    } catch {}
+  }, [selectedDate]);
 
   const handleApplyTemplate = async () => {
     if (!selectedRoomIdForTemplate) return;
@@ -1027,6 +1111,11 @@ export default function DoctorSchedulePage() {
 
   return (
     <div className="page-container space-y-2">
+      {overlayText && (
+        <div className="fixed inset-0 flex items-center justify-center pointer-events-none z-50">
+          <div className="bg-black/60 text-white text-sm px-4 py-2 rounded">{overlayText}</div>
+        </div>
+      )}
       <div className="mobile-card">
         <div className="w-full flex justify-between items-center mb-2">
           <p className="text-xs text-gray-500">{doctorProfile?.name ?? '医生'}</p>

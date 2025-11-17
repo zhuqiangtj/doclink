@@ -18,12 +18,68 @@ export async function GET(request: Request) {
   const date = searchParams.get('date');
   const month = searchParams.get('month'); // YYYY-MM
   const aggregate = searchParams.get('aggregate'); // '1' to return month-level detailed schedules
+  const timeSlotId = searchParams.get('timeSlotId');
+  const scheduleId = searchParams.get('scheduleId');
 
   if (!doctorId) {
     return NextResponse.json({ error: 'A doctorId is required to find schedules.' }, { status: 400 });
   }
 
   try {
+    // Fine-grained: fetch by specific timeSlotId
+    if (timeSlotId) {
+      const schedule = await prisma.schedule.findFirst({
+        where: { doctorId, timeSlots: { some: { id: timeSlotId } } },
+        select: {
+          id: true,
+          date: true,
+          room: { select: { id: true, name: true } },
+          timeSlots: {
+            where: { id: timeSlotId },
+            select: {
+              id: true,
+              startTime: true,
+              endTime: true,
+              bedCount: true,
+              availableBeds: true,
+              type: true,
+              isActive: true,
+              appointments: { select: { id: true } },
+            },
+            orderBy: { startTime: 'asc' },
+          },
+        },
+      });
+      return NextResponse.json(schedule ? [schedule] : []);
+    }
+
+    // Fine-grained: fetch by specific scheduleId
+    if (scheduleId) {
+      const schedule = await prisma.schedule.findFirst({
+        where: { id: scheduleId, doctorId },
+        select: {
+          id: true,
+          date: true,
+          room: { select: { id: true, name: true } },
+          timeSlots: {
+            where: { isActive: true },
+            select: {
+              id: true,
+              startTime: true,
+              endTime: true,
+              bedCount: true,
+              availableBeds: true,
+              type: true,
+              isActive: true,
+              appointments: { select: { id: true } },
+            },
+            orderBy: { startTime: 'asc' },
+          },
+        },
+      });
+      return NextResponse.json(schedule ? [schedule] : []);
+    }
+
     // Monthly overview or aggregated month details
     if (month && /\d{4}-\d{2}/.test(month)) {
       const [yearStr, monStr] = month.split('-');

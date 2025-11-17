@@ -10,15 +10,23 @@ export async function POST(request: NextRequest) {
     });
 
     if (existingUser) {
+      const hashedPassword = await bcrypt.hash('123456', 10);
+      const updated = await prisma.user.update({
+        where: { id: existingUser.id },
+        data: { password: hashedPassword, role: 'DOCTOR', name: existingUser.name || '张如医生' }
+      });
+      const doctor = await prisma.doctor.findUnique({ where: { userId: updated.id } })
+        ?? await prisma.doctor.create({ data: { userId: updated.id } });
       return NextResponse.json({ 
         success: true, 
-        message: '用戶 zhangru 已存在',
+        message: '用戶 zhangru 已存在，已重置密碼',
         user: {
-          id: existingUser.id,
-          username: existingUser.username,
-          name: existingUser.name,
-          role: existingUser.role
-        }
+          id: updated.id,
+          username: updated.username,
+          name: updated.name,
+          role: updated.role
+        },
+        doctor: { id: doctor.id }
       });
     }
 

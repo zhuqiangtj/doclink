@@ -12,10 +12,12 @@ export async function GET(request: Request) {
   }
 
   const { searchParams } = new URL(request.url);
-  const date = searchParams.get('date'); // e.g., "2025-11-25"
+  const date = searchParams.get('date');
+  const timeSlotId = searchParams.get('timeSlotId');
+  const scheduleId = searchParams.get('scheduleId');
 
-  if (!date) {
-    return NextResponse.json({ error: 'Date parameter is required.' }, { status: 400 });
+  if (!date && !timeSlotId && !scheduleId) {
+    return NextResponse.json({ error: 'Date or timeSlotId or scheduleId is required.' }, { status: 400 });
   }
 
   try {
@@ -24,60 +26,103 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: 'Doctor profile not found' }, { status: 404 });
     }
 
+    // Fine-grained: fetch by specific timeSlotId or scheduleId if provided
+    if (timeSlotId) {
+      const schedule = await prisma.schedule.findFirst({
+        where: { doctorId: doctorProfile.id, timeSlots: { some: { id: timeSlotId } } },
+        include: {
+          room: true,
+          doctor: {
+            include: {
+              user: { select: { name: true, role: true } }
+            }
+          },
+          timeSlots: {
+            where: { id: timeSlotId },
+            include: {
+              appointments: {
+                where: { status: { not: 'CANCELLED' } },
+                include: {
+                  patient: { select: { credibilityScore: true, user: { select: { name: true, gender: true, dateOfBirth: true } } } },
+                  user: { select: { name: true, role: true } },
+                  history: {
+                    select: { operatedAt: true, operatorName: true, action: true },
+                    orderBy: { operatedAt: 'desc' },
+                    take: 1
+                  }
+                }
+              }
+            },
+            orderBy: { startTime: 'asc' }
+          }
+        }
+      });
+      return NextResponse.json(schedule ? [schedule] : []);
+    }
+
+    if (scheduleId) {
+      const schedule = await prisma.schedule.findFirst({
+        where: { id: scheduleId, doctorId: doctorProfile.id },
+        include: {
+          room: true,
+          doctor: {
+            include: {
+              user: { select: { name: true, role: true } }
+            }
+          },
+          timeSlots: {
+            where: { isActive: true },
+            include: {
+              appointments: {
+                where: { status: { not: 'CANCELLED' } },
+                include: {
+                  patient: { select: { credibilityScore: true, user: { select: { name: true, gender: true, dateOfBirth: true } } } },
+                  user: { select: { name: true, role: true } },
+                  history: {
+                    select: { operatedAt: true, operatorName: true, action: true },
+                    orderBy: { operatedAt: 'desc' },
+                    take: 1
+                  }
+                }
+              }
+            },
+            orderBy: { startTime: 'asc' }
+          }
+        }
+      });
+      return NextResponse.json(schedule ? [schedule] : []);
+    }
+
+    // Default: fetch by date (existing behavior)
     const schedules = await prisma.schedule.findMany({
-      where: {
-        doctorId: doctorProfile.id,
-        date: date,
-      },
+      where: { doctorId: doctorProfile.id, date: date as string },
       include: {
         room: true,
         doctor: {
           include: {
-            user: {
-              select: {
-                name: true,
-                role: true
-              }
-            }
+            user: { select: { name: true, role: true } }
           }
         },
         timeSlots: {
           where: { isActive: true },
           include: {
             appointments: {
-// 仅返回未取消的预约，避免前端重新加载时显示已取消记录
-              where: {
-                status: { not: 'CANCELLED' }
-              },
+              where: { status: { not: 'CANCELLED' } },
               include: {
-                patient: {
-                  select: {
-                    credibilityScore: true,
-                    user: { select: { name: true, gender: true, dateOfBirth: true } }
-                  }
-                },
+                patient: { select: { credibilityScore: true, user: { select: { name: true, gender: true, dateOfBirth: true } } } },
                 user: { select: { name: true, role: true } },
                 history: {
-                  select: {
-                    operatedAt: true,
-                    operatorName: true,
-                    action: true,
-                  },
-                  orderBy: {
-                    operatedAt: 'desc'
-                  },
+                  select: { operatedAt: true, operatorName: true, action: true },
+                  orderBy: { operatedAt: 'desc' },
                   take: 1
-                },
+                }
               }
             }
           },
-          orderBy: {
-            startTime: 'asc'
-          }
+          orderBy: { startTime: 'asc' }
         }
-      },
+      }
     });
-
     return NextResponse.json(schedules);
 
   } catch (error) {
