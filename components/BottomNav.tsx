@@ -11,7 +11,7 @@ interface Notification {
   isRead: boolean;
 }
 
-const NavItem = ({ href, label, active, Icon, badgeCount }: { href: string; label: string; active: boolean; Icon: React.ElementType; badgeCount?: number }) => {
+const NavItem = ({ href, label, active, Icon, badgeCount, iconColor }: { href: string; label: string; active: boolean; Icon: React.ElementType; badgeCount?: number; iconColor?: string }) => {
   return (
     <Link 
       href={href} 
@@ -19,7 +19,7 @@ const NavItem = ({ href, label, active, Icon, badgeCount }: { href: string; labe
       aria-current={active ? 'page' : undefined}
       className={`${styles.navItem} ${active ? styles.navItemActive : styles.navItemInactive}`}
     >
-      <Icon className={styles.navIcon} />
+      <Icon className={styles.navIcon} style={{ color: iconColor }} />
       <span className={styles.navLabel}>{label}</span>
       {badgeCount && badgeCount > 0 && (
         <span className={styles.badge}>{badgeCount}</span>
@@ -111,24 +111,24 @@ export default function BottomNav() {
   // Define navigation items based on user role
   if (role === 'PATIENT') {
     navItems = [
-      { href: '/', label: '首页', Icon: FaHome },
-      { href: '/my-appointments', label: '我的预约', Icon: FaCalendarCheck },
-      { href: '/my-notifications', label: '通知', Icon: FaBell, badgeCount: unreadCount > 0 ? unreadCount : undefined },
-      { href: '/settings', label: '设置', Icon: FaCog },
+      { href: '/', label: '首页', Icon: FaHome, iconColor: '#2563eb' },
+      { href: '/my-appointments', label: '我的预约', Icon: FaCalendarCheck, iconColor: '#059669' },
+      { href: '/my-notifications', label: '通知', Icon: FaBell, badgeCount: unreadCount > 0 ? unreadCount : undefined, iconColor: '#f59e0b' },
+      { href: '/settings', label: '设置', Icon: FaCog, iconColor: '#7c3aed' },
     ];
   } else if (role === 'DOCTOR') {
     navItems = [
-      { href: '/doctor/schedule', label: '排班', Icon: FaCalendarCheck },
-      { href: '/doctor/appointments', label: '预约', Icon: FaTachometerAlt, badgeCount: unreadCount > 0 ? unreadCount : undefined },
-      { href: '/doctor/rooms', label: '诊室', Icon: FaHospital },
-      { href: '/settings', label: '设置', Icon: FaCog },
+      { href: '/doctor/schedule', label: '排班', Icon: FaCalendarCheck, iconColor: '#4f46e5' },
+      { href: '/doctor/appointments', label: '预约', Icon: FaTachometerAlt, badgeCount: unreadCount > 0 ? unreadCount : undefined, iconColor: '#14b8a6' },
+      { href: '/doctor/rooms', label: '诊室', Icon: FaHospital, iconColor: '#ef4444' },
+      { href: '/settings', label: '设置', Icon: FaCog, iconColor: '#7c3aed' },
     ];
   } else if (role === 'ADMIN') {
     navItems = [
-      { href: '/admin/dashboard', label: '仪表板', Icon: FaTachometerAlt },
-      { href: '/admin/users', label: '用户', Icon: FaUsers },
-      { href: '/admin/audit-log', label: '审计日志', Icon: FaClipboardList },
-      { href: '/settings', label: '设置', Icon: FaCog },
+      { href: '/admin/dashboard', label: '仪表板', Icon: FaTachometerAlt, iconColor: '#06b6d4' },
+      { href: '/admin/users', label: '用户', Icon: FaUsers, iconColor: '#2563eb' },
+      { href: '/admin/audit-log', label: '审计日志', Icon: FaClipboardList, iconColor: '#f59e0b' },
+      { href: '/settings', label: '设置', Icon: FaCog, iconColor: '#7c3aed' },
     ];
   }
 
@@ -136,7 +136,7 @@ export default function BottomNav() {
     <nav className={styles.bottomNav}>
       <div className={styles.navContainer}>
         {navItems.map(item => (
-          <NavItem key={item.href} href={item.href} label={item.label} active={pathname === item.href} Icon={item.Icon} badgeCount={item.badgeCount} />
+          <NavItem key={item.href} href={item.href} label={item.label} active={pathname === item.href} Icon={item.Icon} badgeCount={item.badgeCount} iconColor={item.iconColor} />
         ))}
       </div>
     </nav>
