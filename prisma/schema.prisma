@@ -126,6 +126,8 @@ model Appointment {
   timeSlot   TimeSlot             @relation(fields: [timeSlotId], references: [id])
   user       User                 @relation(fields: [userId], references: [id])
   history    AppointmentHistory[]
+
+  @@unique([patientId, timeSlotId])
 }
 
 model AppointmentHistory {

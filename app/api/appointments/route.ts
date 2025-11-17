@@ -97,6 +97,13 @@ export async function POST(request: Request) {
       if ((patientProfile.credibilityScore ?? 0) <= 0) {
 throw new Error('病人积分不足，无法预约');
       }
+      // 防重复预约：同一患者在同一时段只能有一条预约记录
+      const existingForSlot = await tx.appointment.findFirst({
+        where: { patientId, timeSlotId }
+      });
+      if (existingForSlot) {
+        throw new Error('该病人已在此时段有预约，不能重复预约');
+      }
 // 获取时间段信息并检查可用性
       const timeSlot = await tx.timeSlot.findUnique({
         where: { id: timeSlotId },
@@ -232,6 +239,7 @@ reason: session.user.role === 'DOCTOR' ? '医生预约' : '病人预约',
       message === 'This time slot is not active.' ? 400 :
       message === 'This time slot is fully booked.' ? 400 :
       message === '病人积分不足，无法预约' ? 400 :
+      message === '该病人已在此时段有预约，不能重复预约' ? 400 :
       message === 'Patient profile not found.' ? 404 :
       500;
     return NextResponse.json({ error: message }, { status });
