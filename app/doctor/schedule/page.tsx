@@ -225,6 +225,68 @@ export default function DoctorSchedulePage() {
     }));
   };
 
+  const refreshTimeSlotById = useCallback(async (id: string) => {
+    try {
+      const res = await fetch(`/api/schedules/details?timeSlotId=${id}`, { cache: 'no-store' });
+      if (!res.ok) return;
+      const arr = await res.json();
+      const updatedSchedule = Array.isArray(arr) ? arr[0] : null;
+      if (!updatedSchedule || !updatedSchedule.timeSlots || updatedSchedule.timeSlots.length === 0) return;
+      const updatedSlot = updatedSchedule.timeSlots[0];
+
+      const selectedDateStr = toYYYYMMDD(selectedDate);
+      if (updatedSchedule.date !== selectedDateStr) {
+        return;
+      }
+
+      setSchedulesForSelectedDay(prev => {
+        const scheduleExists = prev.some(s => s.id === updatedSchedule.id);
+        let slotExists = false;
+        const next = prev.map(s => {
+          if (s.id === updatedSchedule.id) {
+            const has = s.timeSlots.some(t => t.id === updatedSlot.id);
+            slotExists = slotExists || has;
+            const mergedSlots = has
+              ? s.timeSlots.map(t => (t.id === updatedSlot.id ? updatedSlot : t))
+              : [...s.timeSlots, updatedSlot].sort((a, b) => a.startTime.localeCompare(b.startTime));
+            return { ...s, timeSlots: mergedSlots };
+          }
+          return s;
+        });
+        const finalNext = scheduleExists ? next : [...next, updatedSchedule];
+
+        const dateStr = selectedDateStr;
+        const totals = finalNext.reduce((acc: { bookedBeds: number; totalBeds: number }, sch) => {
+          for (const ts of sch.timeSlots || []) {
+            acc.totalBeds += Number(ts.bedCount || 0);
+            const used = Number(ts.bedCount || 0) - Number(ts.availableBeds || 0);
+            acc.bookedBeds += used > 0 ? used : 0;
+          }
+          return acc;
+        }, { bookedBeds: 0, totalBeds: 0 });
+        const updatedStatus = {
+          date: dateStr,
+          hasSchedule: finalNext.some(s => (s.timeSlots || []).length > 0),
+          hasAppointments: totals.bookedBeds > 0,
+          bookedBeds: totals.bookedBeds,
+          totalBeds: totals.totalBeds,
+          isPast: isPastDate(selectedDate),
+        };
+        setDateStatuses(prevStatuses => {
+          const idx = prevStatuses.findIndex(st => st.date === dateStr);
+          if (idx >= 0) {
+            const copy = [...prevStatuses];
+            copy[idx] = updatedStatus;
+            return copy;
+          }
+          return [...prevStatuses, updatedStatus];
+        });
+
+        return finalNext;
+      });
+    } catch {}
+  }, [selectedDate]);
+
   const fetchAllDataForDate = useCallback(async (date: Date) => {
     setIsLoading(true);
     setError(null);
@@ -365,67 +427,6 @@ export default function DoctorSchedulePage() {
     refreshMonthStatuses();
   }, [selectedDate.getFullYear(), selectedDate.getMonth(), status, doctorProfile, refreshMonthStatuses]);
 
-  const refreshTimeSlotById = useCallback(async (id: string) => {
-    try {
-      const res = await fetch(`/api/schedules/details?timeSlotId=${id}`, { cache: 'no-store' });
-      if (!res.ok) return;
-      const arr = await res.json();
-      const updatedSchedule = Array.isArray(arr) ? arr[0] : null;
-      if (!updatedSchedule || !updatedSchedule.timeSlots || updatedSchedule.timeSlots.length === 0) return;
-      const updatedSlot = updatedSchedule.timeSlots[0];
-
-      const selectedDateStr = toYYYYMMDD(selectedDate);
-      if (updatedSchedule.date !== selectedDateStr) {
-        return;
-      }
-
-      setSchedulesForSelectedDay(prev => {
-        const scheduleExists = prev.some(s => s.id === updatedSchedule.id);
-        let slotExists = false;
-        const next = prev.map(s => {
-          if (s.id === updatedSchedule.id) {
-            const has = s.timeSlots.some(t => t.id === updatedSlot.id);
-            slotExists = slotExists || has;
-            const mergedSlots = has
-              ? s.timeSlots.map(t => (t.id === updatedSlot.id ? updatedSlot : t))
-              : [...s.timeSlots, updatedSlot].sort((a, b) => a.startTime.localeCompare(b.startTime));
-            return { ...s, timeSlots: mergedSlots };
-          }
-          return s;
-        });
-        const finalNext = scheduleExists ? next : [...next, updatedSchedule];
-
-        const dateStr = selectedDateStr;
-        const totals = finalNext.reduce((acc: { bookedBeds: number; totalBeds: number }, sch) => {
-          for (const ts of sch.timeSlots || []) {
-            acc.totalBeds += Number(ts.bedCount || 0);
-            const used = Number(ts.bedCount || 0) - Number(ts.availableBeds || 0);
-            acc.bookedBeds += used > 0 ? used : 0;
-          }
-          return acc;
-        }, { bookedBeds: 0, totalBeds: 0 });
-        const updatedStatus = {
-          date: dateStr,
-          hasSchedule: finalNext.some(s => (s.timeSlots || []).length > 0),
-          hasAppointments: totals.bookedBeds > 0,
-          bookedBeds: totals.bookedBeds,
-          totalBeds: totals.totalBeds,
-          isPast: isPastDate(selectedDate),
-        };
-        setDateStatuses(prevStatuses => {
-          const idx = prevStatuses.findIndex(st => st.date === dateStr);
-          if (idx >= 0) {
-            const copy = [...prevStatuses];
-            copy[idx] = updatedStatus;
-            return copy;
-          }
-          return [...prevStatuses, updatedStatus];
-        });
-
-        return finalNext;
-      });
-    } catch {}
-  }, [selectedDate]);
 
   const handleApplyTemplate = async () => {
     if (!selectedRoomIdForTemplate) return;
