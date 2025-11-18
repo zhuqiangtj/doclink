@@ -52,10 +52,6 @@ export default function RegisterPage() {
     setDateOfBirth(`${y}-${pmm}-${pdd}`);
   };
 
-  const handleRawChange = (e: React.SyntheticEvent<HTMLInputElement>) => {
-    const target = e.target as HTMLInputElement;
-    setDOBFromInput(target.value);
-  };
   const handleBlur = (e: React.FocusEvent<HTMLInputElement>) => {
     setDOBFromInput(e.target.value);
   };
@@ -265,9 +261,9 @@ export default function RegisterPage() {
               openToDate={dateOfBirth ? undefined : (() => { const t = new Date(); return new Date(t.getFullYear() - 60, 0, 1); })()}
               minDate={(() => { const t = new Date(); return new Date(t.getFullYear() - 150, t.getMonth(), t.getDate()); })()}
               maxDate={new Date()}
-              onChangeRaw={handleRawChange}
               onBlur={handleBlur}
               customInput={<DateInput />}
+              shouldCloseOnSelect
               required
             />
           </div>
