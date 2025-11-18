@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import EnhancedDatePicker, { DateStatus } from "../components/EnhancedDatePicker";
@@ -65,6 +65,8 @@ export default function PatientScheduleHome() {
   const [confirmBookingData, setConfirmBookingData] = useState<{ slot: TimeSlot; schedule: Schedule } | null>(null);
   const [isConfirmSubmitting, setIsConfirmSubmitting] = useState<boolean>(false);
   const [overlayText, setOverlayText] = useState<string | null>(null);
+  const selectedDateRef = useRef<Date>(selectedDate);
+  const selectedDoctorIdRef = useRef<string>(selectedDoctorId);
 
   useEffect(() => {
     if (status === "loading") return;
@@ -203,7 +205,119 @@ export default function PatientScheduleHome() {
     }
   }, [selectedDoctorId, selectedDate]);
 
-  // 已移除定期轮询，当天详情与“我的预约”映射由 SSE 驱动
+  useEffect(() => {
+    selectedDateRef.current = selectedDate;
+  }, [selectedDate]);
+  useEffect(() => {
+    selectedDoctorIdRef.current = selectedDoctorId;
+  }, [selectedDoctorId]);
+
+  const mergeSchedulesGranular = useCallback((prev: Schedule[], next: Schedule[], dateVal: Date) => {
+    const selectedDateStr = toYYYYMMDD(dateVal);
+    const nextById = new Map<string, Schedule>();
+    for (const s of next) nextById.set(s.id, s);
+    let changed = false;
+    const merged: Schedule[] = prev.map((s) => {
+      const ns = nextById.get(s.id);
+      if (!ns) return s;
+      const nsSlotsById = new Map<string, TimeSlot>();
+      for (const t of ns.timeSlots || []) nsSlotsById.set(t.id, t);
+      const prevSlotsById = new Map<string, TimeSlot>();
+      for (const t of s.timeSlots || []) prevSlotsById.set(t.id, t);
+      const ids = new Set<string>([...prevSlotsById.keys(), ...nsSlotsById.keys()]);
+      const updatedSlots: TimeSlot[] = [];
+      ids.forEach((id) => {
+        const oldSlot = prevSlotsById.get(id);
+        const newSlot = nsSlotsById.get(id);
+        if (!newSlot && oldSlot) {
+          changed = true;
+          return;
+        }
+        if (newSlot && !oldSlot) {
+          changed = true;
+          updatedSlots.push(newSlot);
+          return;
+        }
+        if (newSlot && oldSlot) {
+          const diff = (
+            oldSlot.availableBeds !== newSlot.availableBeds ||
+            oldSlot.bedCount !== newSlot.bedCount ||
+            oldSlot.isActive !== newSlot.isActive ||
+            oldSlot.startTime !== newSlot.startTime ||
+            oldSlot.endTime !== newSlot.endTime ||
+            (Array.isArray(oldSlot.appointments) ? oldSlot.appointments.length : 0) !== (Array.isArray(newSlot.appointments) ? newSlot.appointments.length : 0)
+          );
+          updatedSlots.push(diff ? newSlot : oldSlot);
+          if (diff) changed = true;
+        }
+      });
+      updatedSlots.sort((a, b) => a.startTime.localeCompare(b.startTime));
+      return { ...s, timeSlots: updatedSlots };
+    });
+    for (const s of next) {
+      if (!prev.some((ps) => ps.id === s.id)) {
+        merged.push(s);
+        changed = true;
+      }
+    }
+    const totals = merged.reduce((acc: { bookedBeds: number; totalBeds: number }, sch) => {
+      for (const ts of sch.timeSlots || []) {
+        acc.totalBeds += Number(ts.bedCount || 0);
+        const used = Number(ts.bedCount || 0) - Number(ts.availableBeds || 0);
+        acc.bookedBeds += used > 0 ? used : 0;
+      }
+      return acc;
+    }, { bookedBeds: 0, totalBeds: 0 });
+    const updatedStatus = {
+      date: selectedDateStr,
+      hasSchedule: merged.some((s) => (s.timeSlots || []).length > 0),
+      hasAppointments: totals.bookedBeds > 0,
+      bookedBeds: totals.bookedBeds,
+      totalBeds: totals.totalBeds,
+      isPast: isPastDate(dateVal),
+    };
+    setDateStatuses((prevStatuses) => {
+      const idx = prevStatuses.findIndex((st) => st.date === selectedDateStr);
+      if (idx >= 0) {
+        const copy = [...prevStatuses];
+        copy[idx] = updatedStatus;
+        return copy;
+      }
+      return [...prevStatuses, updatedStatus];
+    });
+    return { merged, changed };
+  }, []);
+
+  useEffect(() => {
+    if (status !== 'authenticated') return;
+    let timer: ReturnType<typeof setInterval> | null = null;
+    const run = async () => {
+      try {
+        const doctorId = selectedDoctorIdRef.current;
+        if (!doctorId) return;
+        const dateStr = toYYYYMMDD(selectedDateRef.current);
+        const res = await fetch(`/api/public/schedules?doctorId=${doctorId}&date=${dateStr}`, { cache: 'no-store' });
+        if (!res.ok) return;
+        const nextDetails: Schedule[] = await res.json();
+        setSchedulesForSelectedDay((prev) => {
+          const { merged, changed } = mergeSchedulesGranular(prev, nextDetails, selectedDateRef.current);
+          if (changed) setOverlayText('已自动更新');
+          return merged;
+        });
+        try {
+          const appointmentsRes = await fetch('/api/appointments');
+          if (appointmentsRes.ok) {
+            const appointments: Appointment[] = await appointmentsRes.json();
+            const map: Record<string, string> = {};
+            appointments.forEach((apt) => { if (apt.timeSlotId && apt.status === 'PENDING') { map[apt.timeSlotId] = apt.id; } });
+            setMyAppointmentsBySlot(map);
+          }
+        } catch {}
+      } catch {}
+    };
+    timer = setInterval(run, 60000);
+    return () => { if (timer) clearInterval(timer); };
+  }, [status, mergeSchedulesGranular]);
 
   // SSE: 订阅与患者相关的事件（预约创建/取消/状态变更/医生排班变更）并执行精细更新
   useEffect(() => {

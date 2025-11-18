@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { FaCalendarAlt, FaHospital, FaFilter, FaChevronLeft, FaChevronRight, FaTimes, FaCheckCircle, FaBell, FaHistory } from 'react-icons/fa';
@@ -99,6 +99,8 @@ export default function DoctorAppointmentsPage() {
   const [showCancelDialog, setShowCancelDialog] = useState(false);
   const [selectedAppointmentForCancel, setSelectedAppointmentForCancel] = useState<Appointment | null>(null);
   const [cancelLoading, setCancelLoading] = useState(false);
+  const [overlayText, setOverlayText] = useState<string | null>(null);
+  const snapshotRef = useRef<{ appointments: Map<string, string>; unread: number }>({ appointments: new Map(), unread: 0 });
   
   // --- History Modal States ---
   const [showHistoryModal, setShowHistoryModal] = useState(false);
@@ -199,6 +201,7 @@ export default function DoctorAppointmentsPage() {
               // 同步刷新預約與通知
               await fetchAppointments();
               await fetchNotifications();
+              setOverlayText('已自动更新');
               break;
             default:
               break;
@@ -213,6 +216,48 @@ export default function DoctorAppointmentsPage() {
       console.error('SSE subscribe (doctor appointments) failed:', err);
     }
   }, [status, doctorProfile?.id]);
+
+  useEffect(() => {
+    const t = setTimeout(() => setOverlayText(null), 3000);
+    return () => clearTimeout(t);
+  }, [overlayText]);
+
+  useEffect(() => {
+    if (status !== 'authenticated') return;
+    let timer: ReturnType<typeof setInterval> | null = null;
+    const run = async () => {
+      try {
+        const aptRes = await fetch('/api/appointments', { cache: 'no-store' });
+        if (aptRes.ok) {
+          const data: Appointment[] = await aptRes.json();
+          const snapApt = new Map<string, string>();
+          data.forEach(a => { snapApt.set(a.id, `${a.status}|${a.date}|${a.time}|${a.room?.name || ''}`); });
+          let changed = false;
+          const prevApt = snapshotRef.current.appointments;
+          if (prevApt.size !== snapApt.size) changed = true;
+          if (!changed) {
+            for (const [id, val] of snapApt.entries()) { if (prevApt.get(id) !== val) { changed = true; break; } }
+          }
+          snapshotRef.current.appointments = snapApt;
+          if (changed) { setAppointments(data); setOverlayText('已自动更新'); }
+        }
+        const notifRes = await fetch('/api/notifications', { cache: 'no-store' });
+        if (notifRes.ok) {
+          const notifData = await notifRes.json();
+          const all = notifData.notifications || [];
+          const unread = all.filter((n: any) => !n.isRead).length;
+          if (snapshotRef.current.unread !== unread) {
+            setNotifications(all);
+            setUnreadNotifications(all.filter((n: any) => !n.isRead).slice(0, 5));
+            snapshotRef.current.unread = unread;
+            setOverlayText('已自动更新');
+          }
+        }
+      } catch {}
+    };
+    timer = setInterval(run, 60000);
+    return () => { if (timer) clearInterval(timer); };
+  }, [status]);
 
   // --- Computed Values ---
   const filteredAppointments = useMemo(() => {
@@ -458,6 +503,11 @@ export default function DoctorAppointmentsPage() {
 
   return (
     <div className="page-container">
+      {overlayText && (
+        <div className="fixed inset-0 flex items-center justify-center pointer-events-none z-50">
+          <div className="bg-black/60 text-white text-sm px-4 py-2 rounded">{overlayText}</div>
+        </div>
+      )}
       <h1 className="mobile-header">预约管理</h1>
       <p className="mobile-description">管理您的所有病人预约信息</p>
       

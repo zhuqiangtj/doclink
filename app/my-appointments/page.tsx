@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { FaHistory } from 'react-icons/fa';
@@ -44,6 +44,8 @@ export default function MyAppointmentsPage() {
   const [showHistoryModal, setShowHistoryModal] = useState(false);
   const [selectedAppointmentId, setSelectedAppointmentId] = useState<string | null>(null);
   const [patientId, setPatientId] = useState<string | null>(null);
+  const [overlayText, setOverlayText] = useState<string | null>(null);
+  const snapshotRef = useRef<Map<string, string>>(new Map());
 
   // 獨立的獲取預約函數，供初始化與 SSE 事件後刷新使用
   const fetchAppointments = async () => {
@@ -106,6 +108,7 @@ export default function MyAppointmentsPage() {
             case 'APPOINTMENT_CANCELLED':
             case 'APPOINTMENT_STATUS_UPDATED':
               await fetchAppointments();
+              setOverlayText('已自动更新');
               break;
             default:
               break;
@@ -120,6 +123,40 @@ export default function MyAppointmentsPage() {
       console.error('SSE subscribe (my appointments) failed:', err);
     }
   }, [status, patientId]);
+
+  useEffect(() => {
+    const t = setTimeout(() => setOverlayText(null), 3000);
+    return () => clearTimeout(t);
+  }, [overlayText]);
+
+  useEffect(() => {
+    if (status !== 'authenticated') return;
+    let timer: ReturnType<typeof setInterval> | null = null;
+    const run = async () => {
+      try {
+        const res = await fetch('/api/appointments', { cache: 'no-store' });
+        if (!res.ok) return;
+        const data: Appointment[] = await res.json();
+        const snap = new Map<string, string>();
+        data.forEach(a => { snap.set(a.id, `${a.status}|${a.date}|${a.time}|${a.room?.name || ''}`); });
+        let changed = false;
+        const prev = snapshotRef.current;
+        if (prev.size !== snap.size) changed = true;
+        if (!changed) {
+          for (const [id, val] of snap.entries()) {
+            if (prev.get(id) !== val) { changed = true; break; }
+          }
+        }
+        snapshotRef.current = snap;
+        if (changed) {
+          setAppointments(data);
+          setOverlayText('已自动更新');
+        }
+      } catch {}
+    };
+    timer = setInterval(run, 60000);
+    return () => { if (timer) clearInterval(timer); };
+  }, [status]);
 
   const handleCancel = async (appointmentId: string) => {
     try {
@@ -192,6 +229,11 @@ export default function MyAppointmentsPage() {
 
   return (
     <div className="mobile-container">
+      {overlayText && (
+        <div className="fixed inset-0 flex items-center justify-center pointer-events-none z-50">
+          <div className="bg-black/60 text-white text-sm px-4 py-2 rounded">{overlayText}</div>
+        </div>
+      )}
       <h1 className="mobile-header">我的预约</h1>
       {error && <div className="mobile-alert mobile-alert-error">{error}</div>}
       {success && <div className="mobile-alert mobile-alert-success">{success}</div>}

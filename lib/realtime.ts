@@ -11,6 +11,11 @@ try {
   redis = null;
 }
 
+const isProd =
+  process.env.NODE_ENV === 'production' ||
+  process.env.VERCEL === '1' ||
+  process.env.VERCEL_ENV === 'production';
+
 // In-memory realtime bus for local/dev when Redis is unavailable.
 type MemoryEntry = [string, Record<string, string>];
 type MemoryStream = { entries: MemoryEntry[]; lastSeq: number };
@@ -160,19 +165,29 @@ async function xadd(streamKey: string, fields: Record<string, string>) {
   const typeVal = fields?.type || 'UNKNOWN';
   const tsVal = fields?.ts || String(Date.now());
   if (!redis) {
-    try { memXAdd(streamKey, fields); } catch (err) { console.error('[Realtime] Memory XADD failed', { streamKey, type: typeVal, ts: tsVal, err }); }
-    try { fileXAdd(streamKey, fields); } catch (err) { console.error('[Realtime] File XADD failed', { streamKey, type: typeVal, ts: tsVal, err }); }
-    try { console.warn('[Realtime] Fallback write store=file+memory', { streamKey, type: typeVal, ts: tsVal }); } catch {}
+    if (!isProd) {
+      try { memXAdd(streamKey, fields); } catch (err) { console.error('[Realtime] Memory XADD failed', { streamKey, type: typeVal, ts: tsVal, err }); }
+      try { fileXAdd(streamKey, fields); } catch (err) { console.error('[Realtime] File XADD failed', { streamKey, type: typeVal, ts: tsVal, err }); }
+      try { console.warn('[Realtime] Fallback write store=file+memory', { streamKey, type: typeVal, ts: tsVal }); } catch {}
+    } else {
+      try { console.warn('[Realtime] Realtime disabled in production without Redis'); } catch {}
+    }
     return;
   }
   try {
     await (redis as Redis).xadd(streamKey, '*', fields);
     try { console.log('[Realtime] Upstash XADD ok', { streamKey, type: typeVal, ts: tsVal }); } catch {}
   } catch (err) {
-    try { console.error('[Realtime] Upstash XADD failed', { streamKey, type: typeVal, ts: tsVal, err: (err as Error)?.message || String(err) }); } catch {}
-    try { memXAdd(streamKey, fields); } catch (memErr) { console.error('[Realtime] Memory XADD fallback failed', { streamKey, type: typeVal, ts: tsVal, err: memErr }); }
-    try { fileXAdd(streamKey, fields); } catch (fileErr) { console.error('[Realtime] File XADD fallback failed', { streamKey, type: typeVal, ts: tsVal, err: fileErr }); }
-    try { console.warn('[Realtime] Fallback write store=file+memory', { streamKey, type: typeVal, ts: tsVal }); } catch {}
+    const msg = (err as Error)?.message || String(err);
+    try { console.error('[Realtime] Upstash XADD failed', { streamKey, type: typeVal, ts: tsVal, err: msg }); } catch {}
+    if (msg && (msg.toLowerCase().includes('max requests') || msg.includes('429'))) {
+      try { console.warn('[Realtime] Upstash request limit exceeded. Consider upgrading plan or reducing polling.'); } catch {}
+    }
+    if (!isProd) {
+      try { memXAdd(streamKey, fields); } catch (memErr) { console.error('[Realtime] Memory XADD fallback failed', { streamKey, type: typeVal, ts: tsVal, err: memErr }); }
+      try { fileXAdd(streamKey, fields); } catch (fileErr) { console.error('[Realtime] File XADD fallback failed', { streamKey, type: typeVal, ts: tsVal, err: fileErr }); }
+      try { console.warn('[Realtime] Fallback write store=file+memory', { streamKey, type: typeVal, ts: tsVal }); } catch {}
+    }
   }
 }
 

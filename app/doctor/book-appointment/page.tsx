@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, FormEvent } from 'react';
+import { useState, useEffect, FormEvent, useRef, useCallback } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import './mobile.css';
@@ -63,6 +63,8 @@ export default function BookAppointmentPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [overlayText, setOverlayText] = useState<string | null>(null);
+  const schedulesSnapshotRef = useRef<Map<string, string>>(new Map());
 
   // --- Effects ---
   // Auth check and initial data load
@@ -96,6 +98,101 @@ export default function BookAppointmentPage() {
       };
       fetchData();
   }, [status, session, router]);
+
+  const mergeSchedulesGranular = useCallback((prev: Schedule[], next: Schedule[]) => {
+    const nextById = new Map<string, Schedule>();
+    for (const s of next) nextById.set(s.id, s);
+    let changed = false;
+    const merged: Schedule[] = prev.map((s) => {
+      const ns = nextById.get(s.id);
+      if (!ns) return s;
+      const nsSlotsByTime = new Map<string, ScheduleTimeSlot>();
+      for (const t of ns.timeSlots || []) nsSlotsByTime.set(t.time, t);
+      const prevSlotsByTime = new Map<string, ScheduleTimeSlot>();
+      for (const t of s.timeSlots || []) prevSlotsByTime.set(t.time, t);
+      const keys = new Set<string>([...prevSlotsByTime.keys(), ...nsSlotsByTime.keys()]);
+      const updated: ScheduleTimeSlot[] = [];
+      keys.forEach((k) => {
+        const oldSlot = prevSlotsByTime.get(k);
+        const newSlot = nsSlotsByTime.get(k);
+        if (!newSlot && oldSlot) { changed = true; return; }
+        if (newSlot && !oldSlot) { changed = true; updated.push(newSlot); return; }
+        if (newSlot && oldSlot) {
+          const diff = oldSlot.total !== newSlot.total || oldSlot.booked !== newSlot.booked || oldSlot.time !== newSlot.time;
+          updated.push(diff ? newSlot : oldSlot);
+          if (diff) changed = true;
+        }
+      });
+      updated.sort((a, b) => a.time.localeCompare(b.time));
+      return { ...s, timeSlots: updated };
+    });
+    for (const s of next) { if (!prev.some(ps => ps.id === s.id)) { merged.push(s); changed = true; } }
+    return { merged, changed };
+  }, []);
+
+  useEffect(() => {
+    if (status !== 'authenticated') return;
+    if (!doctorProfile?.id) return;
+    try {
+      const es = new EventSource(`/api/realtime/subscribe?kind=doctor&id=${doctorProfile.id}`);
+      es.onmessage = async (ev) => {
+        try {
+          const evt = JSON.parse(ev.data);
+          const type = evt?.type as string | undefined;
+          switch (type) {
+            case 'TIMESLOT_CREATED':
+            case 'TIMESLOT_UPDATED':
+            case 'TIMESLOT_DELETED':
+            case 'APPOINTMENT_CREATED':
+            case 'APPOINTMENT_CANCELLED':
+            case 'APPOINTMENT_STATUS_UPDATED':
+              {
+                const res = await fetch(`/api/schedules`, { cache: 'no-store' });
+                if (res.ok) {
+                  const nextData: ScheduleApiResponse[] = await res.json();
+                  const formatted = nextData.map(s => ({ ...s, roomName: s.room.name }));
+                  setSchedules(prev => {
+                    const { merged, changed } = mergeSchedulesGranular(prev, formatted);
+                    if (changed) setOverlayText('已自动更新');
+                    return merged;
+                  });
+                }
+              }
+              break;
+            default:
+              break;
+          }
+        } catch {}
+      };
+      es.onerror = () => {};
+      return () => es.close();
+    } catch {}
+  }, [status, doctorProfile?.id, mergeSchedulesGranular]);
+
+  useEffect(() => {
+    const t = setTimeout(() => setOverlayText(null), 3000);
+    return () => clearTimeout(t);
+  }, [overlayText]);
+
+  useEffect(() => {
+    if (status !== 'authenticated') return;
+    let timer: ReturnType<typeof setInterval> | null = null;
+    const run = async () => {
+      try {
+        const res = await fetch(`/api/schedules`, { cache: 'no-store' });
+        if (!res.ok) return;
+        const nextData: ScheduleApiResponse[] = await res.json();
+        const formatted = nextData.map(s => ({ ...s, roomName: s.room.name }));
+        setSchedules(prev => {
+          const { merged, changed } = mergeSchedulesGranular(prev, formatted);
+          if (changed) setOverlayText('已自动更新');
+          return merged;
+        });
+      } catch {}
+    };
+    timer = setInterval(run, 60000);
+    return () => { if (timer) clearInterval(timer); };
+  }, [status, mergeSchedulesGranular]);
 
   // --- Handlers ---
   const handlePatientSearch = async () => {
@@ -171,6 +268,11 @@ export default function BookAppointmentPage() {
 
   return (
     <div className="mobile-container">
+      {overlayText && (
+        <div className="fixed inset-0 flex items-center justify-center pointer-events-none z-50">
+          <div className="bg-black/60 text-white text-sm px-4 py-2 rounded">{overlayText}</div>
+        </div>
+      )}
       <h1 className="mobile-header">为病人预约</h1>
       <form onSubmit={handleSubmit} className="mobile-form">
         

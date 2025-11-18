@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, FormEvent } from 'react';
+import { useState, useEffect, FormEvent, useRef } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import './mobile.css';
@@ -40,6 +40,8 @@ export default function DoctorRoomsPage() {
   const [modalMode, setModalMode] = useState<'add' | 'edit'>('add');
   const [selectedRoom, setSelectedRoom] = useState<Room | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [overlayText, setOverlayText] = useState<string | null>(null);
+  const roomsSnapshotRef = useRef<Map<string, string>>(new Map());
 
   // --- Effects ---
   // Auth check and initial data load
@@ -66,6 +68,71 @@ export default function DoctorRoomsPage() {
       fetchDoctorData();
     }
   }, [status, session, router]);
+
+  useEffect(() => {
+    if (status !== 'authenticated') return;
+    if (!doctorProfile?.id) return;
+    try {
+      const es = new EventSource(`/api/realtime/subscribe?kind=doctor&id=${doctorProfile.id}`);
+      es.onmessage = async (ev) => {
+        try {
+          const evt = JSON.parse(ev.data);
+          const type = evt?.type as string | undefined;
+          switch (type) {
+            case 'ROOM_CREATED':
+            case 'ROOM_UPDATED':
+            case 'ROOM_DELETED':
+            case 'DOCTOR_SCHEDULE_UPDATED':
+              {
+                const res = await fetch('/api/rooms', { cache: 'no-store' });
+                if (res.ok) {
+                  const nextRooms: Room[] = await res.json();
+                  setDoctorProfile((prev) => prev ? { ...prev, Room: nextRooms } : prev);
+                  setOverlayText('已自动更新');
+                }
+              }
+              break;
+            default:
+              break;
+          }
+        } catch {}
+      };
+      es.onerror = () => {};
+      return () => es.close();
+    } catch {}
+  }, [status, doctorProfile?.id]);
+
+  useEffect(() => {
+    const t = setTimeout(() => setOverlayText(null), 3000);
+    return () => clearTimeout(t);
+  }, [overlayText]);
+
+  useEffect(() => {
+    if (status !== 'authenticated') return;
+    let timer: ReturnType<typeof setInterval> | null = null;
+    const run = async () => {
+      try {
+        const res = await fetch('/api/rooms', { cache: 'no-store' });
+        if (!res.ok) return;
+        const rooms: Room[] = await res.json();
+        const snap = new Map<string, string>();
+        rooms.forEach(r => { snap.set(r.id, `${r.name}|${r.bedCount}`); });
+        let changed = false;
+        const prev = roomsSnapshotRef.current;
+        if (prev.size !== snap.size) changed = true;
+        if (!changed) {
+          for (const [id, val] of snap.entries()) { if (prev.get(id) !== val) { changed = true; break; } }
+        }
+        roomsSnapshotRef.current = snap;
+        if (changed) {
+          setDoctorProfile(prev => prev ? { ...prev, Room: rooms } : prev);
+          setOverlayText('已自动更新');
+        }
+      } catch {}
+    };
+    timer = setInterval(run, 60000);
+    return () => { if (timer) clearInterval(timer); };
+  }, [status]);
 
   // --- Modal Handlers ---
   const openAddModal = () => {
@@ -172,6 +239,11 @@ export default function DoctorRoomsPage() {
 
   return (
     <div className="page-container space-y-4">
+      {overlayText && (
+        <div className="fixed inset-0 flex items-center justify-center pointer-events-none z-50">
+          <div className="bg-black/60 text-white text-sm px-4 py-2 rounded">{overlayText}</div>
+        </div>
+      )}
       <div className="mobile-header">
         <h1 className="text-2xl md:text-4xl font-bold text-foreground">
           我的诊室

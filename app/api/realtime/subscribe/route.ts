@@ -4,6 +4,12 @@ import { streamPatient, streamDoctor, memoryXRange, fileXRange } from '@/lib/rea
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
+const isProd =
+  process.env.NODE_ENV === 'production' ||
+  process.env.VERCEL === '1' ||
+  process.env.VERCEL_ENV === 'production';
+const POLL_INTERVAL_MS = Number(process.env.REALTIME_POLL_INTERVAL_MS || (isProd ? 10000 : 1000));
+
 // Stream events from a Redis Stream via SSE
 export async function GET(request: Request) {
   const url = new URL(request.url);
@@ -80,8 +86,25 @@ export async function GET(request: Request) {
             }
             // If Redis is present but XRANGE failed or returned empty, fall back to file bus first, then memory
             if (!Array.isArray(ranged) || ranged.length === 0) {
+              if (!isProd) {
+                try {
+                  const fileEntries = fileXRange(streamKey, lastId, 100);
+                  if (Array.isArray(fileEntries) && fileEntries.length > 0) {
+                    ranged = fileEntries;
+                  } else {
+                    ranged = memoryXRange(streamKey, lastId, 100);
+                  }
+                } catch (err) {
+                  console.error('[SSE] memory xrange failed (fallback)', err);
+                  ranged = null;
+                }
+              } else {
+                ranged = null;
+              }
+            }
+          } else {
+            if (!isProd) {
               try {
-                // Prefer file store first for cross-process sharing, then memory
                 const fileEntries = fileXRange(streamKey, lastId, 100);
                 if (Array.isArray(fileEntries) && fileEntries.length > 0) {
                   ranged = fileEntries;
@@ -89,21 +112,10 @@ export async function GET(request: Request) {
                   ranged = memoryXRange(streamKey, lastId, 100);
                 }
               } catch (err) {
-                console.error('[SSE] memory xrange failed (fallback)', err);
+                console.error('[SSE] memory xrange failed', err);
                 ranged = null;
               }
-            }
-          } else {
-            try {
-              // Prefer file store first for dev, then memory fallback
-              const fileEntries = fileXRange(streamKey, lastId, 100);
-              if (Array.isArray(fileEntries) && fileEntries.length > 0) {
-                ranged = fileEntries;
-              } else {
-                ranged = memoryXRange(streamKey, lastId, 100);
-              }
-            } catch (err) {
-              console.error('[SSE] memory xrange failed', err);
+            } else {
               ranged = null;
             }
           }
@@ -136,7 +148,7 @@ export async function GET(request: Request) {
           }
 
           // Soft delay to avoid tight loop when idle
-          await new Promise((r) => setTimeout(r, 1000));
+          await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS));
         }
       } catch (err) {
         console.error('[SSE] stream error', err);

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { FaCheckCircle } from 'react-icons/fa';
@@ -22,6 +22,8 @@ export default function PatientNotificationsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [patientId, setPatientId] = useState<string | null>(null);
+  const [overlayText, setOverlayText] = useState<string | null>(null);
+  const snapshotRef = useRef<Map<string, string>>(new Map());
 
   useEffect(() => {
     if (status === 'unauthenticated') {
@@ -84,6 +86,7 @@ export default function PatientNotificationsPage() {
             case 'APPOINTMENT_STATUS_UPDATED':
             case 'DOCTOR_SCHEDULE_UPDATED':
               await fetchNotifications();
+              setOverlayText('已自动更新');
               break;
             default:
               break;
@@ -98,6 +101,35 @@ export default function PatientNotificationsPage() {
       console.error('SSE subscribe (patient notifications) failed:', err);
     }
   }, [status, patientId]);
+
+  useEffect(() => {
+    const t = setTimeout(() => setOverlayText(null), 3000);
+    return () => clearTimeout(t);
+  }, [overlayText]);
+
+  useEffect(() => {
+    if (status !== 'authenticated') return;
+    let timer: ReturnType<typeof setInterval> | null = null;
+    const run = async () => {
+      try {
+        const res = await fetch('/api/patient-notifications', { cache: 'no-store' });
+        if (!res.ok) return;
+        const data: PatientNotification[] = await res.json();
+        const snap = new Map<string, string>();
+        data.forEach(n => { snap.set(n.id, `${n.isRead}|${n.createdAt}|${n.type}`); });
+        let changed = false;
+        const prev = snapshotRef.current;
+        if (prev.size !== snap.size) changed = true;
+        if (!changed) {
+          for (const [id, val] of snap.entries()) { if (prev.get(id) !== val) { changed = true; break; } }
+        }
+        snapshotRef.current = snap;
+        if (changed) { setNotifications(data); setOverlayText('已自动更新'); }
+      } catch {}
+    };
+    timer = setInterval(run, 60000);
+    return () => { if (timer) clearInterval(timer); };
+  }, [status]);
 
   const handleMarkAsRead = async (notificationId: string) => {
     try {
@@ -122,6 +154,11 @@ export default function PatientNotificationsPage() {
 
   return (
     <div className="page-container">
+      {overlayText && (
+        <div className="fixed inset-0 flex items-center justify-center pointer-events-none z-50">
+          <div className="bg-black/60 text-white text-sm px-4 py-2 rounded">{overlayText}</div>
+        </div>
+      )}
       <h1 className="mobile-header">我的通知</h1>
       {error && <div className="mobile-alert">{error}</div>}
       <div className="mobile-notifications-grid">
