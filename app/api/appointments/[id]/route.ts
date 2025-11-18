@@ -5,6 +5,54 @@ import { prisma } from '@/lib/prisma';
 import { createAuditLog } from '@/lib/audit';
 import { createAppointmentHistoryInTransaction } from '@/lib/appointment-history';
 
+export async function GET(
+  request: Request,
+  context: { params: { id: string } }
+) {
+  const session = await getServerSession(authOptions);
+  if (!session) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
+  }
+
+  const appointmentId = context.params?.id;
+  if (!appointmentId) {
+    return NextResponse.json({ error: 'Appointment ID is required' }, { status: 400 });
+  }
+
+  try {
+    const appointment = await prisma.appointment.findUnique({
+      where: { id: appointmentId },
+      include: {
+        patient: { select: { credibilityScore: true, user: { select: { name: true, phone: true, dateOfBirth: true } } } },
+        doctor: { include: { user: { select: { name: true } } } },
+        room: { select: { name: true } },
+        schedule: { select: { date: true } },
+        timeSlot: { select: { startTime: true, endTime: true, type: true } },
+      },
+    });
+    if (!appointment) {
+      return NextResponse.json({ error: 'Appointment not found' }, { status: 404 });
+    }
+
+    if (session.user.role === 'DOCTOR') {
+      const userProfile = await prisma.user.findUnique({ where: { id: session.user.id }, include: { doctorProfile: true } });
+      if (!userProfile?.doctorProfile || appointment.doctorId !== userProfile.doctorProfile.id) {
+        return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+      }
+    } else if (session.user.role === 'PATIENT') {
+      const userProfile = await prisma.user.findUnique({ where: { id: session.user.id }, include: { patientProfile: true } });
+      if (!userProfile?.patientProfile || appointment.patientId !== userProfile.patientProfile.id) {
+        return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+      }
+    }
+
+    const formatted = { ...appointment, date: appointment.schedule?.date };
+    return NextResponse.json(formatted);
+  } catch (error) {
+    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+  }
+}
+
 // DELETE /api/appointments/[id] — 取消预约（RESTful 动态路由）
 export async function DELETE(
   request: Request,

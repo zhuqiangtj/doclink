@@ -184,7 +184,7 @@ export default function DoctorAppointmentsPage() {
 
   // 已移除定期輪詢刷新預約列表，改為 SSE 實時驅動
 
-  // SSE：订阅医生频道的实时事件，自动刷新预约列表
+  // SSE：订阅医生频道的实时事件，增量更新预约列表
   useEffect(() => {
     if (status !== 'authenticated') return;
     if (!doctorProfile?.id) return;
@@ -194,15 +194,42 @@ export default function DoctorAppointmentsPage() {
         try {
           const evt = JSON.parse(ev.data);
           const type = evt?.type as string | undefined;
+          const payload = (evt?.payload && typeof evt.payload === 'object') ? (evt.payload as Record<string, unknown>) : {};
+          const appointmentId = typeof payload['appointmentId'] === 'string' ? (payload['appointmentId'] as string) : undefined;
+          const newStatus = typeof payload['newStatus'] === 'string' ? (payload['newStatus'] as string) : undefined;
+          const reason = typeof payload['reason'] === 'string' ? (payload['reason'] as string) : undefined;
           switch (type) {
-            case 'APPOINTMENT_CREATED':
-            case 'APPOINTMENT_CANCELLED':
-            case 'APPOINTMENT_STATUS_UPDATED':
-              // 同步刷新預約與通知
-              await fetchAppointments();
-              await fetchNotifications();
-              setOverlayText('已自动更新');
+            case 'APPOINTMENT_CREATED': {
+              if (appointmentId) {
+                try {
+                  const res = await fetch(`/api/appointments/${appointmentId}`);
+                  if (res.ok) {
+                    const item: Appointment = await res.json();
+                    setAppointments(prev => {
+                      const exists = prev.some(a => a.id === item.id);
+                      if (exists) return prev.map(a => (a.id === item.id ? item : a));
+                      return [item, ...prev];
+                    });
+                    setOverlayText('新增预约已同步');
+                  }
+                } catch {}
+              }
               break;
+            }
+            case 'APPOINTMENT_CANCELLED': {
+              if (appointmentId) {
+                setAppointments(prev => prev.map(a => (a.id === appointmentId ? { ...a, status: 'CANCELLED' as const } : a)));
+                setOverlayText('取消预约已同步');
+              }
+              break;
+            }
+            case 'APPOINTMENT_STATUS_UPDATED': {
+              if (appointmentId && newStatus) {
+                setAppointments(prev => prev.map(a => (a.id === appointmentId ? { ...a, status: newStatus, reason } : a)));
+                setOverlayText('预约状态已同步');
+              }
+              break;
+            }
             default:
               break;
           }
@@ -245,10 +272,10 @@ export default function DoctorAppointmentsPage() {
         if (notifRes.ok) {
           const notifData = await notifRes.json();
           const all = notifData.notifications || [];
-          const unread = all.filter((n: any) => !n.isRead).length;
+          const unread = all.filter((n: Notification) => !n.isRead).length;
           if (snapshotRef.current.unread !== unread) {
             setNotifications(all);
-            setUnreadNotifications(all.filter((n: any) => !n.isRead).slice(0, 5));
+            setUnreadNotifications(all.filter((n: Notification) => !n.isRead).slice(0, 5));
             snapshotRef.current.unread = unread;
             setOverlayText('已自动更新');
           }
@@ -364,7 +391,9 @@ export default function DoctorAppointmentsPage() {
       }
 
       await response.json();
-      await fetchAppointments();
+      setAppointments(prev => prev.map(apt => (
+        apt.id === selectedAppointmentForCancel.id ? { ...apt, status: 'CANCELLED' as const } : apt
+      )));
       setSuccess(`已成功取消 ${selectedAppointmentForCancel.patient.user.name} 的預約`);
       setTimeout(() => setSuccess(null), 3000);
       closeCancelDialog();

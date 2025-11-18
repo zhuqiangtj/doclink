@@ -50,10 +50,8 @@ const authOptions = {
     strategy: 'jwt',
   },
   callbacks: {
-    async jwt({ token, user }) {
-      // On initial sign-in, user object is available.
+    async jwt({ token, user, trigger }) {
       if (user) {
-        console.log(`[AUTH] JWT: Initial sign-in for user ${user.username}`);
         token.id = user.id;
         token.username = user.username;
         token.name = user.name;
@@ -61,6 +59,19 @@ const authOptions = {
         token.dateOfBirth = user.dateOfBirth;
         token.gender = user.gender;
         token.role = user.role;
+      }
+      if (trigger === 'update' && token?.id) {
+        try {
+          const fresh = await prisma.user.findUnique({ where: { id: token.id as string } });
+          if (fresh) {
+            token.username = fresh.username;
+            token.name = fresh.name;
+            token.phone = fresh.phone;
+            token.dateOfBirth = fresh.dateOfBirth;
+            token.gender = fresh.gender;
+            token.role = fresh.role;
+          }
+        } catch {}
       }
       return token;
     },

@@ -106,16 +106,29 @@ export default function MyAppointmentsPage() {
           const raw = evt?.payload as unknown;
           const payload = (raw && typeof raw === 'object') ? (raw as Record<string, unknown>) : {};
           switch (type) {
-            case 'APPOINTMENT_CREATED':
-              await fetchAppointments();
-              setOverlayText('新增预约已同步');
+            case 'APPOINTMENT_CREATED': {
+              const appointmentId = typeof payload['appointmentId'] === 'string' ? (payload['appointmentId'] as string) : undefined;
+              if (appointmentId) {
+                try {
+                  const res = await fetch(`/api/appointments/${appointmentId}`);
+                  if (res.ok) {
+                    const item = await res.json();
+                    setAppointments(prev => {
+                      const exists = prev.some(a => a.id === item.id);
+                      if (exists) return prev.map(a => (a.id === item.id ? item : a));
+                      return [item, ...prev];
+                    });
+                    setOverlayText('新增预约已同步');
+                  }
+                } catch {}
+              }
               break;
+            }
             case 'APPOINTMENT_CANCELLED': {
               const appointmentId = typeof payload['appointmentId'] === 'string' ? (payload['appointmentId'] as string) : undefined;
               if (appointmentId) {
                 setAppointments(prev => prev.filter(a => a.id !== appointmentId));
               }
-              await fetchAppointments();
               setOverlayText('取消预约已同步');
               break;
             }
@@ -126,7 +139,6 @@ export default function MyAppointmentsPage() {
               if (appointmentId && newStatus) {
                 setAppointments(prev => prev.map(a => (a.id === appointmentId ? { ...a, status: newStatus, reason } : a)));
               }
-              await fetchAppointments();
               setOverlayText('预约状态已同步');
               break;
             }
