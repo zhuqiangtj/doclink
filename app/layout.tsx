@@ -4,6 +4,7 @@ import Providers from "./providers";
 import BottomNav from "@/components/BottomNav";
 import SessionLogger from "@/components/SessionLogger";
 import PatientCreditBadge from "@/components/PatientCreditBadge";
+import UsernameBadge from "@/components/UsernameBadge";
 
 export const metadata: Metadata = {
   title: "DocLink",
@@ -23,6 +24,8 @@ export default function RootLayout({
           <SessionLogger />
           {/* 患者右上角积分徽标（仅在患者角色显示） */}
           <PatientCreditBadge />
+          {/* 右上角显示当前用户名（所有角色） */}
+          <UsernameBadge />
           <main className="pb-20">{children}</main>
           <BottomNav />
         </Providers>

@@ -340,3 +340,30 @@ main {
   background: linear-gradient(135deg, #9ca3af, #6b7280); /* gray-400/500 */
   color: #ffffff;
 }
+
+/* ========================= */
+/* 用户名徽标（右上角固定，位于积分徽标下方） */
+/* ========================= */
+.username-badge {
+  position: fixed;
+  top: calc(max(10px, env(safe-area-inset-top)) + 44px);
+  right: max(12px, env(safe-area-inset-right));
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  font-weight: 600;
+  box-shadow: 0 6px 16px rgba(0,0,0,0.12);
+  z-index: 1000;
+  background: rgba(255,255,255,0.9);
+  color: #111827;
+}
+
+.username-badge .username-label {
+  color: #6b7280;
+}
+
+.username-badge .username-value {
+  color: #111827;
+}

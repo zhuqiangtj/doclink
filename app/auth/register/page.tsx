@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, FormEvent, forwardRef, useRef } from 'react';
+import { signIn, getSession } from 'next-auth/react';
 import DatePicker, { registerLocale, setDefaultLocale } from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 import zhCN from 'date-fns/locale/zh-CN';
@@ -179,14 +180,35 @@ export default function RegisterPage() {
         throw new Error(data.error || '发生错误');
       }
 
-      setSuccess('账户创建成功！正在跳转登录…');
-      setStage('注册成功，正在跳转…');
-      setProgress(98);
+      setSuccess('账户创建成功！正在登录…');
+      setStage('注册成功，正在登录…');
+      setProgress(92);
       if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null; }
-      setTimeout(() => {
-        setProgress(100);
-        router.push('/auth/signin');
-      }, 1000);
+      const loginResult = await signIn('credentials', {
+        redirect: false,
+        username,
+        password,
+      });
+      if (loginResult?.error) {
+        setSuccess(null);
+        setError('账户已创建，但自动登录失败，请手动登录');
+        setSubmitting(false);
+        setStage(null);
+        setProgress(0);
+        return;
+      }
+      setStage('正在建立会话…');
+      setProgress(96);
+      const session = await getSession();
+      setStage('正在跳转…');
+      setProgress(100);
+      if (session?.user?.role === 'ADMIN') {
+        router.push('/admin/dashboard');
+      } else if (session?.user?.role === 'DOCTOR') {
+        router.push('/doctor/schedule');
+      } else {
+        router.push('/');
+      }
 
     } catch (error) {
       setError(error instanceof Error ? error.message : '发生未知错误');
