@@ -292,16 +292,7 @@ export default function DoctorAppointmentsPage() {
     }
   };
 
-  // 當用戶點擊預約頁面時，自動標記通知為已讀
-  useEffect(() => {
-    if (unreadNotifications.length > 0) {
-      const timer = setTimeout(() => {
-        handleMarkAllAsRead();
-      }, 10000); // 10秒後自動標記為已讀，給用戶足夠時間查看
-      
-      return () => clearTimeout(timer);
-    }
-  }, [unreadNotifications]);
+  // 移除自動標記為已讀的機制：僅在手動點擊「我知道了」時變更狀態
 
   const openCancelDialog = (appointment: Appointment) => {
     setSelectedAppointmentForCancel(appointment);
