@@ -57,7 +57,6 @@ export default function PatientScheduleHome() {
   const [schedulesForSelectedDay, setSchedulesForSelectedDay] = useState<Schedule[]>([]);
   const [isDayLoading, setIsDayLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
 
   const [patientId, setPatientId] = useState<string | null>(null);
   const [myAppointmentsBySlot, setMyAppointmentsBySlot] = useState<Record<string, string>>({}); // timeSlotId -> appointmentId
@@ -448,10 +447,18 @@ export default function PatientScheduleHome() {
     const slot = new Date(y || 0, (m || 1) - 1, d || 1, hh || 0, mm || 0, 0, 0);
     return slot.getTime() <= new Date().getTime();
   };
+  const isWithinThreeDaysFromToday = (dateStr: string) => {
+    const [y, m, d] = dateStr.split("-").map(Number);
+    const slotDate = new Date(y || 0, (m || 1) - 1, d || 1);
+    slotDate.setHours(0, 0, 0, 0);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const diffDays = Math.floor((slotDate.getTime() - today.getTime()) / (24 * 60 * 60 * 1000));
+    return diffDays >= 0 && diffDays <= 3;
+  };
 
   const bookAppointment = async (slot: TimeSlot, schedule: Schedule) => {
     if (!session || !patientId || !selectedDoctorId) return;
-    setSuccess(null);
     setError(null);
     try {
       const res = await fetch("/api/appointments", {
@@ -469,7 +476,6 @@ export default function PatientScheduleHome() {
       let data: any = null;
       try { data = await res.json(); } catch {}
       if (!res.ok) throw new Error(data?.error || "预约失败");
-      setSuccess("预约成功");
       // 刷新我的预约映射
       const appointmentsRes = await fetch("/api/appointments");
       let appointments: Appointment[] = [];
@@ -509,7 +515,6 @@ export default function PatientScheduleHome() {
   };
 
   const cancelAppointment = async (appointmentId: string) => {
-    setSuccess(null);
     setError(null);
     try {
       // 操作前確認
@@ -523,7 +528,6 @@ export default function PatientScheduleHome() {
       let data: any = null;
       try { data = await res.json(); } catch {}
       if (!res.ok) throw new Error(data?.error || "取消预约失败");
-      setSuccess("已取消预约");
       // 刷新我的预约映射
       const appointmentsRes = await fetch("/api/appointments");
       let appointments: Appointment[] = [];
@@ -624,7 +628,9 @@ export default function PatientScheduleHome() {
           <>
             {isDayLoading && <p className="mobile-loading-text">正在加载当天排班...</p>}
             {error && <p className="mobile-error-text">{error}</p>}
-            {success && <p className="mobile-success-message">{success}</p>}
+            {!isWithinThreeDaysFromToday(toYYYYMMDD(selectedDate)) && (
+              <p className="text-xs text-gray-600" style={{ marginBottom: '6px' }}>仅可预约未来三天内的时段</p>
+            )}
             {schedulesForSelectedDay.length === 0 ? (
               <p className="mobile-no-slots">该日暂无排班</p>
             ) : (
@@ -637,6 +643,7 @@ export default function PatientScheduleHome() {
                     <div className="mobile-time-grid">
                       {schedule.timeSlots.map((slot) => {
                         const isPast = isTimeSlotPast(schedule.date, slot.startTime);
+                        const within3Days = isWithinThreeDaysFromToday(schedule.date);
                         const isFull = slot.availableBeds <= 0;
                         const myAptId = slot.id && myAppointmentsBySlot[slot.id];
                         return (
@@ -647,8 +654,8 @@ export default function PatientScheduleHome() {
                             <div className="mobile-time-slot-actions" style={{ display: 'flex', gap: '8px' }}>
                               {!myAptId ? (
                                 <button
-                                  className={`mobile-btn ${isPast || isFull ? 'mobile-btn-disabled' : 'mobile-btn-primary'}`}
-                                  disabled={isPast || isFull}
+                                  className={`mobile-btn ${isPast || isFull || !within3Days ? 'mobile-btn-disabled' : 'mobile-btn-primary'}`}
+                                  disabled={isPast || isFull || !within3Days}
                                   onClick={() => openBookingConfirm(slot, schedule)}
                                 >
                                   预约
