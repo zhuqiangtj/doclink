@@ -317,11 +317,11 @@ export async function DELETE(request: Request) {
       appointmentDate.setHours(0, 0, 0, 0);
 
       if (appointmentDate.getTime() === today.getTime()) {
-reason = '病人当天取消预约';
+        reason = '病人当天取消预约';
         credibilityChange = -5;
       } else if (appointmentDate > today) {
-reason = '病人提前取消预约';
-        credibilityChange = -2;
+        reason = '病人提前取消预约';
+        credibilityChange = 0;
       } else {
         return NextResponse.json({ error: 'Forbidden: You cannot cancel an appointment that has already passed' }, { status: 403 });
       }

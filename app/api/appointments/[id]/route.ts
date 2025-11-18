@@ -113,7 +113,7 @@ export async function DELETE(
         credibilityChange = -5;
       } else if (appointmentDate > today) {
         reason = '病人提前取消预约';
-        credibilityChange = -2;
+        credibilityChange = 0;
       } else {
         return NextResponse.json({ error: 'Forbidden: You cannot cancel an appointment that has already passed' }, { status: 403 });
       }
