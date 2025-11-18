@@ -67,8 +67,50 @@ export default function RegisterPage() {
     setError(null);
     setSuccess(null);
 
+    if (usernameAvailability.status !== 'available') {
+      setError('用户名不可用');
+      return;
+    }
+
+    if (!name || name.trim().length < 2) {
+      setError('姓名至少需要2个字符');
+      return;
+    }
+
+    if (!/^[1-9]\d{10}$/.test(phone)) {
+      setError('请输入有效的11位手机号码');
+      return;
+    }
+
+    if (!['Male', 'Female', 'Other'].includes(gender)) {
+      setError('请选择有效的性别');
+      return;
+    }
+
+    if (!dateOfBirth) {
+      setError('请输入出生日期');
+      return;
+    }
+
+    const birthDate = new Date(dateOfBirth);
+    if (Number.isNaN(birthDate.getTime())) {
+      setError('请输入有效的出生日期');
+      return;
+    }
+    const today = new Date();
+    const age = today.getFullYear() - birthDate.getFullYear();
+    if (age < 0 || age > 150) {
+      setError('请输入有效的出生日期');
+      return;
+    }
+
     if (password !== confirmPassword) {
       setError('密码不匹配');
+      return;
+    }
+
+    if (!password || password.length < 6) {
+      setError('密码至少需要6个字符');
       return;
     }
 
@@ -175,18 +217,19 @@ export default function RegisterPage() {
             />
           </div>
           <div>
-            <label htmlFor="phone" className="block text-lg font-medium text-foreground">
-              电话（可选）
-            </label>
-            <input
-              id="phone"
-              name="phone"
-              type="text"
-              autoComplete="tel"
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              className="input-base mt-2"
-            />
+          <label htmlFor="phone" className="block text-lg font-medium text-foreground">
+              电话（必填）
+          </label>
+          <input
+            id="phone"
+            name="phone"
+            type="text"
+            autoComplete="tel"
+            required
+            value={phone}
+            onChange={(e) => setPhone(e.target.value)}
+            className="input-base mt-2"
+          />
           </div>
           <div>
             <label htmlFor="password" className="block text-lg font-medium text-foreground">

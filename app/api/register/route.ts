@@ -9,8 +9,38 @@ export async function POST(request: Request) {
   try {
     const { name, phone, gender, dateOfBirth, username: initialUsername, password } = await request.json();
 
-    if (!name || !initialUsername || !gender || !dateOfBirth || !password) {
-      return NextResponse.json({ error: 'Missing required fields for patient registration.' }, { status: 400 });
+    if (!name || !initialUsername || !gender || !dateOfBirth || !password || !phone) {
+      return NextResponse.json({ error: '缺少必填字段：姓名、用户名、性别、出生日期、联系电话、密码。' }, { status: 400 });
+    }
+
+    if (initialUsername.length < 3) {
+      return NextResponse.json({ error: '用户名至少需要3个字符。' }, { status: 400 });
+    }
+
+    if (password.length < 6) {
+      return NextResponse.json({ error: '密码至少需要6个字符。' }, { status: 400 });
+    }
+
+    if (name.trim().length < 2) {
+      return NextResponse.json({ error: '姓名至少需要2个字符。' }, { status: 400 });
+    }
+
+    if (!['Male', 'Female', 'Other'].includes(gender)) {
+      return NextResponse.json({ error: '性别格式无效。' }, { status: 400 });
+    }
+
+    if (!/^[1-9]\d{10}$/.test(phone)) {
+      return NextResponse.json({ error: '请输入有效的11位手机号码。' }, { status: 400 });
+    }
+
+    const dob = new Date(dateOfBirth);
+    if (Number.isNaN(dob.getTime())) {
+      return NextResponse.json({ error: '出生日期格式无效。' }, { status: 400 });
+    }
+    const today = new Date();
+    const age = today.getFullYear() - dob.getFullYear();
+    if (age < 0 || age > 150) {
+      return NextResponse.json({ error: '请输入有效的出生日期。' }, { status: 400 });
     }
 
     let finalUsername = initialUsername;

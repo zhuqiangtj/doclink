@@ -289,9 +289,9 @@ export default function PatientScheduleHome() {
           const payload = evt?.payload as any;
           const timeSlotId = payload?.timeSlotId as string | undefined;
           let msg: string | null = null;
-          if (type === 'TIMESLOT_CREATED') msg = '医生新增时段已同步';
-          else if (type === 'TIMESLOT_UPDATED') msg = '医生修改时段已同步';
-          else if (type === 'TIMESLOT_DELETED') msg = '医生删除时段已同步';
+          if (type === 'TIMESLOT_CREATED') msg = '新增时段已同步';
+          else if (type === 'TIMESLOT_UPDATED') msg = '时段修改已同步';
+          else if (type === 'TIMESLOT_DELETED') msg = '时段删除已同步';
           else if (type === 'APPOINTMENT_CREATED') msg = '新增预约已同步';
           else if (type === 'APPOINTMENT_CANCELLED') msg = '取消预约已同步';
           else if (type === 'APPOINTMENT_STATUS_UPDATED') msg = '预约状态已同步';
@@ -364,6 +364,32 @@ export default function PatientScheduleHome() {
       console.error('SSE subscribe (doctor) failed:', err);
     }
   }, [status, selectedDoctorId, selectedDate]);
+
+  useEffect(() => {
+    if (status !== 'authenticated') return;
+    if (!doctors || doctors.length === 0) return;
+    const others = doctors.map(d => d.id).filter(id => id !== selectedDoctorId);
+    const sources: EventSource[] = [];
+    others.forEach(id => {
+      try {
+        const es = new EventSource(`/api/realtime/subscribe?kind=doctor&id=${id}`);
+        es.onmessage = (ev) => {
+          try {
+            const evt = JSON.parse(ev.data);
+            const type = evt?.type as string | undefined;
+            let msg: string | null = null;
+            if (type === 'TIMESLOT_CREATED') msg = '新增时段已同步';
+            else if (type === 'TIMESLOT_UPDATED') msg = '时段修改已同步';
+            else if (type === 'TIMESLOT_DELETED') msg = '时段删除已同步';
+            if (msg) setOverlayText(msg);
+          } catch {}
+        };
+        es.onerror = () => {};
+        sources.push(es);
+      } catch {}
+    });
+    return () => { sources.forEach(es => es.close()); };
+  }, [status, doctors, selectedDoctorId]);
 
   useEffect(() => {
     if (!overlayText) return;
