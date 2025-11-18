@@ -218,9 +218,11 @@ export default function RegisterPage() {
               placeholderText="选择出生日期"
               dateFormat="yyyy-MM-dd"
               showYearDropdown
+              yearDropdownItemNumber={(() => { const t = new Date(); return (t.getFullYear() - (t.getFullYear() - 150) + 1); })()}
               scrollableYearDropdown
               showMonthDropdown
               withPortal
+              openToDate={dateOfBirth ? undefined : (() => { const t = new Date(); return new Date(t.getFullYear() - 60, 0, 1); })()}
               minDate={(() => { const t = new Date(); return new Date(t.getFullYear() - 150, t.getMonth(), t.getDate()); })()}
               maxDate={new Date()}
               className="input-base mt-2 w-full"
