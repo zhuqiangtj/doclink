@@ -205,7 +205,7 @@ export default function PatientScheduleHome() {
 
   // 已移除定期轮询，当天详情与“我的预约”映射由 SSE 驱动
 
-  // SSE: 订阅与患者相关的事件（预约创建/取消/状态变更）并执行精细更新
+  // SSE: 订阅与患者相关的事件（预约创建/取消/状态变更/医生排班变更）并执行精细更新
   useEffect(() => {
     if (status !== 'authenticated') return;
     if (!patientId) return;
@@ -223,6 +223,7 @@ export default function PatientScheduleHome() {
           if (type === 'APPOINTMENT_CREATED') msg = '新增预约已同步';
           else if (type === 'APPOINTMENT_CANCELLED') msg = '取消预约已同步';
           else if (type === 'APPOINTMENT_STATUS_UPDATED') msg = '预约状态已同步';
+          else if (type === 'DOCTOR_SCHEDULE_UPDATED') msg = '医生排班已更新';
           if (msg) setOverlayText(msg);
           if (!selectedDoctorId) return;
           switch (type) {
@@ -341,6 +342,7 @@ export default function PatientScheduleHome() {
             case 'APPOINTMENT_CREATED':
             case 'APPOINTMENT_CANCELLED':
             case 'APPOINTMENT_STATUS_UPDATED':
+            case 'DOCTOR_SCHEDULE_UPDATED':
               if (timeSlotId) {
                 await refreshPublicTimeSlotById(timeSlotId);
               } else {

@@ -82,6 +82,7 @@ export default function PatientNotificationsPage() {
             case 'APPOINTMENT_CREATED':
             case 'APPOINTMENT_CANCELLED':
             case 'APPOINTMENT_STATUS_UPDATED':
+            case 'DOCTOR_SCHEDULE_UPDATED':
               await fetchNotifications();
               break;
             default:
