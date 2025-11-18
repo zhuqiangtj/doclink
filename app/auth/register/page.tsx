@@ -1,12 +1,15 @@
 'use client';
 
 import { useState, useEffect, FormEvent, forwardRef } from 'react';
-import DatePicker from 'react-datepicker';
+import DatePicker, { registerLocale, setDefaultLocale } from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
+import zhCN from 'date-fns/locale/zh-CN';
 import { useRouter } from 'next/navigation';
 import pinyin from 'pinyin';
 
 export default function RegisterPage() {
+  registerLocale('zh-CN', zhCN);
+  setDefaultLocale('zh-CN');
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [gender, setGender] = useState('');
@@ -253,6 +256,7 @@ export default function RegisterPage() {
               }}
               placeholderText="选择或直接输入 YYYY-MM-DD"
               dateFormat="yyyy-MM-dd"
+              locale="zh-CN"
               showYearDropdown
               yearDropdownItemNumber={(() => { const t = new Date(); return (t.getFullYear() - (t.getFullYear() - 150) + 1); })()}
               scrollableYearDropdown
