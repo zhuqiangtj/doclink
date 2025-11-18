@@ -652,8 +652,8 @@ export default function DoctorAppointmentsPage() {
             <div key={apt.id} className={`mobile-appointment-card ${getActualStatus(apt) === 'NO_SHOW' ? 'status-no-show' : ''}`}>
               <div className="mobile-appointment-header">
                 <div className="mobile-patient-info">
-                  <h3 className="mobile-patient-name">{apt.patient.user.name}</h3>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h3 className="mobile-patient-name">{apt.patient.user.name}</h3>
                     {apt.patient.user.phone && (
                       <a className="mobile-phone-badge" href={`tel:${String(apt.patient.user.phone).replace(/\s+/g,'')}`} aria-label={`拨打 ${apt.patient.user.phone}`}>{apt.patient.user.phone}</a>
                     )}

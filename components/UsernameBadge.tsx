@@ -11,9 +11,7 @@ export default function UsernameBadge() {
   const isAuthPage = !!(pathname && pathname.startsWith('/auth'));
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement | null>(null);
-  if (isAuthPage || status !== 'authenticated') return null;
   const uname = (session?.user?.username as string | undefined) || (session?.user?.name as string | undefined) || '';
-  if (!uname) return null;
   const role = (session?.user?.role as string | undefined) || '';
   const img = (session?.user?.image as string | undefined) || '';
   const initials = uname.trim().slice(0, 1).toUpperCase();
@@ -34,6 +32,8 @@ export default function UsernameBadge() {
       document.removeEventListener('keydown', onKey);
     };
   }, []);
+  if (isAuthPage || status !== 'authenticated') return null;
+  if (!uname) return null;
   return (
     <div ref={rootRef}>
       <button
