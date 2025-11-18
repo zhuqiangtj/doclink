@@ -130,6 +130,21 @@ throw new Error('病人积分不足，无法预约');
         }
       }
 
+      if (session.user.role === 'PATIENT') {
+        if (!timeSlot.schedule?.date) {
+          throw new Error('Time slot not found.');
+        }
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const [y, m, d] = timeSlot.schedule.date.split('-').map(Number);
+        const slotDate = new Date(y || 0, (m || 1) - 1, d || 1);
+        slotDate.setHours(0, 0, 0, 0);
+        const diffDays = Math.floor((slotDate.getTime() - today.getTime()) / (24 * 60 * 60 * 1000));
+        if (diffDays < 0 || diffDays > 3) {
+          throw new Error('病人只能预约未来三天内的时段');
+        }
+      }
+
       // 原子性防超訂：僅在 availableBeds > 0 時遞減，否則報錯
       const decResult = await tx.timeSlot.updateMany({
         where: { id: timeSlotId, availableBeds: { gt: 0 } },
@@ -442,17 +457,3 @@ message: `您的预约 (预约时间: ${appointment.timeSlot?.startTime || appoi
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }
-      if (!timeSlot?.schedule?.date) {
-        throw new Error('Time slot not found.');
-      }
-      if (session.user.role === 'PATIENT') {
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        const [y, m, d] = timeSlot.schedule.date.split('-').map(Number);
-        const slotDate = new Date(y || 0, (m || 1) - 1, d || 1);
-        slotDate.setHours(0, 0, 0, 0);
-        const diffDays = Math.floor((slotDate.getTime() - today.getTime()) / (24 * 60 * 60 * 1000));
-        if (diffDays < 0 || diffDays > 3) {
-          throw new Error('病人只能预约未来三天内的时段');
-        }
-      }
