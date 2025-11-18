@@ -4,6 +4,7 @@ import { useState, useEffect, FormEvent, forwardRef } from 'react';
 import DatePicker, { registerLocale, setDefaultLocale } from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 import zhCN from 'date-fns/locale/zh-CN';
+import { CheckCircle2, XCircle } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import pinyin from 'pinyin';
 
@@ -216,9 +217,21 @@ export default function RegisterPage() {
               className="input-base mt-2"
             />
             <div className="mt-2 text-sm h-5">
-              {usernameAvailability.status === 'checking' && <p className='text-gray-500'>正在检查...</p>}
-              {usernameAvailability.status === 'available' && <p className='text-green-500'>鉁 {usernameAvailability.message}</p>}
-              {usernameAvailability.status === 'taken' && <p className='text-error'>âŒ {usernameAvailability.message}</p>}
+              {usernameAvailability.status === 'checking' && (
+                <p className="text-gray-500">正在检查...</p>
+              )}
+              {usernameAvailability.status === 'available' && (
+                <p className="text-success flex items-center gap-1">
+                  <CheckCircle2 size={16} />
+                  {usernameAvailability.message || '用户名可用'}
+                </p>
+              )}
+              {usernameAvailability.status === 'taken' && (
+                <p className="text-error flex items-center gap-1">
+                  <XCircle size={16} />
+                  {usernameAvailability.message || '用户名已占用'}
+                </p>
+              )}
             </div>
           </div>
           <div>
