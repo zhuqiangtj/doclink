@@ -13,6 +13,7 @@ interface PatientNotification {
   message: string;
   type: string;
   isRead: boolean;
+  appointmentId?: string;
 }
 
 export default function PatientNotificationsPage() {
@@ -80,14 +81,52 @@ export default function PatientNotificationsPage() {
         try {
           const evt = JSON.parse(ev.data);
           const type = evt?.type as string | undefined;
+          const payload = evt?.payload as any;
+          const actorRole = typeof payload?.actorRole === 'string' ? payload.actorRole : undefined;
+          const appointmentId = typeof payload?.appointmentId === 'string' ? payload.appointmentId : undefined;
+          const timeSlotId = typeof payload?.timeSlotId === 'string' ? payload.timeSlotId : undefined;
+          const upsert = (item: PatientNotification) => {
+            setNotifications(prev => {
+              const exists = prev.some(n => n.id === item.id);
+              if (exists) return prev.map(n => (n.id === item.id ? item : n));
+              return [item, ...prev];
+            });
+          };
           switch (type) {
-            case 'APPOINTMENT_CREATED':
-            case 'APPOINTMENT_CANCELLED':
-            case 'APPOINTMENT_STATUS_UPDATED':
-            case 'DOCTOR_SCHEDULE_UPDATED':
-              await fetchNotifications();
-              setOverlayText('已自动更新');
+            case 'APPOINTMENT_CREATED': {
+              if (actorRole === 'DOCTOR' && appointmentId) {
+                const res = await fetch(`/api/patient-notifications?appointmentId=${appointmentId}`);
+                if (res.ok) {
+                  const item: PatientNotification = await res.json();
+                  upsert(item);
+                  setOverlayText('新增通知已同步');
+                }
+              }
               break;
+            }
+            case 'APPOINTMENT_CANCELLED': {
+              if (actorRole === 'DOCTOR' && appointmentId) {
+                const res = await fetch(`/api/patient-notifications?appointmentId=${appointmentId}`);
+                if (res.ok) {
+                  const item: PatientNotification = await res.json();
+                  upsert(item);
+                  setOverlayText('取消通知已同步');
+                }
+              }
+              break;
+            }
+            case 'DOCTOR_SCHEDULE_UPDATED': {
+              const id = timeSlotId || appointmentId;
+              if (id) {
+                const res = await fetch(`/api/patient-notifications?appointmentId=${id}`);
+                if (res.ok) {
+                  const item: PatientNotification = await res.json();
+                  upsert(item);
+                  setOverlayText('日程更新通知已同步');
+                }
+              }
+              break;
+            }
             default:
               break;
           }

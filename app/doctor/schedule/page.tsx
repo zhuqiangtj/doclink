@@ -1099,7 +1099,30 @@ export default function DoctorSchedulePage() {
       setSuccess(`Successfully added appointment for ${selectedPatient.name}`);
       setTimeout(() => setSuccess(null), 3000);
     } catch (error) {
-      setError(error instanceof Error ? error.message : 'Failed to add appointment');
+      const msg = error instanceof Error ? error.message : '';
+      let friendly = msg || 'Failed to add appointment';
+      if (msg.includes('fully booked') || msg.includes('This time slot is fully booked')) {
+        friendly = '該時段已被搶完，請選擇其他時段';
+      } else if (msg.includes('已经过期') || msg.includes('expired')) {
+        friendly = '預約時間已過期';
+      } else if (msg.includes('積分') || msg.includes('credibility')) {
+        friendly = '病人積分不足，無法預約';
+      } else if (msg.includes('不能重复预约') || msg.includes('duplicate')) {
+        friendly = '該病人在此時段已有預約';
+      }
+      setError(friendly);
+      try {
+        const res = await fetch('/api/schedules', { cache: 'no-store' });
+        if (res.ok) {
+          const nextData: ScheduleApiResponse[] = await res.json();
+          const formatted = nextData.map(s => ({ ...s, roomName: s.room.name }));
+          setSchedulesForSelectedDay(prev => {
+            const { merged } = mergeSchedulesGranular(prev, formatted);
+            return merged;
+          });
+        }
+      } catch {}
+      setOverlayText(friendly);
     } finally {
       setIsBookingSubmitting(false);
     }

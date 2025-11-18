@@ -258,7 +258,25 @@ export default function BookAppointmentPage() {
       setSelectedTime('');
 
     } catch (err) {
-      setError(err instanceof Error ? err.message : '发生未知错误');
+      const msg = err instanceof Error ? err.message : '';
+      let friendly = msg || '发生未知错误';
+      if (msg.includes('fully booked') || msg.includes('This time slot is fully booked')) {
+        friendly = '该时段已被抢完，请选择其它时段';
+      } else if (msg.includes('已经过期') || msg.includes('expired')) {
+        friendly = '预约时间已过期';
+      } else if (msg.includes('积分不足') || msg.includes('credibility')) {
+        friendly = '病人积分不足，无法预约';
+      } else if (msg.includes('不能重复预约') || msg.includes('duplicate')) {
+        friendly = '该病人在此时段已有预约';
+      }
+      setError(friendly);
+      try {
+        const schedulesRes = await fetch(`/api/schedules`, { cache: 'no-store' });
+        const schedulesData: ScheduleApiResponse[] = await schedulesRes.json();
+        const formattedSchedules = schedulesData.map(s => ({ ...s, roomName: s.room.name }));
+        setSchedules(formattedSchedules);
+      } catch {}
+      setOverlayText(friendly);
     }
   };
 

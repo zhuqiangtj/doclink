@@ -5,17 +5,30 @@ import { authOptions } from '../auth/[...nextauth]/route';
 
 
 // GET notifications for the logged-in patient
-export async function GET() {
+export async function GET(request: Request) {
   const session = await getServerSession(authOptions);
   if (!session || session.user.role !== 'PATIENT') {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
   try {
+    const url = new URL(request.url);
+    const appointmentId = url.searchParams.get('appointmentId');
+    if (appointmentId) {
+      const one = await prisma.patientNotification.findFirst({
+        where: { userId: session.user.id, appointmentId },
+        orderBy: { createdAt: 'desc' },
+      });
+      if (!one) {
+        return NextResponse.json({ error: 'Not Found' }, { status: 404 });
+      }
+      return NextResponse.json(one);
+    }
+
     const notifications = await prisma.patientNotification.findMany({
       where: { userId: session.user.id },
       orderBy: { createdAt: 'desc' },
-      take: 50, // Limit to the last 50 notifications
+      take: 50,
     });
 
     return NextResponse.json(notifications);
