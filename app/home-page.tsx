@@ -218,12 +218,13 @@ export default function PatientScheduleHome() {
           const payload = evt?.payload as any;
           const timeSlotId = payload?.timeSlotId as string | undefined;
           const appointmentId = payload?.appointmentId as string | undefined;
-          if (!type || !selectedDoctorId) return;
+          if (!type) return;
           let msg: string | null = null;
           if (type === 'APPOINTMENT_CREATED') msg = '新增预约已同步';
           else if (type === 'APPOINTMENT_CANCELLED') msg = '取消预约已同步';
           else if (type === 'APPOINTMENT_STATUS_UPDATED') msg = '预约状态已同步';
           if (msg) setOverlayText(msg);
+          if (!selectedDoctorId) return;
           switch (type) {
             case 'APPOINTMENT_CREATED':
               if (timeSlotId && appointmentId) {
@@ -267,9 +268,7 @@ export default function PatientScheduleHome() {
           }
         } catch {}
       };
-      es.onerror = () => {
-        // EventSource 会自动重连，这里无需特殊处理
-      };
+      es.onerror = () => {};
       return () => es.close();
     } catch (err) {
       console.error('SSE subscribe (patient) failed:', err);
@@ -381,7 +380,21 @@ export default function PatientScheduleHome() {
             if (type === 'TIMESLOT_CREATED') msg = '新增时段已同步';
             else if (type === 'TIMESLOT_UPDATED') msg = '时段修改已同步';
             else if (type === 'TIMESLOT_DELETED') msg = '时段删除已同步';
+            else if (type === 'APPOINTMENT_CREATED') msg = '新增预约已同步';
+            else if (type === 'APPOINTMENT_CANCELLED') msg = '取消预约已同步';
+            else if (type === 'APPOINTMENT_STATUS_UPDATED') msg = '预约状态已同步';
             if (msg) setOverlayText(msg);
+            const payload = evt?.payload as any;
+            const timeSlotId = payload?.timeSlotId as string | undefined;
+            if (id === selectedDoctorId) {
+              if (type === 'TIMESLOT_CREATED' || type === 'TIMESLOT_UPDATED' || type === 'TIMESLOT_DELETED' || type === 'APPOINTMENT_CREATED' || type === 'APPOINTMENT_CANCELLED' || type === 'APPOINTMENT_STATUS_UPDATED') {
+                if (timeSlotId) {
+                  refreshPublicTimeSlotById(timeSlotId);
+                } else {
+                  refreshDayDetails(selectedDate, selectedDoctorId);
+                }
+              }
+            }
           } catch {}
         };
         es.onerror = () => {};
