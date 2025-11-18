@@ -8,7 +8,8 @@ const isProd =
   process.env.NODE_ENV === 'production' ||
   process.env.VERCEL === '1' ||
   process.env.VERCEL_ENV === 'production';
-const POLL_INTERVAL_MS = Number(process.env.REALTIME_POLL_INTERVAL_MS || (isProd ? 10000 : 1000));
+const MIN_POLL_MS = Number(process.env.REALTIME_POLL_MIN_MS || (isProd ? 2000 : 1000));
+const MAX_POLL_MS = Number(process.env.REALTIME_POLL_MAX_MS || (isProd ? 15000 : 5000));
 
 // Stream events from a Redis Stream via SSE
 export async function GET(request: Request) {
@@ -60,6 +61,8 @@ export async function GET(request: Request) {
 
       const heartbeatTimer = setInterval(heartbeat, 25000);
       heartbeat();
+      let idleStreak = 0;
+      let pollMs = MIN_POLL_MS;
 
       // Dev-only: allow immediate test ping to verify SSE wiring
       try {
@@ -147,8 +150,15 @@ export async function GET(request: Request) {
             }
           }
 
-          // Soft delay to avoid tight loop when idle
-          await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS));
+          if (Array.isArray(ranged) && ranged.length > 0) {
+            idleStreak = 0;
+            pollMs = MIN_POLL_MS;
+          } else {
+            idleStreak = Math.min(idleStreak + 1, 6);
+            const next = MIN_POLL_MS * Math.pow(2, Math.max(0, idleStreak - 1));
+            pollMs = Math.max(MIN_POLL_MS, Math.min(MAX_POLL_MS, Math.floor(next)));
+          }
+          await new Promise((r) => setTimeout(r, pollMs));
         }
       } catch (err) {
         console.error('[SSE] stream error', err);

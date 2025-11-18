@@ -479,15 +479,125 @@ export default function DoctorSchedulePage() {
           const isRecent = Number.isFinite(ts) && (Date.now() - ts) < 15000;
           if (msg && isRecent) setOverlayText(msg);
           switch (type) {
+            case 'APPOINTMENT_CREATED': {
+              if (timeSlotId) {
+                const selectedDateStr = toYYYYMMDD(selectedDateRef.current);
+                setSchedulesForSelectedDay(prev => {
+                  const next = prev.map(s => {
+                    if (s.date !== selectedDateStr) return s;
+                    const has = s.timeSlots.some(t => t.id === timeSlotId);
+                    if (!has) return s;
+                    return {
+                      ...s,
+                      timeSlots: s.timeSlots.map(t => {
+                        if (t.id !== timeSlotId) return t;
+                        const nb = Math.max(0, Number(t.availableBeds || 0) - 1);
+                        return { ...t, availableBeds: nb };
+                      })
+                    };
+                  });
+                  const totals = next.reduce((acc: { bookedBeds: number; totalBeds: number }, sch) => {
+                    for (const ts of sch.timeSlots || []) {
+                      acc.totalBeds += Number(ts.bedCount || 0);
+                      const used = Number(ts.bedCount || 0) - Number(ts.availableBeds || 0);
+                      acc.bookedBeds += used > 0 ? used : 0;
+                    }
+                    return acc;
+                  }, { bookedBeds: 0, totalBeds: 0 });
+                  const updatedStatus = {
+                    date: selectedDateStr,
+                    hasSchedule: next.some(s => (s.timeSlots || []).length > 0),
+                    hasAppointments: totals.bookedBeds > 0,
+                    bookedBeds: totals.bookedBeds,
+                    totalBeds: totals.totalBeds,
+                    isPast: isPastDate(selectedDateRef.current),
+                  };
+                  setDateStatuses(prevStatuses => {
+                    const idx = prevStatuses.findIndex(st => st.date === selectedDateStr);
+                    if (idx >= 0) {
+                      const copy = [...prevStatuses];
+                      copy[idx] = updatedStatus;
+                      return copy;
+                    }
+                    return [...prevStatuses, updatedStatus];
+                  });
+                  return next;
+                });
+              }
+              if (timeSlotId) {
+                if (refreshTimeSlotByIdRef.current) {
+                  await refreshTimeSlotByIdRef.current(timeSlotId);
+                }
+              } else {
+                if (fetchAllDataForDateRef.current) {
+                  await fetchAllDataForDateRef.current(selectedDateRef.current);
+                }
+              }
+              break;
+            }
+            case 'APPOINTMENT_CANCELLED': {
+              const appointmentId = payload?.appointmentId as string | undefined;
+              const selectedDateStr = toYYYYMMDD(selectedDateRef.current);
+              if (appointmentId) {
+                setSchedulesForSelectedDay(prev => {
+                  const next = prev.map(s => {
+                    if (s.date !== selectedDateStr) return s;
+                    const updatedSlots = s.timeSlots.map(t => {
+                      const has = (t.appointments || []).some(a => a.id === appointmentId);
+                      if (!has) return t;
+                      const nb = Math.min(Number(t.bedCount || 0), Number(t.availableBeds || 0) + 1);
+                      const nextApps = (t.appointments || []).filter(a => a.id !== appointmentId);
+                      return { ...t, availableBeds: nb, appointments: nextApps };
+                    });
+                    return { ...s, timeSlots: updatedSlots };
+                  });
+                  const totals = next.reduce((acc: { bookedBeds: number; totalBeds: number }, sch) => {
+                    for (const ts of sch.timeSlots || []) {
+                      acc.totalBeds += Number(ts.bedCount || 0);
+                      const used = Number(ts.bedCount || 0) - Number(ts.availableBeds || 0);
+                      acc.bookedBeds += used > 0 ? used : 0;
+                    }
+                    return acc;
+                  }, { bookedBeds: 0, totalBeds: 0 });
+                  const updatedStatus = {
+                    date: selectedDateStr,
+                    hasSchedule: next.some(s => (s.timeSlots || []).length > 0),
+                    hasAppointments: totals.bookedBeds > 0,
+                    bookedBeds: totals.bookedBeds,
+                    totalBeds: totals.totalBeds,
+                    isPast: isPastDate(selectedDateRef.current),
+                  };
+                  setDateStatuses(prevStatuses => {
+                    const idx = prevStatuses.findIndex(st => st.date === selectedDateStr);
+                    if (idx >= 0) {
+                      const copy = [...prevStatuses];
+                      copy[idx] = updatedStatus;
+                      return copy;
+                    }
+                    return [...prevStatuses, updatedStatus];
+                  });
+                  return next;
+                });
+              }
+              const sid = payload?.timeSlotId as string | undefined;
+              if (sid) {
+                if (refreshTimeSlotByIdRef.current) {
+                  await refreshTimeSlotByIdRef.current(sid);
+                }
+              } else {
+                if (fetchAllDataForDateRef.current) {
+                  await fetchAllDataForDateRef.current(selectedDateRef.current);
+                }
+              }
+              break;
+            }
+            case 'APPOINTMENT_STATUS_UPDATED':
             case 'TIMESLOT_CREATED':
             case 'TIMESLOT_UPDATED':
             case 'TIMESLOT_DELETED':
             case 'SCHEDULE_CREATED':
             case 'SCHEDULE_UPDATED':
             case 'SCHEDULE_DELETED':
-            case 'APPOINTMENT_CREATED':
-            case 'APPOINTMENT_CANCELLED':
-            case 'APPOINTMENT_STATUS_UPDATED':
               if (timeSlotId) {
                 if (refreshTimeSlotByIdRef.current) {
                   await refreshTimeSlotByIdRef.current(timeSlotId);

@@ -344,6 +344,48 @@ export default function PatientScheduleHome() {
             case 'APPOINTMENT_CREATED':
               if (timeSlotId && appointmentId) {
                 setMyAppointmentsBySlot(prev => ({ ...prev, [timeSlotId]: appointmentId }));
+                const selectedDateStr = toYYYYMMDD(selectedDate);
+                setSchedulesForSelectedDay(prev => {
+                  const next = prev.map(s => {
+                    if (s.date !== selectedDateStr) return s;
+                    const has = s.timeSlots.some(t => t.id === timeSlotId);
+                    if (!has) return s;
+                    return {
+                      ...s,
+                      timeSlots: s.timeSlots.map(t => {
+                        if (t.id !== timeSlotId) return t;
+                        const nb = Math.max(0, Number(t.availableBeds || 0) - 1);
+                        return { ...t, availableBeds: nb };
+                      })
+                    };
+                  });
+                  const totals = next.reduce((acc: { bookedBeds: number; totalBeds: number }, sch) => {
+                    for (const ts of sch.timeSlots || []) {
+                      acc.totalBeds += Number(ts.bedCount || 0);
+                      const used = Number(ts.bedCount || 0) - Number(ts.availableBeds || 0);
+                      acc.bookedBeds += used > 0 ? used : 0;
+                    }
+                    return acc;
+                  }, { bookedBeds: 0, totalBeds: 0 });
+                  const updatedStatus = {
+                    date: selectedDateStr,
+                    hasSchedule: next.some(s => (s.timeSlots || []).length > 0),
+                    hasAppointments: totals.bookedBeds > 0,
+                    bookedBeds: totals.bookedBeds,
+                    totalBeds: totals.totalBeds,
+                    isPast: isPastDate(selectedDate),
+                  };
+                  setDateStatuses(prevStatuses => {
+                    const idx = prevStatuses.findIndex(st => st.date === selectedDateStr);
+                    if (idx >= 0) {
+                      const copy = [...prevStatuses];
+                      copy[idx] = updatedStatus;
+                      return copy;
+                    }
+                    return [...prevStatuses, updatedStatus];
+                  });
+                  return next;
+                });
                 await refreshPublicTimeSlotById(timeSlotId);
               } else {
                 await refreshDayDetails(selectedDate, selectedDoctorId);
@@ -355,6 +397,44 @@ export default function PatientScheduleHome() {
                   const copy = { ...prev };
                   delete copy[timeSlotId];
                   return copy;
+                });
+                const selectedDateStr = toYYYYMMDD(selectedDate);
+                setSchedulesForSelectedDay(prev => {
+                  const next = prev.map(s => {
+                    if (s.date !== selectedDateStr) return s;
+                    const updatedSlots = s.timeSlots.map(t => {
+                      if (t.id !== timeSlotId) return t;
+                      const nb = Math.min(Number(t.bedCount || 0), Number(t.availableBeds || 0) + 1);
+                      return { ...t, availableBeds: nb };
+                    });
+                    return { ...s, timeSlots: updatedSlots };
+                  });
+                  const totals = next.reduce((acc: { bookedBeds: number; totalBeds: number }, sch) => {
+                    for (const ts of sch.timeSlots || []) {
+                      acc.totalBeds += Number(ts.bedCount || 0);
+                      const used = Number(ts.bedCount || 0) - Number(ts.availableBeds || 0);
+                      acc.bookedBeds += used > 0 ? used : 0;
+                    }
+                    return acc;
+                  }, { bookedBeds: 0, totalBeds: 0 });
+                  const updatedStatus = {
+                    date: selectedDateStr,
+                    hasSchedule: next.some(s => (s.timeSlots || []).length > 0),
+                    hasAppointments: totals.bookedBeds > 0,
+                    bookedBeds: totals.bookedBeds,
+                    totalBeds: totals.totalBeds,
+                    isPast: isPastDate(selectedDate),
+                  };
+                  setDateStatuses(prevStatuses => {
+                    const idx = prevStatuses.findIndex(st => st.date === selectedDateStr);
+                    if (idx >= 0) {
+                      const copy = [...prevStatuses];
+                      copy[idx] = updatedStatus;
+                      return copy;
+                    }
+                    return [...prevStatuses, updatedStatus];
+                  });
+                  return next;
                 });
                 await refreshPublicTimeSlotById(timeSlotId);
               } else {

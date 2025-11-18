@@ -103,13 +103,33 @@ export default function MyAppointmentsPage() {
         try {
           const evt = JSON.parse(ev.data);
           const type = evt?.type as string | undefined;
+          const raw = evt?.payload as unknown;
+          const payload = (raw && typeof raw === 'object') ? (raw as Record<string, unknown>) : {};
           switch (type) {
             case 'APPOINTMENT_CREATED':
-            case 'APPOINTMENT_CANCELLED':
-            case 'APPOINTMENT_STATUS_UPDATED':
               await fetchAppointments();
-              setOverlayText('已自动更新');
+              setOverlayText('新增预约已同步');
               break;
+            case 'APPOINTMENT_CANCELLED': {
+              const appointmentId = typeof payload['appointmentId'] === 'string' ? (payload['appointmentId'] as string) : undefined;
+              if (appointmentId) {
+                setAppointments(prev => prev.filter(a => a.id !== appointmentId));
+              }
+              await fetchAppointments();
+              setOverlayText('取消预约已同步');
+              break;
+            }
+            case 'APPOINTMENT_STATUS_UPDATED': {
+              const appointmentId = typeof payload['appointmentId'] === 'string' ? (payload['appointmentId'] as string) : undefined;
+              const newStatus = typeof payload['newStatus'] === 'string' ? (payload['newStatus'] as string) : undefined;
+              const reason = typeof payload['reason'] === 'string' ? (payload['reason'] as string) : undefined;
+              if (appointmentId && newStatus) {
+                setAppointments(prev => prev.map(a => (a.id === appointmentId ? { ...a, status: newStatus, reason } : a)));
+              }
+              await fetchAppointments();
+              setOverlayText('预约状态已同步');
+              break;
+            }
             default:
               break;
           }
@@ -171,7 +191,7 @@ export default function MyAppointmentsPage() {
         const data = await appointmentsRes.json();
         setAppointments(data);
       }
-    } catch (error) {
+    } catch {
       setError('取消预约失败，请稍后再试');
     }
   };
