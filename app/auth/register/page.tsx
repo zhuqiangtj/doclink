@@ -1,6 +1,8 @@
 'use client';
 
 import { useState, useEffect, FormEvent } from 'react';
+import DatePicker from 'react-datepicker';
+import 'react-datepicker/dist/react-datepicker.css';
 import { useRouter } from 'next/navigation';
 import pinyin from 'pinyin';
 
@@ -203,17 +205,26 @@ export default function RegisterPage() {
             </select>
           </div>
           <div>
-            <label htmlFor="dateOfBirth" className="block text-lg font-medium text-foreground">
-              出生日期
-            </label>
-            <input
-              id="dateOfBirth"
-              name="dateOfBirth"
-              type="date"
+            <label className="block text-lg font-medium text-foreground">出生日期</label>
+            <DatePicker
+              selected={dateOfBirth ? new Date(dateOfBirth) : null}
+              onChange={(date: Date | null) => {
+                if (!date) { setDateOfBirth(''); return; }
+                const y = date.getFullYear();
+                const m = String(date.getMonth() + 1).padStart(2, '0');
+                const d = String(date.getDate()).padStart(2, '0');
+                setDateOfBirth(`${y}-${m}-${d}`);
+              }}
+              placeholderText="选择出生日期"
+              dateFormat="yyyy-MM-dd"
+              showYearDropdown
+              scrollableYearDropdown
+              showMonthDropdown
+              withPortal
+              minDate={(() => { const t = new Date(); return new Date(t.getFullYear() - 150, t.getMonth(), t.getDate()); })()}
+              maxDate={new Date()}
+              className="input-base mt-2 w-full"
               required
-              value={dateOfBirth}
-              onChange={(e) => setDateOfBirth(e.target.value)}
-              className="input-base mt-2"
             />
           </div>
           <div>
