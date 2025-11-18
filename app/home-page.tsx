@@ -291,9 +291,6 @@ export default function PatientScheduleHome() {
           if (type === 'TIMESLOT_CREATED') msg = '新增时段已同步';
           else if (type === 'TIMESLOT_UPDATED') msg = '时段修改已同步';
           else if (type === 'TIMESLOT_DELETED') msg = '时段删除已同步';
-          else if (type === 'APPOINTMENT_CREATED') msg = '新增预约已同步';
-          else if (type === 'APPOINTMENT_CANCELLED') msg = '取消预约已同步';
-          else if (type === 'APPOINTMENT_STATUS_UPDATED') msg = '预约状态已同步';
           if (msg) setOverlayText(msg);
           switch (type) {
             case 'TIMESLOT_CREATED':
@@ -380,14 +377,11 @@ export default function PatientScheduleHome() {
             if (type === 'TIMESLOT_CREATED') msg = '新增时段已同步';
             else if (type === 'TIMESLOT_UPDATED') msg = '时段修改已同步';
             else if (type === 'TIMESLOT_DELETED') msg = '时段删除已同步';
-            else if (type === 'APPOINTMENT_CREATED') msg = '新增预约已同步';
-            else if (type === 'APPOINTMENT_CANCELLED') msg = '取消预约已同步';
-            else if (type === 'APPOINTMENT_STATUS_UPDATED') msg = '预约状态已同步';
             if (msg) setOverlayText(msg);
             const payload = evt?.payload as any;
             const timeSlotId = payload?.timeSlotId as string | undefined;
             if (id === selectedDoctorId) {
-              if (type === 'TIMESLOT_CREATED' || type === 'TIMESLOT_UPDATED' || type === 'TIMESLOT_DELETED' || type === 'APPOINTMENT_CREATED' || type === 'APPOINTMENT_CANCELLED' || type === 'APPOINTMENT_STATUS_UPDATED') {
+              if (type === 'TIMESLOT_CREATED' || type === 'TIMESLOT_UPDATED' || type === 'TIMESLOT_DELETED') {
                 if (timeSlotId) {
                   refreshPublicTimeSlotById(timeSlotId);
                 } else {
