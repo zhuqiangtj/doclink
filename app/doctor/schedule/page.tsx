@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, FormEvent, useMemo } from 'react';
+import { useState, useEffect, useCallback, FormEvent, useMemo, useRef } from 'react';
 import { useSession } from 'next-auth/react';
 import CancelAppointmentModal from '../../../components/CancelAppointmentModal';
 import DatePicker from 'react-datepicker';
@@ -19,7 +19,7 @@ interface DoctorProfile { id: string; name: string; Room: Room[]; }
 interface Appointment { 
   id: string; 
   patient: { 
-    user: { name: string; gender?: string; dateOfBirth?: string }, 
+    user: { name: string; gender?: string; dateOfBirth?: string; phone?: string }, 
     credibilityScore?: number,
   }; 
   user: { name: string; role: string }; 
@@ -45,7 +45,7 @@ interface Schedule {
   room: Room;
   timeSlots: TimeSlot[];
 }
-interface PatientSearchResult { id: string; userId: string; name: string; username: string; credibilityScore?: number; gender?: string | null; dateOfBirth?: string | null; }
+interface PatientSearchResult { id: string; userId: string; name: string; username: string; phone?: string | null; credibilityScore?: number; gender?: string | null; dateOfBirth?: string | null; }
 
 const DEFAULT_TIMES = ["08:00", "09:00", "10:00", "11:00", "14:00", "15:00", "16:00"];
 
@@ -190,6 +190,9 @@ export default function DoctorSchedulePage() {
     credibilityScore?: number | null;
   } | null>(null);
   const [overlayText, setOverlayText] = useState<string | null>(null);
+  const selectedDateRef = useRef<Date>(selectedDate);
+  const fetchAllDataForDateRef = useRef<((date: Date) => Promise<void>) | undefined>(undefined);
+  const refreshTimeSlotByIdRef = useRef<((id: string) => Promise<void>) | undefined>(undefined);
 
   const refreshMonthStatuses = useCallback(async () => {
     if (status === 'authenticated' && doctorProfile) {
@@ -282,11 +285,19 @@ export default function DoctorSchedulePage() {
       setEditingSlots({});
       setModifiedTimeSlots(new Set());
       setSavingTimeSlots(new Set());
+      selectedDateRef.current = selectedDate;
       fetchAllDataForDate(selectedDate);
     }
   }, [selectedDate, status, fetchAllDataForDate]);
 
-  // SSE：订阅医生频道事件，自动刷新当天排班与高亮
+  useEffect(() => {
+    fetchAllDataForDateRef.current = fetchAllDataForDate;
+  }, [fetchAllDataForDate]);
+
+  useEffect(() => {
+    refreshTimeSlotByIdRef.current = refreshTimeSlotById;
+  }, [refreshTimeSlotById]);
+
   useEffect(() => {
     if (status !== 'authenticated') return;
     if (!doctorProfile?.id) return;
@@ -306,7 +317,9 @@ export default function DoctorSchedulePage() {
           else if (type === 'TIMESLOT_UPDATED') msg = '时段修改已同步';
           else if (type === 'TIMESLOT_DELETED') msg = '时段删除已同步';
           else if (type === 'SCHEDULE_CREATED' || type === 'SCHEDULE_UPDATED' || type === 'SCHEDULE_DELETED') msg = '排班已同步';
-          if (msg) setOverlayText(msg);
+          const ts = Number(evt?.ts ?? 0);
+          const isRecent = Number.isFinite(ts) && (Date.now() - ts) < 15000;
+          if (msg && isRecent) setOverlayText(msg);
           switch (type) {
             case 'TIMESLOT_CREATED':
             case 'TIMESLOT_UPDATED':
@@ -318,9 +331,13 @@ export default function DoctorSchedulePage() {
             case 'APPOINTMENT_CANCELLED':
             case 'APPOINTMENT_STATUS_UPDATED':
               if (timeSlotId) {
-                await refreshTimeSlotById(timeSlotId);
+                if (refreshTimeSlotByIdRef.current) {
+                  await refreshTimeSlotByIdRef.current(timeSlotId);
+                }
               } else {
-                await fetchAllDataForDate(selectedDate);
+                if (fetchAllDataForDateRef.current) {
+                  await fetchAllDataForDateRef.current(selectedDateRef.current);
+                }
               }
               break;
             default:
@@ -335,7 +352,7 @@ export default function DoctorSchedulePage() {
     } catch (err) {
       console.error('SSE subscribe (doctor schedule) failed:', err);
     }
-  }, [status, doctorProfile?.id, selectedDate, fetchAllDataForDate, refreshMonthStatuses]);
+  }, [status, doctorProfile?.id]);
   useEffect(() => {
     if (!overlayText) return;
     const t = setTimeout(() => setOverlayText(null), 3000);
@@ -363,7 +380,7 @@ export default function DoctorSchedulePage() {
       }
 
       setSchedulesForSelectedDay(prev => {
-        let scheduleExists = prev.some(s => s.id === updatedSchedule.id);
+        const scheduleExists = prev.some(s => s.id === updatedSchedule.id);
         let slotExists = false;
         const next = prev.map(s => {
           if (s.id === updatedSchedule.id) {
@@ -1501,6 +1518,14 @@ export default function DoctorSchedulePage() {
                                       <span className="age-inline-badge" title="年齡">{age != null ? `${age}歲` : '年齡未知'}</span>
                                     );
                                   })()}
+                                  {(() => {
+                                    const phone = appointment.patient.user.phone;
+                                    if (!phone) return null;
+                                    const tel = String(phone).replace(/\s+/g, '');
+                                    return (
+                                      <a className="phone-inline-badge" href={`tel:${tel}`} aria-label={`拨打 ${phone}`}>{phone}</a>
+                                    );
+                                  })()}
                                 </span>
                                 <span className="mobile-patient-details-inline">
                                   操作时间：{operatedAtString} 操作员：{
@@ -1661,6 +1686,9 @@ export default function DoctorSchedulePage() {
                             {patient.name} ({patient.username})
                           </div>
                           <div className="flex items-center ml-2 shrink-0 space-x-1">
+                            {patient.phone && (
+                              <a className="phone-inline-badge" href={`tel:${String(patient.phone).replace(/\s+/g,'')}`} aria-label={`拨打 ${patient.phone}`} title="电话">{patient.phone}</a>
+                            )}
                             <span className={`credit-inline-badge ${getCreditColorClass(patient.credibilityScore)}`}>{typeof patient.credibilityScore === 'number' ? patient.credibilityScore : '未知'}</span>
                             {(() => { const g = getGenderInfo(patient.gender ?? undefined); return (<span className={`gender-inline-badge ${g.className}`}>{g.text}</span>); })()}
                             {(() => { const age = calcAgeFromBirthDate(patient.dateOfBirth ?? undefined); return (<span className="age-inline-badge">{age ?? '未知'}</span>); })()}
@@ -1677,6 +1705,9 @@ export default function DoctorSchedulePage() {
                   <div className="text-sm text-gray-600">已選擇患者:</div>
                   <div className="font-medium">{selectedPatient.name} ({selectedPatient.username})</div>
                 <div className="flex items-center mt-1 space-x-2">
+                  {selectedPatient.phone && (
+                    <a className="phone-inline-badge" href={`tel:${String(selectedPatient.phone).replace(/\s+/g,'')}`} aria-label={`拨打 ${selectedPatient.phone}`} title="电话">{selectedPatient.phone}</a>
+                  )}
                   <span className={`credit-inline-badge ${getCreditColorClass(selectedPatient.credibilityScore)}`}>{typeof selectedPatient.credibilityScore === 'number' ? selectedPatient.credibilityScore : '未知'}</span>
                   {(() => { const g = getGenderInfo(selectedPatient.gender ?? undefined); return (<span className={`gender-inline-badge ${g.className}`}>{g.text}</span>); })()}
                   {(() => { const age = calcAgeFromBirthDate(selectedPatient.dateOfBirth ?? undefined); return (<span className="age-inline-badge">{age ?? '未知'}</span>); })()}

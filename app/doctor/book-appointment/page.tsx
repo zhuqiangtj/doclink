@@ -190,13 +190,36 @@ export default function BookAppointmentPage() {
           {searchedPatients.length > 0 && (
             <ul className="mobile-search-results">
               {searchedPatients.map(p => (
-                <li key={p.id} onClick={() => { setSelectedPatient(p); setSearchedPatients([]); setPatientSearch(p.name); }} className="mobile-search-item">
-                  {p.name} ({p.username})
+                <li
+                  key={p.id}
+                  onClick={() => { setSelectedPatient(p); setSearchedPatients([]); setPatientSearch(p.name); }}
+                  className="mobile-search-item"
+                >
+                  <div className="flex items-center justify-between w-full">
+                    <div className="truncate">
+                      {p.name} ({p.username})
+                    </div>
+                    <div className="flex items-center ml-2 shrink-0 gap-2">
+                      {p.phone && (
+                        <a className="mobile-phone-badge" href={`tel:${String(p.phone).replace(/\s+/g,'')}`} aria-label={`拨打 ${p.phone}`}>{p.phone}</a>
+                      )}
+                      {p.dateOfBirth && (
+                        <span className="mobile-patient-age">{p.dateOfBirth}</span>
+                      )}
+                    </div>
+                  </div>
                 </li>
               ))}
-            </ul>
-          )}
-          {selectedPatient && <p className="mobile-selected-patient">已选择：{selectedPatient.name} ({selectedPatient.username})</p>}
+          </ul>
+        )}
+        {selectedPatient && (
+          <div className="mobile-selected-patient">
+            已选择：{selectedPatient.name} ({selectedPatient.username})
+            {selectedPatient.phone && (
+              <a className="mobile-phone-badge" href={`tel:${String(selectedPatient.phone).replace(/\s+/g,'')}`} aria-label={`拨打 ${selectedPatient.phone}`} style={{ marginLeft: 8 }}>{selectedPatient.phone}</a>
+            )}
+          </div>
+        )}
         </div>
 
         {/* Schedule Selection */}

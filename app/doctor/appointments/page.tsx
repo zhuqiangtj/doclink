@@ -11,7 +11,7 @@ import CancelAppointmentModal from '../../../components/CancelAppointmentModal';
 
 // --- Interfaces ---
 interface Patient {
-  user: { name: string };
+  user: { name: string; phone?: string };
   birthDate?: string;
   credibilityScore?: number;
 }
@@ -604,6 +604,9 @@ export default function DoctorAppointmentsPage() {
                 <div className="mobile-patient-info">
                   <h3 className="mobile-patient-name">{apt.patient.user.name}</h3>
                   <div className="flex items-center gap-2">
+                    {apt.patient.user.phone && (
+                      <a className="mobile-phone-badge" href={`tel:${String(apt.patient.user.phone).replace(/\s+/g,'')}`} aria-label={`拨打 ${apt.patient.user.phone}`}>{apt.patient.user.phone}</a>
+                    )}
                     {apt.patient.birthDate && (
                       <span className="mobile-patient-age">
                         {calculateAge(apt.patient.birthDate)}

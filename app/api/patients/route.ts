@@ -50,9 +50,12 @@ export async function GET(request: Request) {
         credibilityScore: true,
         user: {
           select: {
-            id: true, // User ID is needed for creating the appointment
+            id: true,
             username: true,
             name: true,
+            phone: true,
+            gender: true,
+            dateOfBirth: true,
           },
         },
       },
@@ -61,11 +64,14 @@ export async function GET(request: Request) {
 
     // Format the response to be flatter and more convenient for the frontend
     const formattedPatients = patients.map(p => ({
-      id: p.id, // This is the Patient ID
-      userId: p.user.id, // This is the User ID
+      id: p.id,
+      userId: p.user.id,
       username: p.user.username,
       name: p.user.name,
+      phone: p.user.phone ?? null,
       credibilityScore: p.credibilityScore,
+      gender: p.user.gender ?? null,
+      dateOfBirth: p.user.dateOfBirth ? p.user.dateOfBirth.toISOString() : null,
     }));
 
     return NextResponse.json(formattedPatients);

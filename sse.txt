@@ -1,0 +1,13 @@
+:keepalive 1763265856939
+
+event: message
+data: {"id":"1763265839805-1","type":"DEBUG_TEST","payload":{"ok":true},"ts":"1763265839804"}
+
+:keepalive 1763265881953
+
+:keepalive 1763265906967
+
+:keepalive 1763265931976
+
+:keepalive 1763265956991
+

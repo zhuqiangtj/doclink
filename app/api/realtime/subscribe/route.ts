@@ -32,7 +32,7 @@ export async function GET(request: Request) {
   const stream = new ReadableStream<Uint8Array>({
     async start(controller) {
       let lastId = initialId;
-      let heartbeatTimer: any;
+      // Heartbeat timer for SSE
       let closed = false;
 
       const send = (line: string) => {
@@ -52,7 +52,7 @@ export async function GET(request: Request) {
         send(`:keepalive ${Date.now()}\n\n`);
       };
 
-      heartbeatTimer = setInterval(heartbeat, 25000);
+      const heartbeatTimer = setInterval(heartbeat, 25000);
       heartbeat();
 
       // Dev-only: allow immediate test ping to verify SSE wiring
@@ -66,7 +66,7 @@ export async function GET(request: Request) {
       try {
         while (true) {
           // Non-blocking poll via XRANGE using official API or memory fallback
-          let ranged: Array<[string, any]> | null = null;
+          let ranged: Array<[string, unknown]> | null = null;
           if (redis) {
             try {
               ranged = await (redis as Redis).xrange(
@@ -124,6 +124,12 @@ export async function GET(request: Request) {
               if (typeof obj.payload === 'string') {
                 try { obj.payload = JSON.parse(obj.payload as string); } catch {}
               }
+              try {
+                const t = typeof (obj as Record<string, unknown>)['type'] === 'string'
+                  ? ((obj as Record<string, unknown>)['type'] as string)
+                  : String(((obj as Record<string, unknown>)['type']) ?? '');
+                console.log('[Realtime] SSE deliver', { streamKey, id, type: t });
+              } catch {}
               sendEvent({ id, ...obj });
               lastId = id;
             }
@@ -136,7 +142,7 @@ export async function GET(request: Request) {
         console.error('[SSE] stream error', err);
       } finally {
         closed = true;
-        if (heartbeatTimer) clearInterval(heartbeatTimer);
+        try { clearInterval(heartbeatTimer); } catch {}
         try { controller.close(); } catch {}
       }
     },

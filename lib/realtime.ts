@@ -103,11 +103,11 @@ export function memoryXRange(
   streamKey: string,
   startIdExclusive: string,
   count = 100
-): Array<[string, any]> {
+): MemoryEntry[] {
   const bus = getMemoryBus();
   const s = bus.get(streamKey);
   if (!s) return [];
-  const res: Array<[string, any]> = [];
+  const res: MemoryEntry[] = [];
   for (const e of s.entries) {
     const id = e[0];
     if (compareStreamId(id, startIdExclusive) > 0) {
@@ -122,9 +122,9 @@ export function fileXRange(
   streamKey: string,
   startIdExclusive: string,
   count = 100
-): Array<[string, any]> {
+): MemoryEntry[] {
   const entries = readStreamFile(streamKey);
-  const res: Array<[string, any]> = [];
+  const res: MemoryEntry[] = [];
   for (const e of entries) {
     const id = e[0];
     if (compareStreamId(id, startIdExclusive) > 0) {
@@ -157,39 +157,22 @@ export function streamDoctor(doctorId: string): string {
 }
 
 async function xadd(streamKey: string, fields: Record<string, string>) {
-  // If Redis is not available, fall back to in-memory bus
+  const typeVal = fields?.type || 'UNKNOWN';
+  const tsVal = fields?.ts || String(Date.now());
   if (!redis) {
-    try {
-      memXAdd(streamKey, fields);
-    } catch (err) {
-      console.error('[Realtime] Memory XADD failed', { streamKey, err });
-    }
-    // Also write to file store to share across Next.js route processes in dev
-    try {
-      fileXAdd(streamKey, fields);
-    } catch (err) {
-      console.error('[Realtime] File XADD failed', { streamKey, err });
-    }
+    try { memXAdd(streamKey, fields); } catch (err) { console.error('[Realtime] Memory XADD failed', { streamKey, type: typeVal, ts: tsVal, err }); }
+    try { fileXAdd(streamKey, fields); } catch (err) { console.error('[Realtime] File XADD failed', { streamKey, type: typeVal, ts: tsVal, err }); }
+    try { console.warn('[Realtime] Fallback write store=file+memory', { streamKey, type: typeVal, ts: tsVal }); } catch {}
     return;
   }
   try {
-    // Use official xadd API. Some versions support options like maxlen; to keep
-    // compatibility we omit retention settings here.
     await (redis as Redis).xadd(streamKey, '*', fields);
+    try { console.log('[Realtime] Upstash XADD ok', { streamKey, type: typeVal, ts: tsVal }); } catch {}
   } catch (err) {
-    console.error('[Realtime] XADD failed', { streamKey, err });
-    // Fallback to memory bus if Redis write fails
-    try {
-      memXAdd(streamKey, fields);
-    } catch (memErr) {
-      console.error('[Realtime] Memory XADD fallback failed', { streamKey, memErr });
-    }
-    // Also attempt file store fallback
-    try {
-      fileXAdd(streamKey, fields);
-    } catch (fileErr) {
-      console.error('[Realtime] File XADD fallback failed', { streamKey, fileErr });
-    }
+    try { console.error('[Realtime] Upstash XADD failed', { streamKey, type: typeVal, ts: tsVal, err: (err as Error)?.message || String(err) }); } catch {}
+    try { memXAdd(streamKey, fields); } catch (memErr) { console.error('[Realtime] Memory XADD fallback failed', { streamKey, type: typeVal, ts: tsVal, err: memErr }); }
+    try { fileXAdd(streamKey, fields); } catch (fileErr) { console.error('[Realtime] File XADD fallback failed', { streamKey, type: typeVal, ts: tsVal, err: fileErr }); }
+    try { console.warn('[Realtime] Fallback write store=file+memory', { streamKey, type: typeVal, ts: tsVal }); } catch {}
   }
 }
 
