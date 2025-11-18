@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, FormEvent, forwardRef } from 'react';
+import { useState, useEffect, FormEvent, forwardRef, useRef } from 'react';
 import DatePicker, { registerLocale, setDefaultLocale } from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 import zhCN from 'date-fns/locale/zh-CN';
@@ -24,6 +24,10 @@ export default function RegisterPage() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const router = useRouter();
+  const [submitting, setSubmitting] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const [stage, setStage] = useState<string | null>(null);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const DateInput = forwardRef<HTMLInputElement, React.InputHTMLAttributes<HTMLInputElement>>((props, ref) => (
     <input ref={ref} {...props} inputMode="numeric" className="input-base mt-2 w-full" />
@@ -104,6 +108,16 @@ export default function RegisterPage() {
     e.preventDefault();
     setError(null);
     setSuccess(null);
+    setSubmitting(true);
+    setStage('正在创建账户…');
+    setProgress(8);
+    if (timerRef.current) clearInterval(timerRef.current);
+    timerRef.current = setInterval(() => {
+      setProgress(p => {
+        const next = p + 4;
+        return next >= 90 ? 90 : next;
+      });
+    }, 200);
 
     if (usernameAvailability.status !== 'available') {
       setError('用户名不可用');
@@ -165,14 +179,21 @@ export default function RegisterPage() {
         throw new Error(data.error || '发生错误');
       }
 
-      setSuccess('账户创建成功！您现在可以登录。');
-      // Optional: redirect to sign-in page after a delay
+      setSuccess('账户创建成功！正在跳转登录…');
+      setStage('注册成功，正在跳转…');
+      setProgress(98);
+      if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null; }
       setTimeout(() => {
+        setProgress(100);
         router.push('/auth/signin');
-      }, 2000);
+      }, 1000);
 
     } catch (error) {
       setError(error instanceof Error ? error.message : '发生未知错误');
+      setSubmitting(false);
+      setStage(null);
+      setProgress(0);
+      if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null; }
     }
   };
 
@@ -348,6 +369,20 @@ export default function RegisterPage() {
             </button>
           </div>
         </form>
+        {submitting && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+            <div className="w-80 bg-white rounded-xl p-6 shadow-xl space-y-4">
+              <div className="flex items-center space-x-3">
+                <div className="h-5 w-5 rounded-full border-2 border-primary border-t-transparent animate-spin" />
+                <div className="text-sm text-foreground">{stage || '正在处理…'}</div>
+              </div>
+              <div className="w-full h-2 bg-gray-200 rounded">
+                <div className="h-2 bg-primary rounded transition-all" style={{ width: `${Math.min(100, Math.max(0, progress))}%` }} />
+              </div>
+              <div className="text-xs text-gray-500 text-right">{Math.min(100, Math.max(0, Math.floor(progress)))}%</div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
