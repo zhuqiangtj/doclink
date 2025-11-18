@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, FormEvent } from 'react';
+import { useState, useEffect, FormEvent, forwardRef } from 'react';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 import { useRouter } from 'next/navigation';
@@ -20,6 +20,42 @@ export default function RegisterPage() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const router = useRouter();
+
+  const DateInput = forwardRef<HTMLInputElement, React.InputHTMLAttributes<HTMLInputElement>>((props, ref) => (
+    <input ref={ref} {...props} inputMode="numeric" className="input-base mt-2 w-full" />
+  ));
+  DateInput.displayName = 'DateInput';
+
+  const setDOBFromInput = (raw: string) => {
+    const normalized = raw
+      .replace(/[年|月|日]/g, '-')
+      .replace(/[./]/g, '-')
+      .replace(/\s+/g, '')
+      .replace(/-+/g, '-')
+      .trim();
+    const m = normalized.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+    if (!m) return;
+    const y = Number(m[1]);
+    const mm = Number(m[2]);
+    const dd = Number(m[3]);
+    if (mm < 1 || mm > 12) return;
+    const test = new Date(y, mm - 1, dd);
+    if (test.getFullYear() !== y || test.getMonth() !== mm - 1 || test.getDate() !== dd) return;
+    const t = new Date();
+    const age = t.getFullYear() - y;
+    if (age < 0 || age > 150) return;
+    const pmm = String(mm).padStart(2, '0');
+    const pdd = String(dd).padStart(2, '0');
+    setDateOfBirth(`${y}-${pmm}-${pdd}`);
+  };
+
+  const handleRawChange = (e: React.SyntheticEvent<HTMLInputElement>) => {
+    const target = e.target as HTMLInputElement;
+    setDOBFromInput(target.value);
+  };
+  const handleBlur = (e: React.FocusEvent<HTMLInputElement>) => {
+    setDOBFromInput(e.target.value);
+  };
 
   useEffect(() => {
     if (name && !isUsernameManuallyEdited) {
@@ -215,7 +251,7 @@ export default function RegisterPage() {
                 const d = String(date.getDate()).padStart(2, '0');
                 setDateOfBirth(`${y}-${m}-${d}`);
               }}
-              placeholderText="选择出生日期"
+              placeholderText="选择或直接输入 YYYY-MM-DD"
               dateFormat="yyyy-MM-dd"
               showYearDropdown
               yearDropdownItemNumber={(() => { const t = new Date(); return (t.getFullYear() - (t.getFullYear() - 150) + 1); })()}
@@ -225,7 +261,9 @@ export default function RegisterPage() {
               openToDate={dateOfBirth ? undefined : (() => { const t = new Date(); return new Date(t.getFullYear() - 60, 0, 1); })()}
               minDate={(() => { const t = new Date(); return new Date(t.getFullYear() - 150, t.getMonth(), t.getDate()); })()}
               maxDate={new Date()}
-              className="input-base mt-2 w-full"
+              onChangeRaw={handleRawChange}
+              onBlur={handleBlur}
+              customInput={<DateInput />}
               required
             />
           </div>
