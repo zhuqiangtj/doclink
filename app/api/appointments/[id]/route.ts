@@ -25,7 +25,7 @@ export async function GET(
       include: {
         patient: { select: { credibilityScore: true, user: { select: { name: true, phone: true, dateOfBirth: true } } } },
         doctor: { include: { user: { select: { name: true } } } },
-        room: { select: { name: true } },
+        room: { select: { id: true, name: true } },
         schedule: { select: { date: true } },
         timeSlot: { select: { startTime: true, endTime: true, type: true } },
         history: { orderBy: { operatedAt: 'desc' }, take: 1, select: { operatedAt: true, status: true, action: true } },

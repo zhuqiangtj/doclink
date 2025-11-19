@@ -690,7 +690,11 @@ export default function DoctorAppointmentsPage() {
               id="status-filter"
               value={selectedStatus}
               onChange={(e) => {
-                setSelectedStatus(e.target.value);
+                const next = e.target.value;
+                setSelectedStatus(next);
+                if (next) {
+                  setSelectedDate('');
+                }
                 setCurrentPage(1);
               }}
               className="mobile-filter-select"
