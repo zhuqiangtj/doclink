@@ -310,6 +310,32 @@ export default function DoctorAppointmentsPage() {
     return () => { if (timer) clearInterval(timer); };
   }, [status]);
 
+  // 狀態工具（位置上移，避免在計算屬性中引用未初始化的變量）
+  const isKnownStatus = (s: string): s is 'PENDING' | 'COMPLETED' | 'CANCELLED' | 'NO_SHOW' => {
+    return s === 'PENDING' || s === 'COMPLETED' || s === 'CANCELLED' || s === 'NO_SHOW';
+  };
+
+  const normalizeStatus = (status: string): 'PENDING' | 'COMPLETED' | 'CANCELLED' | 'NO_SHOW' => {
+    if (isKnownStatus(status)) return status;
+    if (status === 'CHECKED_IN') return 'PENDING';
+    return 'PENDING';
+  };
+
+  const getActualStatus = (appointment: Appointment): 'PENDING' | 'COMPLETED' | 'CANCELLED' | 'NO_SHOW' => {
+    return normalizeStatus(appointment.status);
+  };
+
+  const getStatusColor = (status: string): string => {
+    const colorMap: { [key: string]: string } = {
+      'PENDING': 'status-pending',
+      'CANCELLED': 'status-cancelled',
+      'COMPLETED': 'status-completed',
+      'NO_SHOW': 'status-no-show'
+    };
+    const normalized = normalizeStatus(status);
+    return colorMap[normalized] || 'status-default';
+  };
+
   // --- Computed Values ---
   const filteredAppointments = useMemo(() => {
     return appointments.filter(apt => {
@@ -318,7 +344,7 @@ export default function DoctorAppointmentsPage() {
       const statusMatch = !selectedStatus || getActualStatus(apt) === selectedStatus;
       return dateMatch && roomMatch && statusMatch;
     });
-  }, [appointments, selectedDate, selectedRoomId, selectedStatus]);
+  }, [appointments, selectedDate, selectedRoomId, selectedStatus, getActualStatus]);
 
   const sortedAppointments = useMemo(() => {
     return [...filteredAppointments].sort((a, b) => {
@@ -511,22 +537,7 @@ export default function DoctorAppointmentsPage() {
     return appointmentLocal.getTime() < Date.now();
   };
 
-  // 獲取預約的實際狀態（兼容舊狀態）
-  const getActualStatus = (appointment: Appointment): string => {
-    return appointment.status === 'CHECKED_IN' ? 'PENDING' : appointment.status;
-  };
-
-  // 使用統一的狀態文字工具
-
-  const getStatusColor = (status: string): string => {
-    const colorMap: { [key: string]: string } = {
-      'PENDING': 'status-pending',
-      'CANCELLED': 'status-cancelled',
-      'COMPLETED': 'status-completed',
-      'NO_SHOW': 'status-no-show'
-    };
-    return colorMap[status] || 'status-default';
-  };
+  
 
   const getCreditColorClass = (score?: number | null): 'credit-good' | 'credit-medium' | 'credit-low' | 'credit-neutral' => {
     if (score == null) return 'credit-neutral';

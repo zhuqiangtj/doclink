@@ -245,7 +245,7 @@ export default function MyAppointmentsPage() {
     return appointments.filter(apt => {
       const dateMatch = !selectedDate || apt.date === selectedDate;
       const roomMatch = !selectedRoomName || apt.room?.name === selectedRoomName;
-      const statusMatch = !selectedStatus || apt.status === selectedStatus;
+      const statusMatch = !selectedStatus || normalizeStatus(apt.status) === normalizeStatus(selectedStatus);
       return dateMatch && roomMatch && statusMatch;
     });
   }, [appointments, selectedDate, selectedRoomName, selectedStatus]);
@@ -340,20 +340,20 @@ export default function MyAppointmentsPage() {
       <div className="mobile-appointments-grid">
         {paginatedAppointments.length > 0 ? paginatedAppointments.map(apt => (
           <div key={apt.id} className={`mobile-appointment-card ${
-            apt.status === 'PENDING' ? 'status-pending' :
-            apt.status === 'COMPLETED' ? 'status-completed' :
-            apt.status === 'CANCELLED' ? 'status-cancelled' :
+            normalizeStatus(apt.status) === 'PENDING' ? 'status-pending' :
+            normalizeStatus(apt.status) === 'COMPLETED' ? 'status-completed' :
+            normalizeStatus(apt.status) === 'CANCELLED' ? 'status-cancelled' :
             'status-no-show'
           }`}>
             <div className="mobile-appointment-header">
               <div className="mobile-doctor-name">医生 {apt.doctor.user.name}</div>
               <span className={`mobile-status-badge ${
-                apt.status === 'PENDING' ? 'status-pending' :
-                apt.status === 'COMPLETED' ? 'status-completed' :
-                apt.status === 'CANCELLED' ? 'status-cancelled' :
+                normalizeStatus(apt.status) === 'PENDING' ? 'status-pending' :
+                normalizeStatus(apt.status) === 'COMPLETED' ? 'status-completed' :
+                normalizeStatus(apt.status) === 'CANCELLED' ? 'status-cancelled' :
                 'status-no-show'
               }`}>
-                {getStatusText(apt.status)}
+                {getStatusText(normalizeStatus(apt.status))}
               </span>
             </div>
             <div className="mobile-appointment-detail">
@@ -443,3 +443,12 @@ export default function MyAppointmentsPage() {
     </div>
   );
 }
+  const isKnownStatus = (s: string): s is 'PENDING' | 'COMPLETED' | 'CANCELLED' | 'NO_SHOW' => {
+    return s === 'PENDING' || s === 'COMPLETED' || s === 'CANCELLED' || s === 'NO_SHOW';
+  };
+
+  const normalizeStatus = (status: string): 'PENDING' | 'COMPLETED' | 'CANCELLED' | 'NO_SHOW' => {
+    if (isKnownStatus(status)) return status;
+    if (status === 'CHECKED_IN') return 'PENDING';
+    return 'PENDING';
+  };
