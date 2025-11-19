@@ -19,6 +19,13 @@ interface CancelAppointmentModalProps {
 export default function CancelAppointmentModal({ isOpen, info, onClose, onConfirm, isProcessing = false }: CancelAppointmentModalProps) {
   if (!isOpen || !info) return null;
 
+  const getCreditColorClass = (score?: number | null): 'credit-good' | 'credit-medium' | 'credit-low' | 'credit-neutral' => {
+    if (score == null) return 'credit-neutral';
+    if (score >= 15) return 'credit-good';
+    if (score >= 10) return 'credit-medium';
+    return 'credit-low';
+  };
+
   return (
     <div className="mobile-dialog-overlay" aria-modal="true" role="dialog">
       <div className="mobile-dialog">
@@ -50,7 +57,7 @@ export default function CancelAppointmentModal({ isOpen, info, onClose, onConfir
             </div>
             <div className="mobile-dialog-detail-row mobile-dialog-info-row">
               <span className="mobile-dialog-detail-label mobile-dialog-label">病人信用分</span>
-              <span className="mobile-dialog-detail-value mobile-dialog-value">{info.credibilityScore ?? '—'}</span>
+              <span className={`mobile-dialog-detail-value mobile-dialog-value credit-inline-badge ${getCreditColorClass(info.credibilityScore ?? null)}`}>{typeof info.credibilityScore === 'number' ? info.credibilityScore : '未知'}</span>
             </div>
           </div>
           <div className="mobile-dialog-actions">

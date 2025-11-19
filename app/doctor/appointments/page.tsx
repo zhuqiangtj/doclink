@@ -11,8 +11,7 @@ import CancelAppointmentModal from '../../../components/CancelAppointmentModal';
 
 // --- Interfaces ---
 interface Patient {
-  user: { name: string; phone?: string };
-  birthDate?: string;
+  user: { name: string; phone?: string; dateOfBirth?: string; gender?: string };
   credibilityScore?: number;
 }
 
@@ -478,17 +477,6 @@ export default function DoctorAppointmentsPage() {
     setSelectedAppointmentId(null);
   };
 
-  const calculateAge = (birthDate?: string): string => {
-    if (!birthDate) return '未知';
-    const today = new Date();
-    const birth = new Date(birthDate);
-    const age = today.getFullYear() - birth.getFullYear();
-    const monthDiff = today.getMonth() - birth.getMonth();
-    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
-      return `${age - 1}歲`;
-    }
-    return `${age}歲`;
-  };
 
   // 判斷預約是否過期
   const isAppointmentExpired = (date: string, time: string): boolean => {
@@ -514,6 +502,32 @@ export default function DoctorAppointmentsPage() {
       'NO_SHOW': 'status-no-show'
     };
     return colorMap[status] || 'status-default';
+  };
+
+  const getCreditColorClass = (score?: number | null): 'credit-good' | 'credit-medium' | 'credit-low' | 'credit-neutral' => {
+    if (score == null) return 'credit-neutral';
+    if (score >= 15) return 'credit-good';
+    if (score >= 10) return 'credit-medium';
+    return 'credit-low';
+  };
+
+  const getGenderInfo = (gender?: string): { text: string; className: 'gender-male' | 'gender-female' | 'gender-other' } => {
+    const g = (gender || '').toUpperCase();
+    if (g === 'MALE' || g === 'M') return { text: '男', className: 'gender-male' };
+    if (g === 'FEMALE' || g === 'F') return { text: '女', className: 'gender-female' };
+    return { text: '其他', className: 'gender-other' };
+  };
+
+  const calcAgeFromBirthDate = (birthDate?: string): number | null => {
+    if (!birthDate) return null;
+    try {
+      const d = new Date(birthDate);
+      const now = new Date();
+      let age = now.getFullYear() - d.getFullYear();
+      const m = now.getMonth() - d.getMonth();
+      if (m < 0 || (m === 0 && now.getDate() < d.getDate())) age -= 1;
+      return age;
+    } catch { return null; }
   };
 
   // --- Render Logic ---
@@ -681,17 +695,18 @@ export default function DoctorAppointmentsPage() {
             <div key={apt.id} className={`mobile-appointment-card ${getActualStatus(apt) === 'NO_SHOW' ? 'status-no-show' : ''}`}>
               <div className="mobile-appointment-header">
                 <div className="mobile-patient-info">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <h3 className="mobile-patient-name">{apt.patient.user.name}</h3>
-                    {apt.patient.user.phone && (
-                      <a className="mobile-phone-badge" href={`tel:${String(apt.patient.user.phone).replace(/\s+/g,'')}`} aria-label={`拨打 ${apt.patient.user.phone}`}>{apt.patient.user.phone}</a>
-                    )}
-                    {apt.patient.birthDate && (
-                      <span className="mobile-patient-age">
-                        {calculateAge(apt.patient.birthDate)}
-                      </span>
-                    )}
-                    <span className="text-xs text-gray-600">積分：{apt.patient.credibilityScore ?? '未知'}</span>
+                  <div className="mobile-patient-item-inline">
+                    <div className="mobile-patient-info-inline">
+                      <span className="mobile-patient-name-inline">{apt.patient.user.name}</span>
+                      <div className="flex items-center ml-0 shrink-0 space-x-1">
+                        {apt.patient.user.phone && (
+                          <a className="phone-inline-badge" href={`tel:${String(apt.patient.user.phone).replace(/\s+/g,'')}`} aria-label={`拨打 ${apt.patient.user.phone}`}>{apt.patient.user.phone}</a>
+                        )}
+                        <span className={`credit-inline-badge ${getCreditColorClass(apt.patient.credibilityScore ?? null)}`}>{typeof apt.patient.credibilityScore === 'number' ? apt.patient.credibilityScore : '未知'}</span>
+                        {(() => { const g = getGenderInfo(apt.patient.user.gender); return (<span className={`gender-inline-badge ${g.className}`}>{g.text}</span>); })()}
+                        {(() => { const age = calcAgeFromBirthDate(apt.patient.user.dateOfBirth); return (<span className="age-inline-badge">{age != null ? `${age}歲` : '年齡未知'}</span>); })()}
+                      </div>
+                    </div>
                   </div>
                 </div>
                 <span className={`mobile-status-badge ${getStatusColor(getActualStatus(apt))}`}>

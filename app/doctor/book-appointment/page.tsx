@@ -14,6 +14,7 @@ interface Patient {
   phone?: string;
   dateOfBirth?: string;
   gender?: string;
+  credibilityScore?: number;
 }
 
 interface ScheduleTimeSlot {
@@ -65,6 +66,30 @@ export default function BookAppointmentPage() {
   const [success, setSuccess] = useState<string | null>(null);
   const [overlayText, setOverlayText] = useState<string | null>(null);
   const schedulesSnapshotRef = useRef<Map<string, string>>(new Map());
+
+  const getCreditColorClass = (score?: number | null): 'credit-good' | 'credit-medium' | 'credit-low' | 'credit-neutral' => {
+    if (score == null) return 'credit-neutral';
+    if (score >= 15) return 'credit-good';
+    if (score >= 10) return 'credit-medium';
+    return 'credit-low';
+  };
+
+  const getGenderInfo = (gender?: string): { text: string; className: 'gender-male' | 'gender-female' | 'gender-other' } => {
+    const g = (gender || '').toUpperCase();
+    if (g === 'MALE' || g === 'M') return { text: '男', className: 'gender-male' };
+    if (g === 'FEMALE' || g === 'F') return { text: '女', className: 'gender-female' };
+    return { text: '其他', className: 'gender-other' };
+  };
+
+  const calcAgeFromBirthDate = (dateOfBirth?: string): number | null => {
+    if (!dateOfBirth) return null;
+    const birthDate = new Date(dateOfBirth);
+    const today = new Date();
+    let age = today.getFullYear() - birthDate.getFullYear();
+    const m = today.getMonth() - birthDate.getMonth();
+    if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) age--;
+    return age;
+  };
 
   // --- Effects ---
   // Auth check and initial data load
@@ -319,13 +344,13 @@ export default function BookAppointmentPage() {
                     <div className="truncate">
                       {p.name} ({p.username})
                     </div>
-                    <div className="flex items-center ml-2 shrink-0 gap-2">
+                    <div className="flex items-center ml-2 shrink-0 space-x-1">
                       {p.phone && (
-                        <a className="mobile-phone-badge" href={`tel:${String(p.phone).replace(/\s+/g,'')}`} aria-label={`拨打 ${p.phone}`}>{p.phone}</a>
+                        <a className="phone-inline-badge" href={`tel:${String(p.phone).replace(/\s+/g,'')}`} aria-label={`拨打 ${p.phone}`}>{p.phone}</a>
                       )}
-                      {p.dateOfBirth && (
-                        <span className="mobile-patient-age">{p.dateOfBirth}</span>
-                      )}
+                      <span className={`credit-inline-badge ${getCreditColorClass(p.credibilityScore ?? null)}`}>{typeof p.credibilityScore === 'number' ? p.credibilityScore : '未知'}</span>
+                      {(() => { const g = getGenderInfo(p.gender ?? undefined); return (<span className={`gender-inline-badge ${g.className}`}>{g.text}</span>); })()}
+                      {(() => { const age = calcAgeFromBirthDate(p.dateOfBirth ?? undefined); return (<span className="age-inline-badge">{age != null ? `${age}歲` : '年齡未知'}</span>); })()}
                     </div>
                   </div>
                 </li>
@@ -334,10 +359,19 @@ export default function BookAppointmentPage() {
         )}
         {selectedPatient && (
           <div className="mobile-selected-patient">
-            已选择：{selectedPatient.name} ({selectedPatient.username})
-            {selectedPatient.phone && (
-              <a className="mobile-phone-badge" href={`tel:${String(selectedPatient.phone).replace(/\s+/g,'')}`} aria-label={`拨打 ${selectedPatient.phone}`} style={{ marginLeft: 8 }}>{selectedPatient.phone}</a>
-            )}
+            <div className="mobile-patient-item-inline">
+              <div className="mobile-patient-info-inline">
+                <span className="mobile-patient-name-inline">{selectedPatient.name} ({selectedPatient.username})</span>
+                <div className="flex items-center ml-0 shrink-0 space-x-1">
+                  {selectedPatient.phone && (
+                    <a className="phone-inline-badge" href={`tel:${String(selectedPatient.phone).replace(/\s+/g,'')}`} aria-label={`拨打 ${selectedPatient.phone}`}>{selectedPatient.phone}</a>
+                  )}
+                  <span className={`credit-inline-badge ${getCreditColorClass(selectedPatient.credibilityScore ?? null)}`}>{typeof selectedPatient.credibilityScore === 'number' ? selectedPatient.credibilityScore : '未知'}</span>
+                  {(() => { const g = getGenderInfo(selectedPatient.gender ?? undefined); return (<span className={`gender-inline-badge ${g.className}`}>{g.text}</span>); })()}
+                  {(() => { const age = calcAgeFromBirthDate(selectedPatient.dateOfBirth ?? undefined); return (<span className="age-inline-badge">{age != null ? `${age}歲` : '年齡未知'}</span>); })()}
+                </div>
+              </div>
+            </div>
           </div>
         )}
         </div>

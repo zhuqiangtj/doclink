@@ -19,6 +19,10 @@ interface AppointmentInfo {
   status: string;
   reason?: string;
   patientName: string;
+  patientPhone?: string | null;
+  patientGender?: string | null;
+  patientDateOfBirth?: string | null;
+  patientCredibilityScore?: number | null;
   doctorName: string;
   createTime: string;
 }
@@ -38,6 +42,30 @@ const AppointmentHistoryModal: React.FC<AppointmentHistoryModalProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [appointmentInfo, setAppointmentInfo] = useState<AppointmentInfo | null>(null);
   const [history, setHistory] = useState<AppointmentHistoryRecord[]>([]);
+
+  const getCreditColorClass = (score?: number | null): 'credit-good' | 'credit-medium' | 'credit-low' | 'credit-neutral' => {
+    if (score == null) return 'credit-neutral';
+    if (score >= 15) return 'credit-good';
+    if (score >= 10) return 'credit-medium';
+    return 'credit-low';
+  };
+
+  const getGenderInfo = (gender?: string | null): { text: string; className: 'gender-male' | 'gender-female' | 'gender-other' } => {
+    const g = (gender || '').toUpperCase();
+    if (g === 'MALE' || g === 'M') return { text: '男', className: 'gender-male' };
+    if (g === 'FEMALE' || g === 'F') return { text: '女', className: 'gender-female' };
+    return { text: '其他', className: 'gender-other' };
+  };
+
+  const calcAgeFromBirthDate = (dateOfBirth?: string | null): number | null => {
+    if (!dateOfBirth) return null;
+    const birthDate = new Date(dateOfBirth);
+    const today = new Date();
+    let age = today.getFullYear() - birthDate.getFullYear();
+    const m = today.getMonth() - birthDate.getMonth();
+    if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) age--;
+    return age;
+  };
 
   useEffect(() => {
     if (isOpen && appointmentId) {
@@ -144,9 +172,20 @@ const AppointmentHistoryModal: React.FC<AppointmentHistoryModalProps> = ({
                       {getStatusText(appointmentInfo.status)}
                     </span>
                   </div>
-                  <div>
-                    <span className="text-gray-600">病人：</span>
-                    <span className="font-medium">{appointmentInfo.patientName}</span>
+                  <div className="col-span-1 sm:col-span-2">
+                    <div className="mobile-patient-item-inline">
+                      <div className="mobile-patient-info-inline">
+                        <span className="mobile-patient-name-inline">{appointmentInfo.patientName}</span>
+                        <div className="flex items-center ml-0 shrink-0 space-x-1">
+                          {appointmentInfo.patientPhone && (
+                            <a className="phone-inline-badge" href={`tel:${String(appointmentInfo.patientPhone).replace(/\s+/g,'')}`} aria-label={`拨打 ${appointmentInfo.patientPhone}`}>{appointmentInfo.patientPhone}</a>
+                          )}
+                          <span className={`credit-inline-badge ${getCreditColorClass(appointmentInfo.patientCredibilityScore ?? null)}`}>{typeof appointmentInfo.patientCredibilityScore === 'number' ? appointmentInfo.patientCredibilityScore : '未知'}</span>
+                          {(() => { const g = getGenderInfo(appointmentInfo.patientGender ?? undefined); return (<span className={`gender-inline-badge ${g.className}`}>{g.text}</span>); })()}
+                          {(() => { const age = calcAgeFromBirthDate(appointmentInfo.patientDateOfBirth ?? undefined); return (<span className="age-inline-badge">{age != null ? `${age}歲` : '年齡未知'}</span>); })()}
+                        </div>
+                      </div>
+                    </div>
                   </div>
                   <div>
                     <span className="text-gray-600">医生：</span>

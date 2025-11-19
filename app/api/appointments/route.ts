@@ -36,7 +36,7 @@ export async function GET() {
     const appointments = await prisma.appointment.findMany({
       where: whereClause,
       include: {
-        patient: { select: { credibilityScore: true, user: { select: { name: true, phone: true, dateOfBirth: true } } } },
+        patient: { select: { credibilityScore: true, user: { select: { name: true, phone: true, dateOfBirth: true, gender: true } } } },
         doctor: { include: { user: { select: { name: true } } } },
         room: { select: { name: true } },
         schedule: { select: { date: true } }, // Get date from schedule

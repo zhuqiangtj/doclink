@@ -11,21 +11,27 @@ import './mobile.css';
 // --- Interfaces ---
 
 
-const genderMap: { [key: string]: string } = {
-  Male: '男',
-  Female: '女',
-  Other: '其他',
+const getCreditColorClass = (score?: number | null): 'credit-good' | 'credit-medium' | 'credit-low' | 'credit-neutral' => {
+  if (score == null) return 'credit-neutral';
+  if (score >= 15) return 'credit-good';
+  if (score >= 10) return 'credit-medium';
+  return 'credit-low';
 };
 
-const calculateAge = (dateOfBirth?: string) => {
-  if (!dateOfBirth) return '';
+const getGenderInfo = (gender?: string): { text: string; className: 'gender-male' | 'gender-female' | 'gender-other' } => {
+  const g = (gender || '').toUpperCase();
+  if (g === 'MALE' || g === 'M' || g === 'MALE') return { text: '男', className: 'gender-male' };
+  if (g === 'FEMALE' || g === 'F' || g === 'FEMALE') return { text: '女', className: 'gender-female' };
+  return { text: '其他', className: 'gender-other' };
+};
+
+const calcAgeFromBirthDate = (dateOfBirth?: string): number | null => {
+  if (!dateOfBirth) return null;
   const birthDate = new Date(dateOfBirth);
   const today = new Date();
   let age = today.getFullYear() - birthDate.getFullYear();
   const m = today.getMonth() - birthDate.getMonth();
-  if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
-    age--;
-  }
+  if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) age--;
   return age;
 };
 
@@ -235,12 +241,20 @@ export default function AdminUsersPage() {
             <li key={user.id} className="mobile-user-item">
               <div className="mobile-user-info">
                 <p className="mobile-user-name">{user.username} <span className="mobile-user-role">({user.role})</span></p>
-                <div className="mobile-user-details">
-                  <p className="mobile-user-detail">姓名: {user.name}</p>
-                  {user.phone && <p className="mobile-user-detail">电话: {user.phone}</p>}
-                  {user.dateOfBirth && <p className="mobile-user-detail">年龄: {calculateAge(user.dateOfBirth)}</p>}
-                  {user.gender && <p className="mobile-user-detail">性别: {genderMap[user.gender] || user.gender}</p>}
-                  {user.patientProfile && <p className="mobile-user-detail">患者 (信誉分: {user.patientProfile.credibilityScore})</p>}
+                <div className="mobile-patient-item-inline">
+                  <div className="mobile-patient-info-inline">
+                    <span className="mobile-patient-name-inline">{user.name}</span>
+                    <div className="flex items-center ml-0 shrink-0 space-x-1">
+                      {user.phone && (
+                        <a className="phone-inline-badge" href={`tel:${String(user.phone).replace(/\s+/g,'')}`} aria-label={`拨打 ${user.phone}`}>{user.phone}</a>
+                      )}
+                      {user.patientProfile && (
+                        <span className={`credit-inline-badge ${getCreditColorClass(user.patientProfile.credibilityScore ?? null)}`}>{typeof user.patientProfile.credibilityScore === 'number' ? user.patientProfile.credibilityScore : '未知'}</span>
+                      )}
+                      {(() => { const g = getGenderInfo(user.gender); return (<span className={`gender-inline-badge ${g.className}`}>{g.text}</span>); })()}
+                      {(() => { const age = calcAgeFromBirthDate(user.dateOfBirth); return (<span className="age-inline-badge">{age != null ? `${age}歲` : '年齡未知'}</span>); })()}
+                    </div>
+                  </div>
                 </div>
               </div>
               <div className="mobile-user-actions">
