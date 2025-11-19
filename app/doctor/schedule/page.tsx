@@ -233,8 +233,41 @@ export default function DoctorSchedulePage() {
       const updatedSchedule = Array.isArray(arr) ? arr[0] : null;
       if (!updatedSchedule || !updatedSchedule.timeSlots || updatedSchedule.timeSlots.length === 0) return;
       const updatedSlot = updatedSchedule.timeSlots[0];
-
       const selectedDateStr = toYYYYMMDD(selectedDate);
+
+      try {
+        const dayRes = await fetch(`/api/schedules/details?date=${updatedSchedule.date}`, { cache: 'no-store' });
+        if (dayRes.ok) {
+          const detailsData: Schedule[] = await dayRes.json();
+          const totals = detailsData.reduce((acc: { bookedBeds: number; totalBeds: number }, sch) => {
+            for (const ts of sch.timeSlots || []) {
+              acc.totalBeds += Number(ts.bedCount || 0);
+              const used = Number(ts.bedCount || 0) - Number(ts.availableBeds || 0);
+              acc.bookedBeds += used > 0 ? used : 0;
+            }
+            return acc;
+          }, { bookedBeds: 0, totalBeds: 0 });
+          const d = fromYYYYMMDD(updatedSchedule.date);
+          const updatedStatus = {
+            date: updatedSchedule.date,
+            hasSchedule: detailsData.some(s => (s.timeSlots || []).length > 0),
+            hasAppointments: totals.bookedBeds > 0,
+            bookedBeds: totals.bookedBeds,
+            totalBeds: totals.totalBeds,
+            isPast: isPastDate(d),
+          };
+          setDateStatuses(prevStatuses => {
+            const idx = prevStatuses.findIndex(st => st.date === updatedSchedule.date);
+            if (idx >= 0) {
+              const copy = [...prevStatuses];
+              copy[idx] = updatedStatus;
+              return copy;
+            }
+            return [...prevStatuses, updatedStatus];
+          });
+        }
+      } catch {}
+
       if (updatedSchedule.date !== selectedDateStr) {
         return;
       }
@@ -377,6 +410,7 @@ export default function DoctorSchedulePage() {
           if (changed) setOverlayText('已自动更新');
           return merged;
         });
+        await refreshMonthStatuses();
       } catch {}
     };
     timer = setInterval(run, 60000);
@@ -533,6 +567,7 @@ export default function DoctorSchedulePage() {
                   await fetchAllDataForDateRef.current(selectedDateRef.current);
                 }
               }
+              await refreshMonthStatuses();
               break;
             }
             case 'APPOINTMENT_CANCELLED': {
@@ -589,6 +624,7 @@ export default function DoctorSchedulePage() {
                   await fetchAllDataForDateRef.current(selectedDateRef.current);
                 }
               }
+              await refreshMonthStatuses();
               break;
             }
             case 'APPOINTMENT_STATUS_UPDATED':
@@ -607,6 +643,7 @@ export default function DoctorSchedulePage() {
                   await fetchAllDataForDateRef.current(selectedDateRef.current);
                 }
               }
+              await refreshMonthStatuses();
               break;
             default:
               break;

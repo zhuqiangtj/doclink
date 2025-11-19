@@ -304,6 +304,7 @@ export default function PatientScheduleHome() {
           if (changed) setOverlayText('已自动更新');
           return merged;
         });
+        await refreshCalendarStatuses(selectedDateRef.current, doctorId);
         try {
           const appointmentsRes = await fetch('/api/appointments');
           if (appointmentsRes.ok) {
@@ -389,6 +390,7 @@ export default function PatientScheduleHome() {
                 await refreshPublicTimeSlotById(timeSlotId);
               } else {
                 await refreshDayDetails(selectedDate, selectedDoctorId);
+                await refreshCalendarStatuses(selectedDate, selectedDoctorId);
               }
               break;
             case 'APPOINTMENT_CANCELLED':
@@ -439,6 +441,7 @@ export default function PatientScheduleHome() {
                 await refreshPublicTimeSlotById(timeSlotId);
               } else {
                 await refreshDayDetails(selectedDate, selectedDoctorId);
+                await refreshCalendarStatuses(selectedDate, selectedDoctorId);
               }
               break;
             case 'APPOINTMENT_STATUS_UPDATED':
@@ -455,6 +458,7 @@ export default function PatientScheduleHome() {
                   await refreshPublicTimeSlotById(timeSlotId);
                 } else {
                   await refreshDayDetails(selectedDate, selectedDoctorId);
+                  await refreshCalendarStatuses(selectedDate, selectedDoctorId);
                 }
               }
               break;
@@ -600,6 +604,41 @@ export default function PatientScheduleHome() {
     return () => clearTimeout(t);
   }, [overlayText]);
 
+  const refreshSingleDateStatus = async (dateStr: string, doctorId: string) => {
+    try {
+      const res = await fetch(`/api/public/schedules?doctorId=${doctorId}&date=${dateStr}`, { cache: 'no-store' });
+      if (!res.ok) return;
+      const details: Schedule[] = await res.json();
+      const totals = details.reduce((acc: { bookedBeds: number; totalBeds: number }, sch) => {
+        for (const ts of sch.timeSlots || []) {
+          acc.totalBeds += Number(ts.bedCount || 0);
+          const used = Number(ts.bedCount || 0) - Number(ts.availableBeds || 0);
+          acc.bookedBeds += used > 0 ? used : 0;
+        }
+        return acc;
+      }, { bookedBeds: 0, totalBeds: 0 });
+      const parts = dateStr.split('-').map(Number);
+      const dv = new Date(parts[0] || 0, (parts[1] || 1) - 1, parts[2] || 1);
+      const updatedStatus = {
+        date: dateStr,
+        hasSchedule: details.some(s => (s.timeSlots || []).length > 0),
+        hasAppointments: totals.bookedBeds > 0,
+        bookedBeds: totals.bookedBeds,
+        totalBeds: totals.totalBeds,
+        isPast: isPastDate(dv),
+      };
+      setDateStatuses(prevStatuses => {
+        const idx = prevStatuses.findIndex(st => st.date === dateStr);
+        if (idx >= 0) {
+          const copy = [...prevStatuses];
+          copy[idx] = updatedStatus;
+          return copy;
+        }
+        return [...prevStatuses, updatedStatus];
+      });
+    } catch {}
+  };
+
   const refreshPublicTimeSlotById = async (id: string) => {
     if (!selectedDoctorId) return;
     try {
@@ -609,13 +648,14 @@ export default function PatientScheduleHome() {
       const updatedSchedule: Schedule | null = Array.isArray(arr) ? arr[0] : null;
       if (!updatedSchedule || !updatedSchedule.timeSlots || updatedSchedule.timeSlots.length === 0) return;
       const updatedSlot = updatedSchedule.timeSlots[0];
-
       const selectedDateStr = toYYYYMMDD(selectedDate);
-      if (updatedSchedule.date !== selectedDateStr) {
-        return;
-      }
+
+      await refreshSingleDateStatus(updatedSchedule.date, selectedDoctorId);
 
       setSchedulesForSelectedDay(prev => {
+        if (updatedSchedule.date !== selectedDateStr) {
+          return prev;
+        }
         let scheduleExists = prev.some(s => s.id === updatedSchedule.id);
         const next = prev.map(s => {
           if (s.id === updatedSchedule.id) {
@@ -628,7 +668,6 @@ export default function PatientScheduleHome() {
           return s;
         });
         const finalNext = scheduleExists ? next : [...next, updatedSchedule];
-
         const dateStr = selectedDateStr;
         const totals = finalNext.reduce((acc: { bookedBeds: number; totalBeds: number }, sch) => {
           for (const ts of sch.timeSlots || []) {
@@ -655,7 +694,6 @@ export default function PatientScheduleHome() {
           }
           return [...prevStatuses, updatedStatus];
         });
-
         return finalNext;
       });
     } catch {}
