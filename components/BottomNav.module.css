@@ -56,11 +56,11 @@
 
 .navItemActive {
   color: #2563eb;
-  background: rgba(37, 99, 235, 0.08);
+  background: #e6f0ff;
 }
 
 .navItemInactive {
-  color: #374151;
+  color: #6b7280;
 }
 
 .navItemInactive:hover {

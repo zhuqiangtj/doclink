@@ -25,7 +25,7 @@ const NavItem = ({ href, label, active, Icon, badgeCount, iconColor }: { href: s
       className={`${styles.navItem} ${active ? styles.navItemActive : styles.navItemInactive}`}
       onClick={handleClick}
     >
-      <Icon className={styles.navIcon} style={{ color: iconColor }} />
+      <Icon className={styles.navIcon} style={{ color: active ? iconColor : undefined }} />
       <span className={styles.navLabel}>{label}</span>
       {badgeCount && badgeCount > 0 && (
         <span className={styles.badge}>{badgeCount}</span>
