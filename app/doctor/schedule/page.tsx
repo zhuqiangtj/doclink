@@ -162,6 +162,7 @@ export default function DoctorSchedulePage() {
   const [savingTimeSlots, setSavingTimeSlots] = useState<Set<string>>(new Set());
   const [activeRoomTab, setActiveRoomTab] = useState<string>('');
   const [expandedTimeSlots, setExpandedTimeSlots] = useState<Set<string>>(new Set());
+  const [expandedActionRows, setExpandedActionRows] = useState<Set<string>>(new Set());
   const [isBookingModalOpen, setIsBookingModalOpen] = useState(false);
   const [isBookingSubmitting, setIsBookingSubmitting] = useState(false);
   const [selectedScheduleForBooking, setSelectedScheduleForBooking] = useState<Schedule | null>(null);
@@ -1558,9 +1559,29 @@ export default function DoctorSchedulePage() {
                 const hasAppointments = (slot.appointments && slot.appointments.length > 0);
 
                 return (
-                  <div key={index} className={`mobile-time-slot-single-line ${
+                  <div
+                    key={index}
+                    className={`mobile-time-slot-single-line ${
                     isPast ? 'mobile-time-slot-past' : (!isPast && isModified ? 'mobile-time-slot-modified' : '')
-                  }`}>
+                  }`}
+                    onClick={(e) => {
+                      const target = e.target as HTMLElement | null;
+                      if (!target) return;
+                      if (
+                        target.closest('input') ||
+                        target.closest('button') ||
+                        target.closest('select') ||
+                        target.closest('.mobile-icon-btn-colored') ||
+                        target.closest('.mobile-time-input-inline') ||
+                        target.closest('.mobile-total-input-inline')
+                      ) {
+                        return;
+                      }
+                      const next = new Set(expandedActionRows);
+                      if (next.has(key)) next.delete(key); else next.add(key);
+                      setExpandedActionRows(next);
+                    }}
+                  >
                     {/* 第一行：時間點信息 */}
                     <div className="mobile-time-slot-info-row mobile-time-slot-info-row-grid">
                       {/* 開始時間輸入 */}
@@ -1634,7 +1655,8 @@ export default function DoctorSchedulePage() {
                       </div>
                     </div>
 
-                    {/* 第二行：操作按鈕 */}
+                    {/* 第二行：操作按鈕（可折疊）*/}
+                    {expandedActionRows.has(key) && (
                     <div className="mobile-slot-actions-row mobile-slot-actions-row-grid">
                       {/* 新增按鈕 */}
                       <button
@@ -1739,6 +1761,7 @@ export default function DoctorSchedulePage() {
                         </svg>
                       </button>
                     </div>
+                    )}
 
                     {/* 已預約患者列表 - 下拉顯示 */}
                     {slot.appointments.length > 0 && isExpanded && (
