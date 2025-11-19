@@ -18,6 +18,8 @@ export default function SettingsPage() {
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [credibilityScore, setCredibilityScore] = useState<number | null>(null);
+  const [scoreLoading, setScoreLoading] = useState(false);
 
   // UI states
   const [error, setError] = useState<string | null>(null);
@@ -38,6 +40,31 @@ export default function SettingsPage() {
         setDateOfBirth('');
       }
       setGender(session.user.gender || '');
+    }
+  }, [status, session]);
+
+  useEffect(() => {
+    if (status === 'authenticated' && session?.user?.role === 'PATIENT') {
+      const run = async () => {
+        setScoreLoading(true);
+        try {
+          const res = await fetch('/api/user');
+          if (res.ok) {
+            const data = await res.json();
+            const s = data?.patientProfile?.credibilityScore;
+            setCredibilityScore(typeof s === 'number' ? s : null);
+          } else {
+            setCredibilityScore(null);
+          }
+        } catch {
+          setCredibilityScore(null);
+        } finally {
+          setScoreLoading(false);
+        }
+      };
+      run();
+    } else {
+      setCredibilityScore(null);
     }
   }, [status, session]);
 
@@ -125,6 +152,32 @@ export default function SettingsPage() {
       <h1 className="mobile-header">设置</h1>
       {error && <div className="mobile-error">{error}</div>}
       {success && <div className="mobile-success">{success}</div>}
+
+      <div className="mobile-section">
+        <h2 className="mobile-section-title">账户信息</h2>
+        <div className="mobile-form">
+          <div className="mobile-form-group">
+            <label className="mobile-form-label">用户名</label>
+            <div className="mobile-form-input" style={{ display: 'flex', alignItems: 'center' }}>
+              {session?.user?.username || session?.user?.name || ''}
+            </div>
+          </div>
+          <div className="mobile-form-group">
+            <label className="mobile-form-label">角色</label>
+            <div className="mobile-form-input" style={{ display: 'flex', alignItems: 'center' }}>
+              {session?.user?.role || ''}
+            </div>
+          </div>
+          {session?.user?.role === 'PATIENT' ? (
+            <div className="mobile-form-group">
+              <label className="mobile-form-label">积分</label>
+              <div className="mobile-form-input" style={{ display: 'flex', alignItems: 'center' }}>
+                {scoreLoading ? '...' : (credibilityScore ?? '—')}
+              </div>
+            </div>
+          ) : null}
+        </div>
+      </div>
 
       {/* Profile Information */}
       <div className="mobile-section">
