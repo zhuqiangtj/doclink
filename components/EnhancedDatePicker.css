@@ -58,7 +58,7 @@
 }
 
 .selected-date-inline .appointment-notice {
-  color: #fed7aa;
+  color: #bbf7d0;
 }
 
 .selected-date-inline .available-notice {
@@ -249,9 +249,9 @@
 }
 
 .enhanced-date-cell.future-with-appointments {
-  background: linear-gradient(135deg, #fed7aa, #fdba74);
-  color: #c2410c;
-  border-color: #f97316;
+  background: linear-gradient(135deg, #d1fae5, #a7f3d0);
+  color: #065f46;
+  border-color: #10b981;
 }
 
 /* Status Indicators */
@@ -308,14 +308,14 @@
 /* 容量状态颜色区分 */
 .appointment-count.full {
   color: #ffffff;
-  background: #dc2626; /* red-600 */
-  border: 1px solid #b91c1c; /* red-700 */
+  background: #10b981;
+  border: 1px solid #059669;
 }
 
 .appointment-count.partial {
-  color: #7c2d12;
-  background: #fdba74; /* orange-300 */
-  border: 1px solid #ea580c; /* orange-600 */
+  color: #065f46;
+  background: #a7f3d0;
+  border: 1px solid #10b981;
 }
 
 .appointment-count.available {

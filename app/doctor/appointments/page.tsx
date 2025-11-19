@@ -315,7 +315,7 @@ export default function DoctorAppointmentsPage() {
     return appointments.filter(apt => {
       const dateMatch = !selectedDate || apt.date === selectedDate;
       const roomMatch = !selectedRoomId || apt.room.id === selectedRoomId;
-      const statusMatch = !selectedStatus || apt.status === selectedStatus;
+      const statusMatch = !selectedStatus || getActualStatus(apt) === selectedStatus;
       return dateMatch && roomMatch && statusMatch;
     });
   }, [appointments, selectedDate, selectedRoomId, selectedStatus]);
@@ -511,10 +511,9 @@ export default function DoctorAppointmentsPage() {
     return appointmentLocal.getTime() < Date.now();
   };
 
-  // 獲取預約的實際狀態（考慮過期情況）
+  // 獲取預約的實際狀態（兼容舊狀態）
   const getActualStatus = (appointment: Appointment): string => {
-    // 直接返回數據庫中的狀態，不再進行客戶端狀態轉換
-    return appointment.status;
+    return appointment.status === 'CHECKED_IN' ? 'PENDING' : appointment.status;
   };
 
   // 使用統一的狀態文字工具

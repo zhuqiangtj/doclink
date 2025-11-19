@@ -15,7 +15,7 @@ interface Appointment {
   time: string;
   status: string;
   reason?: string; // 添加原因字段
-  doctor: { name: string };
+  doctor: { user: { name: string } };
   room: { name: string };
   createTime: string;
   statusOperatedAt?: string;
@@ -346,7 +346,7 @@ export default function MyAppointmentsPage() {
             'status-no-show'
           }`}>
             <div className="mobile-appointment-header">
-              <div className="mobile-doctor-name">医生 {apt.doctor.name}</div>
+              <div className="mobile-doctor-name">医生 {apt.doctor.user.name}</div>
               <span className={`mobile-status-badge ${
                 apt.status === 'PENDING' ? 'status-pending' :
                 apt.status === 'COMPLETED' ? 'status-completed' :
