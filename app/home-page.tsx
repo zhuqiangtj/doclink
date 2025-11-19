@@ -931,9 +931,12 @@ export default function PatientScheduleHome() {
                         const isFull = slot.availableBeds <= 0;
                         const myAptId = slot.id && myAppointmentsBySlot[slot.id];
                         return (
-                          <div key={slot.id} className={`mobile-time-slot ${myAptId ? 'booked' : isFull ? 'full' : ''}`}>
-                            <div className="mobile-time-slot-label">
-                              {slot.startTime} - {slot.endTime}（余 {Math.max(0, slot.availableBeds)}）
+                          <div key={slot.id} className={`mobile-time-slot ${myAptId ? 'booked' : isFull ? 'full' : ''} ${isPast ? 'past' : ''}`}>
+                            <div className="mobile-time-slot-time">
+                              {slot.startTime} - {slot.endTime}
+                            </div>
+                            <div className="mobile-time-slot-info">
+                              空余床位：{Math.max(0, slot.availableBeds)}
                             </div>
                             <div className="mobile-time-slot-actions" style={{ display: 'flex', gap: '8px' }}>
                               {!myAptId ? (
