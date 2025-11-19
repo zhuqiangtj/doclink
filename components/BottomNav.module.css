@@ -289,3 +289,41 @@
     background: rgba(59, 130, 246, 0.1);
   }
 }
+
+/* 中央加载提示覆盖层 */
+.navOverlay {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(17, 24, 39, 0.25);
+  z-index: 1000;
+}
+
+.navOverlayBox {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: #ffffff;
+  border-radius: 16px;
+  padding: 12px 16px;
+  box-shadow: 0 10px 24px rgba(0,0,0,0.18);
+}
+
+.navSpinner {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 3px solid #e5e7eb;
+  border-top-color: #2563eb;
+  animation: navSpin 0.9s linear infinite;
+}
+
+@keyframes navSpin {
+  to { transform: rotate(360deg); }
+}
+
+.navStages { display: flex; flex-direction: column; }
+.navStageCurrent { font-weight: 700; color: #111827; }
+.navStagePrev { font-size: 12px; color: #6b7280; margin-top: 4px; }

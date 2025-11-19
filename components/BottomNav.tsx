@@ -11,10 +11,9 @@ interface Notification {
   isRead: boolean;
 }
 
-const NavItem = ({ href, label, active, Icon, badgeCount, iconColor }: { href: string; label: string; active: boolean; Icon: React.ElementType; badgeCount?: number; iconColor?: string }) => {
-  const router = useRouter();
+const NavItem = ({ href, label, active, Icon, badgeCount, iconColor, onNavigateStart }: { href: string; label: string; active: boolean; Icon: React.ElementType; badgeCount?: number; iconColor?: string; onNavigateStart: (href: string) => void }) => {
   const handleClick = () => {
-    router.push(href);
+    onNavigateStart(href);
   };
   return (
     <Link 
@@ -39,6 +38,9 @@ export default function BottomNav() {
   const pathname = usePathname();
   const router = useRouter();
   const [unreadCount, setUnreadCount] = useState(0);
+  const [navLoading, setNavLoading] = useState(false);
+  const [pendingPath, setPendingPath] = useState<string | null>(null);
+  const [navStages, setNavStages] = useState<string[]>([]);
 
   // 在認證相關頁面（登入/註冊）判斷，於所有 Hooks 之後再決定是否渲染
   const isAuthPage = !!(pathname && pathname.startsWith('/auth'));
@@ -133,6 +135,38 @@ export default function BottomNav() {
     };
   }, [router]);
 
+  useEffect(() => {
+    if (!pendingPath) return;
+    if (pathname === pendingPath) {
+      setNavStages(prev => [...prev, '路径切换完成', '刷新页面']);
+      router.refresh();
+      setTimeout(() => {
+        setNavStages(prev => [...prev, '完成']);
+        setNavLoading(false);
+        setPendingPath(null);
+        setNavStages([]);
+      }, 300);
+    }
+  }, [pathname, pendingPath, router]);
+
+  const beginNavigation = async (href: string) => {
+    setNavLoading(true);
+    setNavStages(['准备导航', '刷新会话']);
+    try {
+      await getSession();
+    } catch {}
+    setNavStages(prev => [...prev, '开始跳转']);
+    setPendingPath(href);
+    router.push(href);
+    setNavStages(prev => [...prev, '等待路径变化']);
+    setTimeout(() => {
+      if (pendingPath) {
+        setNavStages(prev => [...prev, '等待超时，尝试强制刷新']);
+        router.refresh();
+      }
+    }, 6000);
+  };
+
   if (status === 'loading') {
     return null; // Don't show nav while loading
   }
@@ -173,9 +207,22 @@ export default function BottomNav() {
     <nav className={styles.bottomNav}>
       <div className={styles.navContainer}>
         {navItems.map(item => (
-          <NavItem key={item.href} href={item.href} label={item.label} active={pathname === item.href} Icon={item.Icon} badgeCount={item.badgeCount} iconColor={item.iconColor} />
+          <NavItem key={item.href} href={item.href} label={item.label} active={pathname === item.href} Icon={item.Icon} badgeCount={item.badgeCount} iconColor={item.iconColor} onNavigateStart={beginNavigation} />
         ))}
       </div>
+      {navLoading && (
+        <div className={styles.navOverlay} role="alert" aria-live="polite">
+          <div className={styles.navOverlayBox}>
+            <span className={styles.navSpinner} aria-hidden="true" />
+            <div className={styles.navStages}>
+              <div className={styles.navStageCurrent}>{navStages[navStages.length - 1] || '加载中…'}</div>
+              {navStages.length > 1 && (
+                <div className={styles.navStagePrev}>{navStages.slice(0, -1).join(' ・ ')}</div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </nav>
   );
 }
