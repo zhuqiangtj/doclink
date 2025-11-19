@@ -1,8 +1,8 @@
 'use client';
 
-import { useSession } from 'next-auth/react';
+import { useSession, getSession } from 'next-auth/react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { FaHome, FaBell, FaCalendarCheck, FaCog, FaTachometerAlt, FaHospital, FaUsers, FaClipboardList } from 'react-icons/fa';
 import { useState, useEffect } from 'react';
 import styles from './BottomNav.module.css';
@@ -12,12 +12,18 @@ interface Notification {
 }
 
 const NavItem = ({ href, label, active, Icon, badgeCount, iconColor }: { href: string; label: string; active: boolean; Icon: React.ElementType; badgeCount?: number; iconColor?: string }) => {
+  const router = useRouter();
+  const handleClick = () => {
+    router.push(href);
+  };
   return (
     <Link 
-      href={href} 
+      href={href}
+      prefetch={false}
       aria-label={label}
       aria-current={active ? 'page' : undefined}
       className={`${styles.navItem} ${active ? styles.navItemActive : styles.navItemInactive}`}
+      onClick={handleClick}
     >
       <Icon className={styles.navIcon} style={{ color: iconColor }} />
       <span className={styles.navLabel}>{label}</span>
@@ -31,6 +37,7 @@ const NavItem = ({ href, label, active, Icon, badgeCount, iconColor }: { href: s
 export default function BottomNav() {
   const { data: session, status } = useSession();
   const pathname = usePathname();
+  const router = useRouter();
   const [unreadCount, setUnreadCount] = useState(0);
 
   // 在認證相關頁面（登入/註冊）判斷，於所有 Hooks 之後再決定是否渲染
@@ -95,6 +102,19 @@ export default function BottomNav() {
       return () => clearInterval(interval);
     }
   }, [session]);
+
+  useEffect(() => {
+    const onVisibilityChange = async () => {
+      if (document.visibilityState === 'visible') {
+        await getSession();
+        router.refresh();
+      }
+    };
+    document.addEventListener('visibilitychange', onVisibilityChange);
+    return () => {
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+    };
+  }, [router]);
 
   if (status === 'loading') {
     return null; // Don't show nav while loading
