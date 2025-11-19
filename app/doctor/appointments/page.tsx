@@ -317,7 +317,7 @@ export default function DoctorAppointmentsPage() {
 
   const normalizeStatus = (status: string): 'PENDING' | 'COMPLETED' | 'CANCELLED' | 'NO_SHOW' => {
     if (isKnownStatus(status)) return status;
-    if (status === 'CHECKED_IN') return 'PENDING';
+    if (status === 'CHECKED_IN' || status === 'CONFIRMED') return 'PENDING';
     return 'PENDING';
   };
 

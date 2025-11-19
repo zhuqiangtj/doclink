@@ -1755,7 +1755,7 @@ export default function DoctorSchedulePage() {
                               })
                             : `${schedule.date} ${appointment.time}`;
 
-                          const statusKey = appointment.status === 'CONFIRMED' ? 'PENDING' : appointment.status;
+                          const statusKey = normalizeStatus(appointment.status);
                           const statusText = getStatusText(statusKey);
                           const statusClassKey = statusKey.toLowerCase().replace('_', '-');
 
@@ -1809,7 +1809,7 @@ export default function DoctorSchedulePage() {
                                   } 状态：<span className={`mobile-status-badge mobile-status-${statusClassKey}`}>{statusText}</span>
                                 </span>
                               </div>
-                              {!isPast && appointment.status === 'PENDING' && (
+                              {!isPast && normalizeStatus(appointment.status) === 'PENDING' && (
                                 <button
                                   onClick={() => openCancelDialog(appointment, schedule, index)}
                                   className="mobile-patient-delete-btn-inline"
@@ -1821,7 +1821,7 @@ export default function DoctorSchedulePage() {
                                   </svg>
                                 </button>
                               )}
-                              {isPast && appointment.status !== 'NO_SHOW' && appointment.status !== 'CANCELLED' && (
+                              {isPast && normalizeStatus(appointment.status) !== 'NO_SHOW' && normalizeStatus(appointment.status) !== 'CANCELLED' && (
                                 <button
                                   onClick={() => openNoShowDialog(appointment, schedule, index)}
                                   className="mobile-patient-delete-btn-inline"
@@ -2161,3 +2161,12 @@ export default function DoctorSchedulePage() {
     </div>
   );
 }
+  const isKnownStatus = (s: string): s is 'PENDING' | 'COMPLETED' | 'CANCELLED' | 'NO_SHOW' => {
+    return s === 'PENDING' || s === 'COMPLETED' || s === 'CANCELLED' || s === 'NO_SHOW';
+  };
+
+  const normalizeStatus = (status: string): 'PENDING' | 'COMPLETED' | 'CANCELLED' | 'NO_SHOW' => {
+    if (isKnownStatus(status)) return status;
+    if (status === 'CHECKED_IN' || status === 'CONFIRMED') return 'PENDING';
+    return 'PENDING';
+  };
