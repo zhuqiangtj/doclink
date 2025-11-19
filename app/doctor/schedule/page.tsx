@@ -1806,7 +1806,7 @@ export default function DoctorSchedulePage() {
                                     (appointment.history && appointment.history.length > 0)
                                       ? ((appointment.reason === '医生预约') ? '医生' : '患者')
                                       : ((appointment.reason === '医生预约' || appointment.user.role === 'DOCTOR') ? '医生' : '患者')
-                                  } 状态：<span className={`mobile-status-badge mobile-status-${statusClassKey}`}>{statusText}</span>
+                                  } 状态：<span className={`mobile-status-badge-inline mobile-status-${statusClassKey}`}>{statusText}</span>
                                 </span>
                               </div>
                               {!isPast && normalizeStatus(appointment.status) === 'PENDING' && (
