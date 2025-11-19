@@ -1953,9 +1953,6 @@ export default function DoctorSchedulePage() {
                             {patient.name} ({patient.username})
                           </div>
                           <div className="flex items-center ml-2 shrink-0 space-x-1">
-                            {patient.phone && (
-                              <a className="phone-inline-badge" href={`tel:${String(patient.phone).replace(/\s+/g,'')}`} aria-label={`拨打 ${patient.phone}`} title="电话">{patient.phone}</a>
-                            )}
                             <span className={`credit-inline-badge ${getCreditColorClass(patient.credibilityScore)}`}>{typeof patient.credibilityScore === 'number' ? patient.credibilityScore : '未知'}</span>
                             {(() => { const g = getGenderInfo(patient.gender ?? undefined); return (<span className={`gender-inline-badge ${g.className}`}>{g.text}</span>); })()}
                             {(() => { const age = calcAgeFromBirthDate(patient.dateOfBirth ?? undefined); return (<span className="age-inline-badge">{age ?? '未知'}</span>); })()}
@@ -1972,9 +1969,6 @@ export default function DoctorSchedulePage() {
                   <div className="text-sm text-gray-600">已選擇患者:</div>
                   <div className="font-medium">{selectedPatient.name} ({selectedPatient.username})</div>
                 <div className="flex items-center mt-1 space-x-2">
-                  {selectedPatient.phone && (
-                    <a className="phone-inline-badge" href={`tel:${String(selectedPatient.phone).replace(/\s+/g,'')}`} aria-label={`拨打 ${selectedPatient.phone}`} title="电话">{selectedPatient.phone}</a>
-                  )}
                   <span className={`credit-inline-badge ${getCreditColorClass(selectedPatient.credibilityScore)}`}>{typeof selectedPatient.credibilityScore === 'number' ? selectedPatient.credibilityScore : '未知'}</span>
                   {(() => { const g = getGenderInfo(selectedPatient.gender ?? undefined); return (<span className={`gender-inline-badge ${g.className}`}>{g.text}</span>); })()}
                   {(() => { const age = calcAgeFromBirthDate(selectedPatient.dateOfBirth ?? undefined); return (<span className="age-inline-badge">{age ?? '未知'}</span>); })()}
