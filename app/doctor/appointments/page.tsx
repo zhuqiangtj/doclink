@@ -34,6 +34,7 @@ interface Appointment {
   doctor: Doctor;
   room: Room;
   createTime: string;
+  statusOperatedAt?: string;
 }
 
 interface Notification {
@@ -45,6 +46,10 @@ interface Notification {
   isRead: boolean;
   appointment?: {
     time: string;
+    timeSlot?: {
+      startTime: string;
+      endTime: string;
+    };
     schedule: {
       date: string;
     };
@@ -217,14 +222,34 @@ export default function DoctorAppointmentsPage() {
             }
             case 'APPOINTMENT_CANCELLED': {
               if (appointmentId) {
-                setAppointments(prev => prev.map(a => (a.id === appointmentId ? { ...a, status: 'CANCELLED' as const } : a)));
+                try {
+                  const res = await fetch(`/api/appointments/${appointmentId}`);
+                  if (res.ok) {
+                    const item: Appointment = await res.json();
+                    setAppointments(prev => prev.map(a => (a.id === item.id ? item : a)));
+                  } else {
+                    setAppointments(prev => prev.map(a => (a.id === appointmentId ? { ...a, status: 'CANCELLED' as const, statusOperatedAt: new Date().toISOString() } : a)));
+                  }
+                } catch {
+                  setAppointments(prev => prev.map(a => (a.id === appointmentId ? { ...a, status: 'CANCELLED' as const, statusOperatedAt: new Date().toISOString() } : a)));
+                }
                 setOverlayText('取消预约已同步');
               }
               break;
             }
             case 'APPOINTMENT_STATUS_UPDATED': {
               if (appointmentId && newStatus) {
-                setAppointments(prev => prev.map(a => (a.id === appointmentId ? { ...a, status: newStatus, reason } : a)));
+                try {
+                  const res = await fetch(`/api/appointments/${appointmentId}`);
+                  if (res.ok) {
+                    const item: Appointment = await res.json();
+                    setAppointments(prev => prev.map(a => (a.id === item.id ? item : a)));
+                  } else {
+                    setAppointments(prev => prev.map(a => (a.id === appointmentId ? { ...a, status: newStatus, reason, statusOperatedAt: new Date().toISOString() } : a)));
+                  }
+                } catch {
+                  setAppointments(prev => prev.map(a => (a.id === appointmentId ? { ...a, status: newStatus, reason, statusOperatedAt: new Date().toISOString() } : a)));
+                }
                 setOverlayText('预约状态已同步');
               }
               break;
@@ -391,7 +416,7 @@ export default function DoctorAppointmentsPage() {
 
       await response.json();
       setAppointments(prev => prev.map(apt => (
-        apt.id === selectedAppointmentForCancel.id ? { ...apt, status: 'CANCELLED' as const } : apt
+        apt.id === selectedAppointmentForCancel.id ? { ...apt, status: 'CANCELLED' as const, statusOperatedAt: new Date().toISOString() } : apt
       )));
       setSuccess(`已成功取消 ${selectedAppointmentForCancel.patient.user.name} 的預約`);
       setTimeout(() => setSuccess(null), 3000);
@@ -432,7 +457,7 @@ export default function DoctorAppointmentsPage() {
       setAppointments(prev => 
         prev.map(apt => 
           apt.id === appointmentId 
-            ? { ...apt, status: 'NO_SHOW' as const }
+            ? { ...apt, status: 'NO_SHOW' as const, statusOperatedAt: new Date().toISOString() }
             : apt
         )
       );
@@ -591,7 +616,7 @@ export default function DoctorAppointmentsPage() {
                             <strong>日期：</strong>{new Date(notification.appointment.schedule.date).toLocaleDateString('zh-CN')}
                           </p>
                           <p className="mobile-notification-datetime">
-                            <strong>時間：</strong>{notification.appointment.time}
+                            <strong>時間段：</strong>{notification.appointment.timeSlot ? `${notification.appointment.timeSlot.startTime}-${notification.appointment.timeSlot.endTime}` : notification.appointment.time}
                           </p>
                           <p className="mobile-notification-room">
                             <strong>診室：</strong>{notification.appointment.room.name}
@@ -600,7 +625,11 @@ export default function DoctorAppointmentsPage() {
                       )}
                     </div>
                     <p className="mobile-notification-message">{notification.message}</p>
-                    <p className="mobile-notification-date">{new Date(notification.createdAt).toLocaleString('zh-CN')}</p>
+                    <p className="mobile-notification-date"><strong>{
+                      notification.type === 'APPOINTMENT_CREATED' ? '创建时间' :
+                      notification.type === 'APPOINTMENT_CANCELLED' ? '取消时间' :
+                      '通知时间'
+                    }：</strong>{new Date(notification.createdAt).toLocaleString('zh-CN')}</p>
                   </div>
                   <button 
                     onClick={() => handleMarkAsRead(notification.id)} 
@@ -692,7 +721,7 @@ export default function DoctorAppointmentsPage() {
       <div className="mobile-content-card">
         <div className="mobile-appointments-list">
           {paginatedAppointments.length > 0 ? paginatedAppointments.map(apt => (
-            <div key={apt.id} className={`mobile-appointment-card ${getActualStatus(apt) === 'NO_SHOW' ? 'status-no-show' : ''}`}>
+            <div key={apt.id} className={`mobile-appointment-card ${getStatusColor(getActualStatus(apt))}`}>
               <div className="mobile-appointment-header">
                 <div className="mobile-patient-info">
                   <div className="mobile-patient-item-inline">
@@ -720,17 +749,39 @@ export default function DoctorAppointmentsPage() {
                   <span className="mobile-detail-value">{apt.room.name}</span>
                 </div>
                 <div className="mobile-detail-row">
-                  <span className="mobile-detail-label">日期：</span>
+                  <span className="mobile-detail-label">目標日期：</span>
                   <span className="mobile-detail-value">{apt.date}</span>
                 </div>
                 <div className="mobile-detail-row">
-                  <span className="mobile-detail-label">時間：</span>
+                  <span className="mobile-detail-label">目標時間：</span>
                   <span className="mobile-detail-value">{apt.time}</span>
+                </div>
+                {(apt.status === 'CANCELLED' && apt.statusOperatedAt) && (
+                  <div className="mobile-detail-row">
+                    <span className="mobile-detail-label">取消時間：</span>
+                    <span className="mobile-detail-value">{new Date(apt.statusOperatedAt).toLocaleString('zh-CN')}</span>
+                  </div>
+                )}
+                {(apt.status === 'NO_SHOW' && apt.statusOperatedAt) && (
+                  <div className="mobile-detail-row">
+                    <span className="mobile-detail-label">爽約標記時間：</span>
+                    <span className="mobile-detail-value">{new Date(apt.statusOperatedAt).toLocaleString('zh-CN')}</span>
+                  </div>
+                )}
+                <div className="mobile-detail-row">
+                  <span className="mobile-detail-label">操作時間：</span>
+                  <span className="mobile-detail-value">{new Date(apt.createTime).toLocaleString('zh-CN')}</span>
                 </div>
                 {apt.reason && (
                   <div className="mobile-detail-row">
                     <span className="mobile-detail-label">原因：</span>
                     <span className="mobile-detail-value">{apt.reason}</span>
+                  </div>
+                )}
+                {(apt.status === 'COMPLETED' && apt.statusOperatedAt) && (
+                  <div className="mobile-detail-row">
+                    <span className="mobile-detail-label">{apt.reason && apt.reason.includes('系統') ? '系統自動完成時間' : '完成時間'}：</span>
+                    <span className="mobile-detail-value">{new Date(apt.statusOperatedAt).toLocaleString('zh-CN')}</span>
                   </div>
                 )}
               </div>
@@ -819,18 +870,22 @@ export default function DoctorAppointmentsPage() {
                 您确定要将以下预约标记为爽约吗？
               </p>
               
-                <div className="mobile-dialog-appointment-info">
+              <div className="mobile-dialog-appointment-info">
                 <div className="mobile-dialog-info-row">
                   <span className="mobile-dialog-label">病人：</span>
                   <span className="mobile-dialog-value">{selectedAppointmentForNoShow.patient.user.name}</span>
                 </div>
                 <div className="mobile-dialog-info-row">
-                  <span className="mobile-dialog-label">日期：</span>
+                  <span className="mobile-dialog-label">目標日期：</span>
                   <span className="mobile-dialog-value">{selectedAppointmentForNoShow.date}</span>
                 </div>
                 <div className="mobile-dialog-info-row">
-                  <span className="mobile-dialog-label">時間：</span>
+                  <span className="mobile-dialog-label">目標時間：</span>
                   <span className="mobile-dialog-value">{selectedAppointmentForNoShow.time}</span>
+                </div>
+                <div className="mobile-dialog-info-row">
+                  <span className="mobile-dialog-label">操作時間（將記錄為）：</span>
+                  <span className="mobile-dialog-value">{new Date().toLocaleString('zh-CN')}</span>
                 </div>
                 <div className="mobile-dialog-info-row">
                   <span className="mobile-dialog-label">診室：</span>

@@ -47,6 +47,11 @@ export async function GET() {
             type: true
           }
         },
+        history: {
+          orderBy: { operatedAt: 'desc' },
+          take: 1,
+          select: { operatedAt: true, status: true, action: true }
+        },
       },
       orderBy: {
         createTime: 'desc',
@@ -57,6 +62,7 @@ export async function GET() {
     const formattedAppointments = appointments.map(apt => ({
       ...apt,
       date: apt.schedule.date,
+      statusOperatedAt: apt.history && apt.history.length > 0 ? apt.history[0].operatedAt : undefined,
     }));
 
     return NextResponse.json(formattedAppointments);

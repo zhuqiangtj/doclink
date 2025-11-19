@@ -332,6 +332,21 @@
   box-sizing: border-box;
 }
 
+.mobile-appointment-card.status-pending {
+  background: #fff7ed;
+  border-left: 4px solid #f59e0b;
+}
+
+.mobile-appointment-card.status-completed {
+  background: #eff6ff;
+  border-left: 4px solid #3b82f6;
+}
+
+.mobile-appointment-card.status-cancelled {
+  background: #fef2f2;
+  border-left: 4px solid #ef4444;
+}
+
 /* 未到診整卡高亮：背景與文字顏色顯著區分 */
 .mobile-appointment-card.status-no-show {
   background: #fff1f2;              /* 更亮的淡紅背景 */

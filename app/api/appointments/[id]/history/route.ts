@@ -18,7 +18,8 @@ export async function GET(request: Request, { params }: { params: { id: string }
       where: { id: appointmentId },
       include: {
         patient: { include: { user: true } },
-        doctor: { include: { user: true } }
+        doctor: { include: { user: true } },
+        schedule: true,
       }
     });
 
@@ -62,12 +63,13 @@ export async function GET(request: Request, { params }: { params: { id: string }
             status: 'CANCELLED',
 reason: appointment.reason || '已取消',
             action: 'UPDATE_STATUS_TO_CANCELLED',
-          } as any,
+          },
         ];
 
     const response = {
       appointment: {
         id: appointment.id,
+        date: appointment.schedule?.date,
         time: appointment.time,
         status: appointment.status,
         reason: appointment.reason,

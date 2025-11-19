@@ -15,6 +15,7 @@ interface AppointmentHistoryRecord {
 
 interface AppointmentInfo {
   id: string;
+  date: string;
   time: string;
   status: string;
   reason?: string;
@@ -163,8 +164,16 @@ const AppointmentHistoryModal: React.FC<AppointmentHistoryModalProps> = ({
                 <h3 className="text-lg font-medium text-gray-900 mb-3">预约信息</h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 text-sm">
                   <div>
-                    <span className="text-gray-600">预约时间：</span>
+                    <span className="text-gray-600">目标日期：</span>
+                    <span className="font-medium whitespace-nowrap">{new Date(appointmentInfo.date).toLocaleDateString('zh-CN')}</span>
+                  </div>
+                  <div>
+                    <span className="text-gray-600">目标时间：</span>
                     <span className="font-medium whitespace-nowrap">{appointmentInfo.time}</span>
+                  </div>
+                  <div>
+                    <span className="text-gray-600">操作时间：</span>
+                    <span className="font-medium whitespace-nowrap">{new Date(appointmentInfo.createTime).toLocaleString('zh-CN')}</span>
                   </div>
                   <div>
                     <span className="text-gray-600">当前状态：</span>
@@ -172,6 +181,12 @@ const AppointmentHistoryModal: React.FC<AppointmentHistoryModalProps> = ({
                       {getStatusText(appointmentInfo.status)}
                     </span>
                   </div>
+                  {(() => { const r = [...history].reverse().find(h => h.status === 'COMPLETED'); return r ? (
+                    <div>
+                      <span className="text-gray-600">{(appointmentInfo.reason && (appointmentInfo.reason.includes('系統') || appointmentInfo.reason.includes('系统'))) ? '系统自动完成时间' : '完成时间'}：</span>
+                      <span className="font-medium whitespace-nowrap">{new Date(r.operatedAt).toLocaleString('zh-CN')}</span>
+                    </div>
+                  ) : null; })()}
                   <div className="col-span-1 sm:col-span-2">
                     <div className="mobile-patient-item-inline">
                       <div className="mobile-patient-info-inline">
@@ -231,7 +246,7 @@ const AppointmentHistoryModal: React.FC<AppointmentHistoryModalProps> = ({
                                 <span className="font-medium text-gray-900 break-words">{getActionText(record.action)}</span>
                               </div>
                               <div className="flex items-start">
-                                <span className="text-gray-600 mr-2">时间：</span>
+                                <span className="text-gray-600 mr-2">操作时间：</span>
                                 <span className="font-medium text-gray-900 break-words">{formatDateTime(record.operatedAt)}</span>
                               </div>
                             </div>

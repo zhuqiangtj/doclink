@@ -35,7 +35,8 @@ export async function GET() {
               where: { id: notification.appointmentId },
               include: {
                 schedule: { select: { date: true } },
-                room: { select: { name: true } }
+                room: { select: { name: true } },
+                timeSlot: { select: { startTime: true, endTime: true } }
               }
             });
             return { ...notification, appointment };

@@ -44,12 +44,16 @@ export default function CancelAppointmentModal({ isOpen, info, onClose, onConfir
           <p className="mobile-dialog-text">将取消 {info.patientName} 的预约。</p>
           <div className="mobile-dialog-details mobile-dialog-appointment-info">
             <div className="mobile-dialog-detail-row mobile-dialog-info-row">
-              <span className="mobile-dialog-detail-label mobile-dialog-label">日期</span>
+              <span className="mobile-dialog-detail-label mobile-dialog-label">目标日期</span>
               <span className="mobile-dialog-detail-value mobile-dialog-value">{info.date}</span>
             </div>
             <div className="mobile-dialog-detail-row mobile-dialog-info-row">
-              <span className="mobile-dialog-detail-label mobile-dialog-label">时间</span>
+              <span className="mobile-dialog-detail-label mobile-dialog-label">目标时间</span>
               <span className="mobile-dialog-detail-value mobile-dialog-value">{info.time}</span>
+            </div>
+            <div className="mobile-dialog-detail-row mobile-dialog-info-row">
+              <span className="mobile-dialog-detail-label mobile-dialog-label">操作时间（将记录为）</span>
+              <span className="mobile-dialog-detail-value mobile-dialog-value">{new Date().toLocaleString('zh-CN')}</span>
             </div>
             <div className="mobile-dialog-detail-row mobile-dialog-info-row">
               <span className="mobile-dialog-detail-label mobile-dialog-label">诊室</span>

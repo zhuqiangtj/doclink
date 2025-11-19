@@ -14,6 +14,13 @@ interface PatientNotification {
   type: string;
   isRead: boolean;
   appointmentId?: string;
+  appointment?: {
+    time: string;
+    schedule: { date: string };
+    timeSlot?: { startTime: string; endTime: string };
+    room?: { name: string };
+  };
+  timeSlot?: { startTime: string; endTime: string; schedule: { date: string } };
 }
 
 export default function PatientNotificationsPage() {
@@ -205,10 +212,32 @@ export default function PatientNotificationsPage() {
           <div key={n.id} className={`mobile-notification-card ${n.isRead ? 'mobile-notification-card-read' : 'mobile-notification-card-unread'}`}>
             <div className="mobile-notification-content">
               <div className={`mobile-notification-title ${n.type === 'APPOINTMENT_CANCELLED_BY_DOCTOR' ? 'mobile-notification-title-cancelled' : 'mobile-notification-title-appointment'}`}>
-                {n.type === 'APPOINTMENT_CANCELLED_BY_DOCTOR' ? '预约被取消' : '新预约通知'}
+                {n.type === 'APPOINTMENT_CANCELLED_BY_DOCTOR' ? '预约被取消' : n.type === 'DOCTOR_SCHEDULE_UPDATED' ? '医生日程更新' : '新预约通知'}
+              </div>
+              <div className="mobile-notification-details">
+                {n.appointment && (
+                  <>
+                    <div className="mobile-notification-datetime"><strong>日期：</strong>{new Date(n.appointment.schedule.date).toLocaleDateString('zh-CN')}</div>
+                    <div className="mobile-notification-datetime"><strong>时间段：</strong>{n.appointment.timeSlot ? `${n.appointment.timeSlot.startTime}-${n.appointment.timeSlot.endTime}` : n.appointment.time}</div>
+                    {n.appointment.room?.name && (
+                      <div className="mobile-notification-room"><strong>诊室：</strong>{n.appointment.room.name}</div>
+                    )}
+                  </>
+                )}
+                {!n.appointment && n.timeSlot && (
+                  <>
+                    <div className="mobile-notification-datetime"><strong>日期：</strong>{new Date(n.timeSlot.schedule.date).toLocaleDateString('zh-CN')}</div>
+                    <div className="mobile-notification-datetime"><strong>时间段：</strong>{`${n.timeSlot.startTime}-${n.timeSlot.endTime}`}</div>
+                  </>
+                )}
               </div>
               <div className="mobile-notification-message">{n.message}</div>
-              <div className="mobile-notification-date">{new Date(n.createdAt).toLocaleString()}</div>
+              <div className="mobile-notification-date"><strong>{
+                n.type === 'APPOINTMENT_CREATED_BY_DOCTOR' ? '创建时间' :
+                n.type === 'APPOINTMENT_CANCELLED_BY_DOCTOR' ? '取消时间' :
+                n.type === 'DOCTOR_SCHEDULE_UPDATED' ? '更新时间' :
+                '通知时间'
+              }：</strong>{new Date(n.createdAt).toLocaleString('zh-CN')}</div>
             </div>
             {!n.isRead && (
               <button onClick={() => handleMarkAsRead(n.id)} className="mobile-mark-read-btn">

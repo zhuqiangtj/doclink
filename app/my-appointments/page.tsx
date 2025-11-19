@@ -17,6 +17,8 @@ interface Appointment {
   reason?: string; // 添加原因字段
   doctor: { name: string };
   room: { name: string };
+  createTime: string;
+  statusOperatedAt?: string;
 }
 
 // 狀態文字由統一工具提供
@@ -137,7 +139,17 @@ export default function MyAppointmentsPage() {
               const newStatus = typeof payload['newStatus'] === 'string' ? (payload['newStatus'] as string) : undefined;
               const reason = typeof payload['reason'] === 'string' ? (payload['reason'] as string) : undefined;
               if (appointmentId && newStatus) {
-                setAppointments(prev => prev.map(a => (a.id === appointmentId ? { ...a, status: newStatus, reason } : a)));
+                try {
+                  const res = await fetch(`/api/appointments/${appointmentId}`);
+                  if (res.ok) {
+                    const item = await res.json();
+                    setAppointments(prev => prev.map(a => (a.id === item.id ? item : a)));
+                  } else {
+                    setAppointments(prev => prev.map(a => (a.id === appointmentId ? { ...a, status: newStatus, reason, statusOperatedAt: new Date().toISOString() } : a)));
+                  }
+                } catch {
+                  setAppointments(prev => prev.map(a => (a.id === appointmentId ? { ...a, status: newStatus, reason, statusOperatedAt: new Date().toISOString() } : a)));
+                }
               }
               setOverlayText('预约状态已同步');
               break;
@@ -327,14 +339,42 @@ export default function MyAppointmentsPage() {
 
       <div className="mobile-appointments-grid">
         {paginatedAppointments.length > 0 ? paginatedAppointments.map(apt => (
-          <div key={apt.id} className="mobile-appointment-card">
-            <div className="mobile-doctor-name">医生 {apt.doctor.name}</div>
-            <div className="mobile-appointment-detail">
-              <strong>日期：</strong>{new Date(apt.date).toLocaleDateString()}
+          <div key={apt.id} className={`mobile-appointment-card ${
+            apt.status === 'PENDING' ? 'status-pending' :
+            apt.status === 'COMPLETED' ? 'status-completed' :
+            apt.status === 'CANCELLED' ? 'status-cancelled' :
+            'status-no-show'
+          }`}>
+            <div className="mobile-appointment-header">
+              <div className="mobile-doctor-name">医生 {apt.doctor.name}</div>
+              <span className={`mobile-status-badge ${
+                apt.status === 'PENDING' ? 'status-pending' :
+                apt.status === 'COMPLETED' ? 'status-completed' :
+                apt.status === 'CANCELLED' ? 'status-cancelled' :
+                'status-no-show'
+              }`}>
+                {getStatusText(apt.status)}
+              </span>
             </div>
             <div className="mobile-appointment-detail">
-              <strong>时间：</strong>{apt.time}
+              <strong>目标日期：</strong>{new Date(apt.date).toLocaleDateString()}
             </div>
+            <div className="mobile-appointment-detail">
+              <strong>目标时间：</strong>{apt.time}
+            </div>
+            <div className="mobile-appointment-detail">
+              <strong>操作时间：</strong>{new Date(apt.createTime).toLocaleString()}
+            </div>
+            {apt.status === 'CANCELLED' && apt.statusOperatedAt && (
+              <div className="mobile-appointment-detail">
+                <strong>取消时间：</strong>{new Date(apt.statusOperatedAt).toLocaleString()}
+              </div>
+            )}
+            {apt.status === 'NO_SHOW' && apt.statusOperatedAt && (
+              <div className="mobile-appointment-detail">
+                <strong>爽约标记时间：</strong>{new Date(apt.statusOperatedAt).toLocaleString()}
+              </div>
+            )}
             <div className="mobile-appointment-detail">
               <strong>地点：</strong>{apt.room.name}
             </div>
@@ -343,14 +383,12 @@ export default function MyAppointmentsPage() {
                 <strong>原因：</strong>{apt.reason}
               </div>
             )}
-            <div className={`mobile-status ${
-              apt.status === 'PENDING' ? 'mobile-status-pending' :
-              apt.status === 'COMPLETED' ? 'mobile-status-completed' :
-              apt.status === 'CANCELLED' ? 'mobile-status-cancelled' :
-              'mobile-status-no-show'
-            }`}>
-              状态：{getStatusText(apt.status)}
-            </div>
+            {apt.status === 'COMPLETED' && apt.statusOperatedAt && (
+              <div className="mobile-appointment-detail">
+                <strong>{apt.reason && (apt.reason.includes('系統') || apt.reason.includes('系统')) ? '系统自动完成时间' : '完成时间'}：</strong>{new Date(apt.statusOperatedAt).toLocaleString()}
+              </div>
+            )}
+            
             
             <div className="mobile-appointment-actions">
               <button 

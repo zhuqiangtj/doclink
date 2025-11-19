@@ -28,6 +28,7 @@ export async function GET(
         room: { select: { name: true } },
         schedule: { select: { date: true } },
         timeSlot: { select: { startTime: true, endTime: true, type: true } },
+        history: { orderBy: { operatedAt: 'desc' }, take: 1, select: { operatedAt: true, status: true, action: true } },
       },
     });
     if (!appointment) {
@@ -46,7 +47,11 @@ export async function GET(
       }
     }
 
-    const formatted = { ...appointment, date: appointment.schedule?.date };
+    const formatted = {
+      ...appointment,
+      date: appointment.schedule?.date,
+      statusOperatedAt: appointment.history && appointment.history.length > 0 ? appointment.history[0].operatedAt : undefined,
+    };
     return NextResponse.json(formatted);
   } catch (error) {
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });

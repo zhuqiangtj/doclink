@@ -22,7 +22,29 @@ export async function GET(request: Request) {
       if (!one) {
         return NextResponse.json({ error: 'Not Found' }, { status: 404 });
       }
-      return NextResponse.json(one);
+      let enriched: any = one;
+      if (one.appointmentId) {
+        const apt = await prisma.appointment.findUnique({
+          where: { id: one.appointmentId },
+          include: {
+            schedule: { select: { date: true } },
+            room: { select: { name: true } },
+            timeSlot: { select: { startTime: true, endTime: true } },
+          },
+        });
+        if (apt) {
+          enriched = { ...one, appointment: apt };
+        } else {
+          const ts = await prisma.timeSlot.findUnique({
+            where: { id: one.appointmentId },
+            include: { schedule: { select: { date: true } } },
+          });
+          if (ts) {
+            enriched = { ...one, timeSlot: ts };
+          }
+        }
+      }
+      return NextResponse.json(enriched);
     }
 
     const notifications = await prisma.patientNotification.findMany({
@@ -31,7 +53,28 @@ export async function GET(request: Request) {
       take: 50,
     });
 
-    return NextResponse.json(notifications);
+    const enriched = await Promise.all(
+      notifications.map(async (n) => {
+        if (!n.appointmentId) return n;
+        const apt = await prisma.appointment.findUnique({
+          where: { id: n.appointmentId },
+          include: {
+            schedule: { select: { date: true } },
+            room: { select: { name: true } },
+            timeSlot: { select: { startTime: true, endTime: true } },
+          },
+        });
+        if (apt) return { ...n, appointment: apt };
+        const ts = await prisma.timeSlot.findUnique({
+          where: { id: n.appointmentId },
+          include: { schedule: { select: { date: true } } },
+        });
+        if (ts) return { ...n, timeSlot: ts };
+        return n;
+      })
+    );
+
+    return NextResponse.json(enriched);
 
   } catch (error) {
     console.error('Error fetching patient notifications:', error);
