@@ -15,9 +15,12 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="zh-CN">
-      <body style={{ fontFamily: 'system-ui, -apple-system, sans-serif' }}
-      >
+    <html lang="zh-CN" data-theme="light">
+      <head>
+        <meta name="color-scheme" content="light" />
+        <meta name="theme-color" content="#ffffff" />
+      </head>
+      <body style={{ fontFamily: 'system-ui, -apple-system, sans-serif' }}>
         <Providers>
           <SessionLogger />
           <main className="pb-20">{children}</main>

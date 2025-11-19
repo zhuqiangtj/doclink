@@ -42,6 +42,7 @@ body {
   line-height: var(--line-height-base);
   margin: 0;
   padding: 0;
+  color-scheme: light;
   /* 為底部導航留出空間 */
   padding-bottom: 80px;
   /* iOS Safari 底部安全區域 */
