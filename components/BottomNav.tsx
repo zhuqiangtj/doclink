@@ -116,6 +116,23 @@ export default function BottomNav() {
     };
   }, [router]);
 
+  useEffect(() => {
+    const onFocus = async () => {
+      await getSession();
+      router.refresh();
+    };
+    const onOnline = async () => {
+      await getSession();
+      router.refresh();
+    };
+    window.addEventListener('focus', onFocus);
+    window.addEventListener('online', onOnline);
+    return () => {
+      window.removeEventListener('focus', onFocus);
+      window.removeEventListener('online', onOnline);
+    };
+  }, [router]);
+
   if (status === 'loading') {
     return null; // Don't show nav while loading
   }
