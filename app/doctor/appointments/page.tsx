@@ -87,9 +87,9 @@ export default function DoctorAppointmentsPage() {
     return `${y}-${m}-${d}`;
   };
 
-  const [selectedDate, setSelectedDate] = useState<string>(getCurrentDateInChina());
+  const [selectedDate, setSelectedDate] = useState<string>('');
   const [selectedRoomId, setSelectedRoomId] = useState<string>('');
-  const [selectedStatus, setSelectedStatus] = useState<string>('');
+  const [selectedStatus, setSelectedStatus] = useState<string>('PENDING');
 
   // --- UI States ---
   const [isLoading, setIsLoading] = useState(true);

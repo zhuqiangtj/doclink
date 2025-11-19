@@ -1756,7 +1756,7 @@ export default function DoctorSchedulePage() {
                             : `${schedule.date} ${appointment.time}`;
 
                           const statusKey = normalizeStatus(appointment.status);
-                          const statusText = getStatusText(statusKey);
+                          const statusText = (getStatusText(statusKey) || '').trim() || '待就诊';
                           const statusClassKey = statusKey.toLowerCase().replace('_', '-');
 
                           return (
