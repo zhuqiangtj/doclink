@@ -1646,10 +1646,16 @@ export default function DoctorSchedulePage() {
                       />
 
                       {/* 預約狀態信息 */}
-                      <div className="mobile-slot-info-inline mobile-slot-info-fluid">
-                        <span className={`font-semibold ${
-                          slot.availableBeds <= 0 ? 'text-red-600' : 'text-green-600'
-                        }`}>
+                      <div className={`mobile-slot-info-inline mobile-slot-info-fluid ${
+                        slot.availableBeds <= 0
+                          ? 'mobile-density-high'
+                          : (slot.availableBeds / Math.max(1, slot.bedCount) <= 0.25
+                              ? 'mobile-density-high'
+                              : (slot.availableBeds / Math.max(1, slot.bedCount) <= 0.5
+                                  ? 'mobile-density-medium'
+                                  : 'mobile-density-low'))
+                      }`}>
+                        <span className="font-semibold">
                           {slot.bedCount - slot.availableBeds}/{slot.bedCount}
                         </span>
                       </div>
