@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { FaHome, FaBell, FaCalendarCheck, FaCog, FaTachometerAlt, FaHospital, FaUsers, FaClipboardList } from 'react-icons/fa';
 import { useState, useEffect, useRef } from 'react';
+import type { MouseEvent } from 'react';
 import styles from './BottomNav.module.css';
 
 interface Notification {
@@ -13,13 +14,13 @@ interface Notification {
 }
 
 const NavItem = ({ href, label, active, Icon, badgeCount, iconColor, onNavigateStart }: { href: string; label: string; active: boolean; Icon: React.ElementType; badgeCount?: number; iconColor?: string; onNavigateStart: (href: string) => void }) => {
-  const handleClick = () => {
+  const handleClick = (e: MouseEvent<HTMLAnchorElement>) => {
+    e.preventDefault();
     onNavigateStart(href);
   };
   return (
     <Link 
       href={href}
-      prefetch={false}
       aria-label={label}
       aria-current={active ? 'page' : undefined}
       className={`${styles.navItem} ${active ? styles.navItemActive : styles.navItemInactive}`}
@@ -175,6 +176,7 @@ export default function BottomNav() {
   }, [pathname, pendingPath, router]);
 
   const beginNavigation = async (href: string) => {
+    if (navLoading) return;
     setNavLoading(true);
     setNavStages(['准备导航', '开始软跳转']);
     setPendingPath(href);
@@ -305,7 +307,16 @@ export default function BottomNav() {
     <nav className={styles.bottomNav}>
       <div className={styles.navContainer}>
         {navItems.map(item => (
-          <NavItem key={item.href} href={item.href} label={item.label} active={pathname === item.href} Icon={item.Icon} badgeCount={item.badgeCount} iconColor={item.iconColor} onNavigateStart={beginNavigation} />
+          <NavItem
+            key={item.href}
+            href={item.href}
+            label={item.label}
+            active={normalizePath(pathname) === normalizePath(item.href)}
+            Icon={item.Icon}
+            badgeCount={item.badgeCount}
+            iconColor={item.iconColor}
+            onNavigateStart={beginNavigation}
+          />
         ))}
       </div>
       {navLoading && typeof document !== 'undefined' && createPortal(
