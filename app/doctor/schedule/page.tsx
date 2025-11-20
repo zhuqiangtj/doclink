@@ -191,6 +191,8 @@ export default function DoctorSchedulePage() {
     credibilityScore?: number | null;
   } | null>(null);
   const [overlayText, setOverlayText] = useState<string | null>(null);
+  const [showErrorDialog, setShowErrorDialog] = useState(false);
+  const [errorDialogText, setErrorDialogText] = useState<string | null>(null);
   const selectedDateRef = useRef<Date>(selectedDate);
   const fetchAllDataForDateRef = useRef<((date: Date) => Promise<void>) | undefined>(undefined);
   const refreshTimeSlotByIdRef = useRef<((id: string) => Promise<void>) | undefined>(undefined);
@@ -1136,19 +1138,19 @@ export default function DoctorSchedulePage() {
       setIsBookingModalOpen(false);
       setSuccess(`Successfully added appointment for ${selectedPatient.name}`);
       setTimeout(() => setSuccess(null), 3000);
-    } catch (error) {
-      const msg = error instanceof Error ? error.message : '';
-      let friendly = msg || 'Failed to add appointment';
-      if (msg.includes('fully booked') || msg.includes('This time slot is fully booked')) {
-        friendly = '該時段已被搶完，請選擇其他時段';
-      } else if (msg.includes('已经过期') || msg.includes('expired')) {
-        friendly = '預約時間已過期';
-      } else if (msg.includes('積分') || msg.includes('credibility')) {
-        friendly = '病人積分不足，無法預約';
-      } else if (msg.includes('不能重复预约') || msg.includes('duplicate')) {
-        friendly = '該病人在此時段已有預約';
-      }
-      setError(friendly);
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : '';
+    let friendly = msg || 'Failed to add appointment';
+    if (msg.includes('fully booked') || msg.includes('This time slot is fully booked')) {
+      friendly = '該時段已被搶完，請選擇其他時段';
+    } else if (msg.includes('已经过期') || msg.includes('expired')) {
+      friendly = '預約時間已過期';
+    } else if (msg.includes('積分') || msg.includes('credibility')) {
+      friendly = '病人積分不足，無法預約';
+    } else if (msg.includes('不能重复预约') || msg.includes('duplicate') || msg.includes('该病人在此时段已有预约')) {
+      friendly = '該病人在此時段已有預約';
+    }
+    setError(friendly);
       try {
         const res = await fetch('/api/schedules', { cache: 'no-store' });
         if (res.ok) {
@@ -1159,11 +1161,13 @@ export default function DoctorSchedulePage() {
             return merged;
           });
         }
-      } catch {}
-      setOverlayText(friendly);
-    } finally {
-      setIsBookingSubmitting(false);
-    }
+    } catch {}
+    setOverlayText(friendly);
+    setErrorDialogText(friendly);
+    setShowErrorDialog(true);
+  } finally {
+    setIsBookingSubmitting(false);
+  }
   };
 
   // 開啟取消預約模態框
@@ -1580,8 +1584,17 @@ export default function DoctorSchedulePage() {
                         return;
                       }
                       const next = new Set(expandedActionRows);
+                      const willExpand = !next.has(key);
                       if (next.has(key)) next.delete(key); else next.add(key);
                       setExpandedActionRows(next);
+                      // 同步患者列表展開狀態：點擊行即展開（有預約時）
+                      const nextExpanded = new Set(expandedTimeSlots);
+                      if (willExpand) {
+                        if ((slot.appointments || []).length > 0) nextExpanded.add(key);
+                      } else {
+                        nextExpanded.delete(key);
+                      }
+                      setExpandedTimeSlots(nextExpanded);
                     }}
                   >
                     {/* 第一行：時間點信息 */}
@@ -1673,9 +1686,9 @@ export default function DoctorSchedulePage() {
 
                     </div>
 
-                    {/* 第二行：操作按鈕（可折疊）*/}
+                    {/* 第二行：操作按鈕（可折疊，平鋪三個按鈕）*/}
                     {expandedActionRows.has(key) && (
-                    <div className="mobile-slot-actions-row mobile-slot-actions-row-grid">
+                    <div className="mobile-slot-actions-row">
                       {/* 新增按鈕 */}
                       <button
                         type="button"
@@ -1748,41 +1761,11 @@ export default function DoctorSchedulePage() {
                         )}
                       </button>
 
-                      {/* 展開患者列表按鈕 */}
-                      <button
-                        type="button"
-                        onClick={() => {
-                          if (slot.appointments.length > 0) {
-                            const newExpanded = new Set(expandedTimeSlots);
-                            if (isExpanded) {
-                              newExpanded.delete(key);
-                            } else {
-                              newExpanded.add(key);
-                            }
-                            setExpandedTimeSlots(newExpanded);
-                          }
-                        }}
-                        className={`mobile-icon-btn-colored ${
-                          slot.appointments.length > 0 
-                            ? 'mobile-icon-btn-expand' 
-                            : 'mobile-icon-btn-expand-disabled'
-                        }`}
-                        disabled={slot.appointments.length === 0}
-                        title={
-                          slot.appointments.length === 0 
-                            ? '暫無預約患者' 
-                            : (isExpanded ? '收合患者列表' : '展開患者列表')
-                        }
-                      >
-                        <svg className={`w-4 h-4 transition-transform ${isExpanded ? 'rotate-180' : ''}`} fill="currentColor" viewBox="0 0 20 20">
-                          <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
-                        </svg>
-                      </button>
                     </div>
                     )}
 
-                    {/* 已預約患者列表 - 下拉顯示 */}
-                    {slot.appointments.length > 0 && isExpanded && (
+                    {/* 已預約患者列表 - 展開時直接顯示 */}
+                    {slot.appointments.length > 0 && expandedActionRows.has(key) && (
                       <div className="mobile-patient-list-inline">
                         {slot.appointments.map((appointment, apptIndex) => {
                           const operatedAtString = (appointment.history && appointment.history.length > 0)
@@ -2038,6 +2021,23 @@ export default function DoctorSchedulePage() {
               >
                 {isBookingSubmitting ? '确认中…' : '确认预约'}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showErrorDialog && (
+        <div className="mobile-dialog-overlay">
+          <div className="mobile-dialog">
+            <div className="mobile-dialog-header">
+              <h3 className="mobile-dialog-title">预约失败</h3>
+              <button onClick={() => { if (isBookingSubmitting) return; setShowErrorDialog(false); setErrorDialogText(null); }} className="mobile-dialog-close-btn" aria-label="关闭" disabled={isBookingSubmitting}>×</button>
+            </div>
+            <div className="mobile-dialog-content">
+              <p className="mobile-dialog-text">{errorDialogText || '预约失败'}</p>
+            </div>
+            <div className="mobile-dialog-footer">
+              <button onClick={() => { if (isBookingSubmitting) return; setShowErrorDialog(false); setErrorDialogText(null); }} className="mobile-btn mobile-btn-primary">知道了</button>
             </div>
           </div>
         </div>
