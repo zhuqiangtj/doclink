@@ -1597,11 +1597,11 @@ export default function DoctorSchedulePage() {
                         onMouseDown={(e) => e.stopPropagation()}
                         onTouchStart={(e) => e.stopPropagation()}
                         className="mobile-time-input-inline mobile-time-input-fluid"
-                        disabled={isPast || hasAppointments}
+                        disabled={isPast}
                         title={
                           isPast
                             ? '時間已過，不可編輯'
-                            : (hasAppointments ? '已有预约，不可编辑该时段' : '開始時間')
+                            : (hasAppointments ? '已有预约，修改需谨慎' : '開始時間')
                         }
                       />
                       
@@ -1618,11 +1618,11 @@ export default function DoctorSchedulePage() {
                         onMouseDown={(e) => e.stopPropagation()}
                         onTouchStart={(e) => e.stopPropagation()}
                         className="mobile-time-input-inline mobile-time-input-fluid"
-                        disabled={isPast || hasAppointments}
+                        disabled={isPast}
                         title={
                           isPast
                             ? '時間已過，不可編輯'
-                            : (hasAppointments ? '已有预约，不可编辑该时段' : '結束時間')
+                            : (hasAppointments ? '已有预约，修改需谨慎' : '結束時間')
                         }
                       />
                       
@@ -1646,11 +1646,11 @@ export default function DoctorSchedulePage() {
                         onTouchStart={(e) => e.stopPropagation()}
                         className="mobile-total-input-inline mobile-total-input-fluid"
                         placeholder="床位数"
-                        disabled={isPast || hasAppointments}
+                        disabled={isPast}
                         title={
                           isPast
                             ? '时间已过，不可编辑'
-                            : (hasAppointments ? '已有预约，不可编辑该时段' : `可预约人数（最大 ${schedule.room.bedCount}）`)
+                            : (hasAppointments ? '已有预约，修改需谨慎' : `可预约人数（最大 ${schedule.room.bedCount}）`)
                         }
                       />
 
