@@ -455,13 +455,11 @@ body {
 }
 
 .mobile-time-slot-with-appointments {
-  background: linear-gradient(180deg, #fff7ed, #ffedd5);
-  border-color: #f59e0b;
+  background: linear-gradient(180deg, #f5f3ff, #ede9fe);
 }
 
 .mobile-time-slot-no-appointments {
   background: linear-gradient(180deg, #e6f7ff, #dff3ff);
-  border-color: #93c5fd;
 }
 
 .mobile-time-slot-modified {
