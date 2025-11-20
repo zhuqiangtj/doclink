@@ -60,6 +60,7 @@ export default function PatientScheduleHome() {
 
   const [patientId, setPatientId] = useState<string | null>(null);
   const [myAppointmentsBySlot, setMyAppointmentsBySlot] = useState<Record<string, string>>({}); // timeSlotId -> appointmentId
+  const [selectedTimeSlotId, setSelectedTimeSlotId] = useState<string | null>(null);
   // 預約確認模態框狀態
   const [isConfirmOpen, setIsConfirmOpen] = useState<boolean>(false);
   const [confirmBookingData, setConfirmBookingData] = useState<{ slot: TimeSlot; schedule: Schedule } | null>(null);
@@ -931,7 +932,18 @@ export default function PatientScheduleHome() {
                         const isFull = slot.availableBeds <= 0;
                         const myAptId = slot.id && myAppointmentsBySlot[slot.id];
                         return (
-                          <div key={slot.id} className={`mobile-time-slot ${myAptId ? 'booked' : isFull ? 'full' : ''} ${isPast ? 'past' : ''}`}>
+                          <div
+                            key={slot.id}
+                            className={`mobile-time-slot ${myAptId ? 'booked' : isFull ? 'full' : ''} ${isPast ? 'past' : ''} ${selectedTimeSlotId === slot.id ? 'selected' : ''}`}
+                            onClick={(e) => {
+                              const target = e.target as HTMLElement;
+                              if (
+                                target.closest('button') ||
+                                target.closest('.mobile-btn')
+                              ) return;
+                              setSelectedTimeSlotId(prev => (prev === slot.id ? null : slot.id));
+                            }}
+                          >
                             <div className="mobile-time-slot-time">
                               {slot.startTime} - {slot.endTime}
                             </div>
