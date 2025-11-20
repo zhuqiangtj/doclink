@@ -1,6 +1,7 @@
 'use client';
 
 import { useSession, getSession } from 'next-auth/react';
+import { createPortal } from 'react-dom';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { FaHome, FaBell, FaCalendarCheck, FaCog, FaTachometerAlt, FaHospital, FaUsers, FaClipboardList } from 'react-icons/fa';
@@ -210,18 +211,21 @@ export default function BottomNav() {
           <NavItem key={item.href} href={item.href} label={item.label} active={pathname === item.href} Icon={item.Icon} badgeCount={item.badgeCount} iconColor={item.iconColor} onNavigateStart={beginNavigation} />
         ))}
       </div>
-      {navLoading && (
-        <div className={styles.navOverlay} role="alert" aria-live="polite">
-          <div className={styles.navOverlayBox}>
-            <span className={styles.navSpinner} aria-hidden="true" />
-            <div className={styles.navStages}>
-              <div className={styles.navStageCurrent}>{navStages[navStages.length - 1] || '加载中…'}</div>
-              {navStages.length > 1 && (
-                <div className={styles.navStagePrev}>{navStages.slice(0, -1).join(' ・ ')}</div>
-              )}
+      {navLoading && typeof document !== 'undefined' && createPortal(
+        (
+          <div className={styles.navOverlay} role="alert" aria-live="polite">
+            <div className={styles.navOverlayBox}>
+              <span className={styles.navSpinner} aria-hidden="true" />
+              <div className={styles.navStages}>
+                <div className={styles.navStageCurrent}>{navStages[navStages.length - 1] || '加载中…'}</div>
+                {navStages.length > 1 && (
+                  <div className={styles.navStagePrev}>{navStages.slice(0, -1).join(' ・ ')}</div>
+                )}
+              </div>
             </div>
           </div>
-        </div>
+        ),
+        document.body
       )}
     </nav>
   );
