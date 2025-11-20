@@ -51,6 +51,18 @@ export default function BottomNav() {
   const hardStageRef = useRef<'none' | 'assign' | 'replace' | 'href'>('none');
   const pendingPathRef = useRef<string | null>(null);
 
+  const simplifyStage = (s: string) => {
+    const t = s || '';
+    if (t.includes('软跳转')) return '软跳转';
+    if (t.includes('强制导航') || t.includes('硬跳转')) return '硬跳转';
+    if (t.includes('超时')) return '已超时';
+    if (t.includes('刷新')) return '刷新';
+    if (t.includes('等待')) return '等待';
+    if (t.includes('完成')) return '完成';
+    if (t.includes('失败')) return '失败';
+    return '加载中';
+  };
+
   // 在認證相關頁面（登入/註冊）判斷，於所有 Hooks 之後再決定是否渲染
   const isAuthPage = !!(pathname && pathname.startsWith('/auth'));
 
@@ -325,10 +337,7 @@ export default function BottomNav() {
             <div className={styles.navOverlayBox}>
               <span className={styles.navSpinner} aria-hidden="true" />
               <div className={styles.navStages}>
-                <div className={styles.navStageCurrent}>{navStages[navStages.length - 1] || '加载中…'}</div>
-                {navStages.length > 1 && (
-                  <div className={styles.navStagePrev}>{navStages.slice(0, -1).join(' ・ ')}</div>
-                )}
+                <div className={styles.navStageCurrent}>{simplifyStage(navStages[navStages.length - 1] || '')}</div>
               </div>
             </div>
           </div>
