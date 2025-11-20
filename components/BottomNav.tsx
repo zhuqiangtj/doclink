@@ -43,6 +43,7 @@ export default function BottomNav() {
   const [pendingPath, setPendingPath] = useState<string | null>(null);
   const [navStages, setNavStages] = useState<string[]>([]);
   const normalizePath = (p: string) => (p || '').replace(/\/$/, '');
+  const sessionRefreshTimeoutMs = 800;
 
   // 在認證相關頁面（登入/註冊）判斷，於所有 Hooks 之後再決定是否渲染
   const isAuthPage = !!(pathname && pathname.startsWith('/auth'));
@@ -153,13 +154,39 @@ export default function BottomNav() {
 
   const beginNavigation = async (href: string) => {
     setNavLoading(true);
-    setNavStages(['准备导航', '刷新会话']);
-    try {
-      await getSession();
-    } catch {}
-    setNavStages(prev => [...prev, '开始软跳转']);
+    setNavStages(['准备导航', '开始软跳转']);
     setPendingPath(href);
     router.push(href);
+    setNavStages(prev => [...prev, navigator.onLine ? '刷新会话(后台)' : '离线，跳过会话刷新']);
+    if (navigator.onLine) {
+      let finished = false;
+      const sessionRace = new Promise<'完成' | '超时' | '失败'>(resolve => {
+        getSession()
+          .then(() => {
+            if (!finished) {
+              finished = true;
+              resolve('完成');
+            }
+          })
+          .catch(() => {
+            if (!finished) {
+              finished = true;
+              resolve('失败');
+            }
+          });
+        setTimeout(() => {
+          if (!finished) {
+            finished = true;
+            resolve('超时');
+          }
+        }, sessionRefreshTimeoutMs);
+      });
+      sessionRace.then(state => {
+        if (state === '完成') setNavStages(prev => [...prev, '会话刷新完成']);
+        else if (state === '超时') setNavStages(prev => [...prev, `会话刷新超时(${sessionRefreshTimeoutMs}ms)`]);
+        else setNavStages(prev => [...prev, '会话刷新失败']);
+      });
+    }
     setNavStages(prev => [...prev, '等待路径变化']);
     const hardTimeout = setTimeout(() => {
       if (pendingPath) {
