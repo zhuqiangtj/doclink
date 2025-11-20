@@ -151,6 +151,21 @@ throw new Error('病人积分不足，无法预约');
         }
       }
 
+      // 防跨医生重复预约：同一病人在同一日期与开始时间仅允许一条预约（状态为待就诊）
+      if (timeSlot.schedule?.date && timeSlot.startTime) {
+        const existingSameDateTime = await tx.appointment.findFirst({
+          where: {
+            patientId,
+            status: 'PENDING',
+            schedule: { is: { date: timeSlot.schedule.date } },
+            time: timeSlot.startTime,
+          },
+        });
+        if (existingSameDateTime) {
+          throw new Error('该病人在此时段已有预约');
+        }
+      }
+
       // 原子性防超訂：僅在 availableBeds > 0 時遞減，否則報錯
       const decResult = await tx.timeSlot.updateMany({
         where: { id: timeSlotId, availableBeds: { gt: 0 } },
@@ -268,6 +283,7 @@ reason: session.user.role === 'DOCTOR' ? '医生预约' : '病人预约',
       message === 'This time slot is fully booked.' ? 400 :
       message === '病人积分不足，无法预约' ? 400 :
       message === '该病人已在此时段有预约，不能重复预约' ? 400 :
+      message === '该病人在此时段已有预约' ? 400 :
       message === 'Patient profile not found.' ? 404 :
       message === '病人只能预约未来三天内的时段' ? 400 :
       500;

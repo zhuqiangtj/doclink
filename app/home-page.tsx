@@ -769,6 +769,8 @@ export default function PatientScheduleHome() {
         friendly = "积分不足，无法预约";
       } else if (msg.includes("不能重复预约") || msg.includes("duplicate")) {
         friendly = "已在该时段有预约";
+      } else if (msg.includes("该病人在此时段已有预约")) {
+        friendly = "该病人在此时段已有预约";
       } else if (msg.includes("not found")) {
         friendly = "时段不存在或已被删除";
       }
