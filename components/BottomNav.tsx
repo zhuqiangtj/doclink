@@ -45,6 +45,9 @@ export default function BottomNav() {
   const normalizePath = (p: string) => (p || '').replace(/\/$/, '');
   const sessionRefreshTimeoutMs = 800;
   const hardTimeoutRef = useRef<number | null>(null);
+  const watchdogIntervalRef = useRef<number | null>(null);
+  const watchdogStartRef = useRef<number | null>(null);
+  const hardStageRef = useRef<'none' | 'assign' | 'replace' | 'href'>('none');
 
   // 在認證相關頁面（登入/註冊）判斷，於所有 Hooks 之後再決定是否渲染
   const isAuthPage = !!(pathname && pathname.startsWith('/auth'));
@@ -147,6 +150,12 @@ export default function BottomNav() {
         clearTimeout(hardTimeoutRef.current);
         hardTimeoutRef.current = null;
       }
+      if (watchdogIntervalRef.current) {
+        clearInterval(watchdogIntervalRef.current);
+        watchdogIntervalRef.current = null;
+        watchdogStartRef.current = null;
+        hardStageRef.current = 'none';
+      }
       router.refresh();
       setTimeout(() => {
         setNavStages(prev => [...prev, '完成']);
@@ -193,16 +202,46 @@ export default function BottomNav() {
       });
     }
     setNavStages(prev => [...prev, '等待路径变化']);
+    // Watchdog：逐步升级硬跳转，避免长时间卡住
+    hardStageRef.current = 'none';
     hardTimeoutRef.current = window.setTimeout(() => {
-      if (pendingPath) {
-        setNavStages(prev => [...prev, '软跳转超时，执行硬跳转']);
+      if (pendingPath && hardStageRef.current === 'none') {
+        setNavStages(prev => [...prev, '软跳转超时(1200ms)，硬跳转(assign)']);
         try {
           window.location.assign(href);
+          hardStageRef.current = 'assign';
         } catch {
           router.refresh();
         }
       }
-    }, 2000);
+    }, 1200);
+
+    watchdogStartRef.current = Date.now();
+    watchdogIntervalRef.current = window.setInterval(() => {
+      if (!pendingPath || normalizePath(window.location.pathname) === normalizePath(pendingPath)) {
+        if (watchdogIntervalRef.current) {
+          clearInterval(watchdogIntervalRef.current);
+          watchdogIntervalRef.current = null;
+          watchdogStartRef.current = null;
+          hardStageRef.current = 'none';
+        }
+        return;
+      }
+      const elapsed = (Date.now() - (watchdogStartRef.current || Date.now()));
+      if (elapsed >= 5000 && hardStageRef.current !== 'replace') {
+        setNavStages(prev => [...prev, '路径未变更(5s)，硬跳转(replace)']);
+        try {
+          window.location.replace(href);
+          hardStageRef.current = 'replace';
+        } catch {}
+      } else if (elapsed >= 10000 && hardStageRef.current !== 'href') {
+        setNavStages(prev => [...prev, '路径未变更(10s)，最终强制导航(href)']);
+        try {
+          (window as any).location.href = href;
+          hardStageRef.current = 'href';
+        } catch {}
+      }
+    }, 1000);
   };
 
   if (status === 'loading') {
