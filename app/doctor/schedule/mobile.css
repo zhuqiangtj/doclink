@@ -455,10 +455,18 @@ body {
 }
 
 .mobile-time-slot-with-appointments {
-  background: linear-gradient(180deg, #f5f3ff, #ede9fe);
+  background: linear-gradient(180deg, #faf5ff, #f3e8ff);
 }
 
 .mobile-time-slot-no-appointments {
+  background: linear-gradient(180deg, #e6f7ff, #dff3ff);
+}
+
+/* 提高選擇器優先級以覆蓋 nth-child 背景 */
+.mobile-time-slot-single-line.mobile-time-slot-with-appointments {
+  background: linear-gradient(180deg, #faf5ff, #f3e8ff);
+}
+.mobile-time-slot-single-line.mobile-time-slot-no-appointments {
   background: linear-gradient(180deg, #e6f7ff, #dff3ff);
 }
 
@@ -496,8 +504,9 @@ body {
   display: flex;
   gap: var(--spacing-sm);
   align-items: center;
-  justify-content: flex-start;
-  flex-wrap: wrap;
+  justify-content: space-between;
+  flex-wrap: nowrap;
+  width: 100%;
 }
 
 /* 保留原有的inline樣式作為備用 */
@@ -551,6 +560,18 @@ body {
   border-color: #60a5fa;
   box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.28), 0 14px 24px rgba(17,24,39,0.16), inset 0 1px 0 rgba(255,255,255,0.72);
   transform: translateY(-1px);
+}
+.mobile-slot-actions-row > .mobile-icon-btn-colored {
+  flex: 1 1 0;
+  width: auto;
+  min-width: 0;
+  height: 44px;
+}
+
+@media (max-width: 480px) {
+  .mobile-slot-actions-row > .mobile-icon-btn-colored {
+    height: 40px;
+  }
 }
 
 .mobile-density-low { background: linear-gradient(180deg, #e6f7ff, #dff3ff); border-color: #93c5fd; }

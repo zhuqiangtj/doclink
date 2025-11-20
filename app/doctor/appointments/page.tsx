@@ -105,6 +105,23 @@ export default function DoctorAppointmentsPage() {
   const [cancelLoading, setCancelLoading] = useState(false);
   const [overlayText, setOverlayText] = useState<string | null>(null);
   const snapshotRef = useRef<{ appointments: Map<string, string>; unread: number }>({ appointments: new Map(), unread: 0 });
+
+  const setCookie = (name: string, value: string, days = 180) => {
+    if (typeof document === 'undefined') return;
+    const d = new Date();
+    d.setTime(d.getTime() + days * 24 * 60 * 60 * 1000);
+    document.cookie = `${name}=${encodeURIComponent(value)};expires=${d.toUTCString()};path=/`;
+  };
+  const getCookie = (name: string): string => {
+    if (typeof document === 'undefined') return '';
+    const nameEQ = name + '=';
+    const parts = document.cookie.split(';');
+    for (let p of parts) {
+      const c = p.trim();
+      if (c.indexOf(nameEQ) === 0) return decodeURIComponent(c.substring(nameEQ.length));
+    }
+    return '';
+  };
   
   // --- History Modal States ---
   const [showHistoryModal, setShowHistoryModal] = useState(false);
@@ -117,6 +134,19 @@ export default function DoctorAppointmentsPage() {
   setError('访问被拒绝');
     }
   }, [status, session?.user?.role, router]);
+
+  useEffect(() => {
+    const s = getCookie('doc_apt_status');
+    const r = getCookie('doc_apt_room');
+    const d = getCookie('doc_apt_date');
+    if (s) setSelectedStatus(s);
+    if (r) setSelectedRoomId(r);
+    if (d) setSelectedDate(d);
+  }, []);
+
+  useEffect(() => { setCookie('doc_apt_status', selectedStatus || ''); }, [selectedStatus]);
+  useEffect(() => { setCookie('doc_apt_room', selectedRoomId || ''); }, [selectedRoomId]);
+  useEffect(() => { setCookie('doc_apt_date', selectedDate || ''); }, [selectedDate]);
 
   // 獲取通知數據（僅在醫生身份下觸發，並對 401/404 友好處理）
   // 提取為獨立函數，供初始化與 SSE 事件刷新使用

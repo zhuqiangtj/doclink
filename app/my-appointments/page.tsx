@@ -49,6 +49,23 @@ export default function MyAppointmentsPage() {
   const [overlayText, setOverlayText] = useState<string | null>(null);
   const snapshotRef = useRef<Map<string, string>>(new Map());
 
+  const setCookie = (name: string, value: string, days = 180) => {
+    if (typeof document === 'undefined') return;
+    const d = new Date();
+    d.setTime(d.getTime() + days * 24 * 60 * 60 * 1000);
+    document.cookie = `${name}=${encodeURIComponent(value)};expires=${d.toUTCString()};path=/`;
+  };
+  const getCookie = (name: string): string => {
+    if (typeof document === 'undefined') return '';
+    const nameEQ = name + '=';
+    const parts = document.cookie.split(';');
+    for (let p of parts) {
+      const c = p.trim();
+      if (c.indexOf(nameEQ) === 0) return decodeURIComponent(c.substring(nameEQ.length));
+    }
+    return '';
+  };
+
   // 獨立的獲取預約函數，供初始化與 SSE 事件後刷新使用
   const fetchAppointments = async () => {
     setIsLoading(true);
@@ -282,6 +299,19 @@ export default function MyAppointmentsPage() {
   useEffect(() => {
     setCurrentPage(1);
   }, [selectedDate, selectedRoomName, selectedStatus]);
+
+  useEffect(() => {
+    const s = getCookie('myapt_status');
+    const r = getCookie('myapt_room');
+    const d = getCookie('myapt_date');
+    if (s) setSelectedStatus(s);
+    if (r) setSelectedRoomName(r);
+    if (d) setSelectedDate(d);
+  }, []);
+
+  useEffect(() => { setCookie('myapt_status', selectedStatus || ''); }, [selectedStatus]);
+  useEffect(() => { setCookie('myapt_room', selectedRoomName || ''); }, [selectedRoomName]);
+  useEffect(() => { setCookie('myapt_date', selectedDate || ''); }, [selectedDate]);
 
   const resetFilters = () => {
     setSelectedDate('');
