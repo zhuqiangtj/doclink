@@ -5,7 +5,7 @@ import { createPortal } from 'react-dom';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { FaHome, FaBell, FaCalendarCheck, FaCog, FaTachometerAlt, FaHospital, FaUsers, FaClipboardList } from 'react-icons/fa';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import styles from './BottomNav.module.css';
 
 interface Notification {
@@ -44,6 +44,7 @@ export default function BottomNav() {
   const [navStages, setNavStages] = useState<string[]>([]);
   const normalizePath = (p: string) => (p || '').replace(/\/$/, '');
   const sessionRefreshTimeoutMs = 800;
+  const hardTimeoutRef = useRef<number | null>(null);
 
   // 在認證相關頁面（登入/註冊）判斷，於所有 Hooks 之後再決定是否渲染
   const isAuthPage = !!(pathname && pathname.startsWith('/auth'));
@@ -140,8 +141,12 @@ export default function BottomNav() {
 
   useEffect(() => {
     if (!pendingPath) return;
-    if (normalizePath(pathname) === normalizePath(pendingPath) || normalizePath(pathname).startsWith(normalizePath(pendingPath))) {
+    if (normalizePath(pathname) === normalizePath(pendingPath)) {
       setNavStages(prev => [...prev, '软跳转完成', '刷新页面']);
+      if (hardTimeoutRef.current) {
+        clearTimeout(hardTimeoutRef.current);
+        hardTimeoutRef.current = null;
+      }
       router.refresh();
       setTimeout(() => {
         setNavStages(prev => [...prev, '完成']);
@@ -188,7 +193,7 @@ export default function BottomNav() {
       });
     }
     setNavStages(prev => [...prev, '等待路径变化']);
-    const hardTimeout = setTimeout(() => {
+    hardTimeoutRef.current = window.setTimeout(() => {
       if (pendingPath) {
         setNavStages(prev => [...prev, '软跳转超时，执行硬跳转']);
         try {
@@ -198,11 +203,6 @@ export default function BottomNav() {
         }
       }
     }, 2000);
-    // 清理：路径切换完成后取消硬跳转定时器
-    const cancelHard = () => {
-      clearTimeout(hardTimeout);
-    };
-    setTimeout(cancelHard, 0);
   };
 
   if (status === 'loading') {
