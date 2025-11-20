@@ -140,7 +140,7 @@ export default function BottomNav() {
   useEffect(() => {
     if (!pendingPath) return;
     if (normalizePath(pathname) === normalizePath(pendingPath) || normalizePath(pathname).startsWith(normalizePath(pendingPath))) {
-      setNavStages(prev => [...prev, '路径切换完成', '刷新页面']);
+      setNavStages(prev => [...prev, '软跳转完成', '刷新页面']);
       router.refresh();
       setTimeout(() => {
         setNavStages(prev => [...prev, '完成']);
@@ -157,7 +157,7 @@ export default function BottomNav() {
     try {
       await getSession();
     } catch {}
-    setNavStages(prev => [...prev, '开始跳转']);
+    setNavStages(prev => [...prev, '开始软跳转']);
     setPendingPath(href);
     router.push(href);
     setNavStages(prev => [...prev, '等待路径变化']);
