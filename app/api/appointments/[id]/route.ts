@@ -113,7 +113,19 @@ export async function DELETE(
       today.setHours(0, 0, 0, 0);
       appointmentDate.setHours(0, 0, 0, 0);
 
+      if (appointment.status !== 'PENDING') {
+        return NextResponse.json({ error: 'Only pending appointments can be cancelled' }, { status: 400 });
+      }
+
       if (appointmentDate.getTime() === today.getTime()) {
+        const startTime = appointment.timeSlot?.startTime || appointment.time;
+        const canCheckTime = typeof startTime === 'string' && startTime.includes(':') && typeof appointment.schedule?.date === 'string';
+        if (canCheckTime) {
+          const slotStart = new Date(`${appointment.schedule.date}T${startTime}`);
+          if (slotStart.getTime() <= Date.now()) {
+            return NextResponse.json({ error: '预约已到时间，无法取消' }, { status: 400 });
+          }
+        }
         reason = '病人当天取消预约';
         credibilityChange = -5;
       } else if (appointmentDate > today) {
