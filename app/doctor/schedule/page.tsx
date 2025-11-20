@@ -1564,23 +1564,6 @@ export default function DoctorSchedulePage() {
                     className={`mobile-time-slot-single-line ${
                     isPast ? 'mobile-time-slot-past' : (!isPast && isModified ? 'mobile-time-slot-modified' : '')
                   } ${expandedActionRows.has(key) ? 'mobile-time-slot-selected' : ''}`}
-                    onClick={(e) => {
-                      const target = e.target as HTMLElement | null;
-                      if (!target) return;
-                      if (
-                        target.closest('input') ||
-                        target.closest('button') ||
-                        target.closest('select') ||
-                        target.closest('.mobile-icon-btn-colored') ||
-                        target.closest('.mobile-time-input-inline') ||
-                        target.closest('.mobile-total-input-inline')
-                      ) {
-                        return;
-                      }
-                      const next = new Set(expandedActionRows);
-                      if (next.has(key)) next.delete(key); else next.add(key);
-                      setExpandedActionRows(next);
-                    }}
                   >
                     {/* 第一行：時間點信息 */}
                     <div className="mobile-time-slot-info-row mobile-time-slot-info-row-grid">
@@ -1659,6 +1642,22 @@ export default function DoctorSchedulePage() {
                           {slot.bedCount - slot.availableBeds}/{slot.bedCount}
                         </span>
                       </div>
+
+                      {/* 展開操作按鈕切換 */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const next = new Set(expandedActionRows);
+                          if (next.has(key)) next.delete(key); else next.add(key);
+                          setExpandedActionRows(next);
+                        }}
+                        className={`mobile-icon-btn-colored ${expandedActionRows.has(key) ? 'mobile-icon-btn-expand' : 'mobile-icon-btn-expand'}`}
+                        title={expandedActionRows.has(key) ? '收合操作按钮' : '展开操作按钮'}
+                      >
+                        <svg className={`w-4 h-4 transition-transform ${expandedActionRows.has(key) ? 'rotate-180' : ''}`} fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
+                        </svg>
+                      </button>
                     </div>
 
                     {/* 第二行：操作按鈕（可折疊）*/}

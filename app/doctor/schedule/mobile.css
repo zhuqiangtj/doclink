@@ -456,7 +456,6 @@ body {
 
 .mobile-time-slot-modified {
   border-color: var(--warning-color);
-  background: #fef3c7;
 }
 
 /* 已過期的時間段 - 整體暗色且不可編輯的視覺表現 */
