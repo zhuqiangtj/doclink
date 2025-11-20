@@ -42,6 +42,7 @@ export default function BottomNav() {
   const [navLoading, setNavLoading] = useState(false);
   const [pendingPath, setPendingPath] = useState<string | null>(null);
   const [navStages, setNavStages] = useState<string[]>([]);
+  const normalizePath = (p: string) => (p || '').replace(/\/$/, '');
 
   // 在認證相關頁面（登入/註冊）判斷，於所有 Hooks 之後再決定是否渲染
   const isAuthPage = !!(pathname && pathname.startsWith('/auth'));
@@ -138,7 +139,7 @@ export default function BottomNav() {
 
   useEffect(() => {
     if (!pendingPath) return;
-    if (pathname === pendingPath) {
+    if (normalizePath(pathname) === normalizePath(pendingPath) || normalizePath(pathname).startsWith(normalizePath(pendingPath))) {
       setNavStages(prev => [...prev, '路径切换完成', '刷新页面']);
       router.refresh();
       setTimeout(() => {
@@ -160,12 +161,21 @@ export default function BottomNav() {
     setPendingPath(href);
     router.push(href);
     setNavStages(prev => [...prev, '等待路径变化']);
-    setTimeout(() => {
+    const hardTimeout = setTimeout(() => {
       if (pendingPath) {
-        setNavStages(prev => [...prev, '等待超时，尝试强制刷新']);
-        router.refresh();
+        setNavStages(prev => [...prev, '软跳转超时，执行硬跳转']);
+        try {
+          window.location.assign(href);
+        } catch {
+          router.refresh();
+        }
       }
-    }, 6000);
+    }, 2000);
+    // 清理：路径切换完成后取消硬跳转定时器
+    const cancelHard = () => {
+      clearTimeout(hardTimeout);
+    };
+    setTimeout(cancelHard, 0);
   };
 
   if (status === 'loading') {

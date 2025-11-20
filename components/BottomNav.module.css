@@ -299,6 +299,7 @@
   justify-content: center;
   background: rgba(17, 24, 39, 0.25);
   z-index: 1000;
+  pointer-events: none;
 }
 
 .navOverlayBox {
