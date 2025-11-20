@@ -48,6 +48,7 @@ export default function BottomNav() {
   const watchdogIntervalRef = useRef<number | null>(null);
   const watchdogStartRef = useRef<number | null>(null);
   const hardStageRef = useRef<'none' | 'assign' | 'replace' | 'href'>('none');
+  const pendingPathRef = useRef<string | null>(null);
 
   // 在認證相關頁面（登入/註冊）判斷，於所有 Hooks 之後再決定是否渲染
   const isAuthPage = !!(pathname && pathname.startsWith('/auth'));
@@ -170,6 +171,7 @@ export default function BottomNav() {
     setNavLoading(true);
     setNavStages(['准备导航', '开始软跳转']);
     setPendingPath(href);
+    pendingPathRef.current = href;
     router.push(href);
     setNavStages(prev => [...prev, navigator.onLine ? '刷新会话(后台)' : '离线，跳过会话刷新']);
     if (navigator.onLine) {
@@ -202,23 +204,35 @@ export default function BottomNav() {
       });
     }
     setNavStages(prev => [...prev, '等待路径变化']);
+    // 二次软跳转重试：模拟再次点击，缓解偶发不触发路由变更的情况
+    window.setTimeout(() => {
+      try {
+        const target = pendingPathRef.current || href;
+        if (normalizePath(window.location.pathname) !== normalizePath(target)) {
+          router.push(target);
+          setNavStages(prev => [...prev, '软跳转重试']);
+        }
+      } catch {}
+    }, 400);
     // Watchdog：逐步升级硬跳转，避免长时间卡住
     hardStageRef.current = 'none';
     hardTimeoutRef.current = window.setTimeout(() => {
-      if (pendingPath && hardStageRef.current === 'none') {
+      const target = pendingPathRef.current || href;
+      if (hardStageRef.current === 'none' && normalizePath(window.location.pathname) !== normalizePath(target)) {
         setNavStages(prev => [...prev, '软跳转超时(1200ms)，硬跳转(assign)']);
         try {
-          window.location.assign(href);
+          window.location.assign(target);
           hardStageRef.current = 'assign';
         } catch {
-          router.refresh();
+          router.replace(target);
         }
       }
     }, 1200);
 
     watchdogStartRef.current = Date.now();
     watchdogIntervalRef.current = window.setInterval(() => {
-      if (!pendingPath || normalizePath(window.location.pathname) === normalizePath(pendingPath)) {
+      const target = pendingPathRef.current || href;
+      if (!target || normalizePath(window.location.pathname) === normalizePath(target)) {
         if (watchdogIntervalRef.current) {
           clearInterval(watchdogIntervalRef.current);
           watchdogIntervalRef.current = null;
@@ -231,13 +245,13 @@ export default function BottomNav() {
       if (elapsed >= 5000 && hardStageRef.current !== 'replace') {
         setNavStages(prev => [...prev, '路径未变更(5s)，硬跳转(replace)']);
         try {
-          window.location.replace(href);
+          window.location.replace(target);
           hardStageRef.current = 'replace';
         } catch {}
       } else if (elapsed >= 10000 && hardStageRef.current !== 'href') {
         setNavStages(prev => [...prev, '路径未变更(10s)，最终强制导航(href)']);
         try {
-          (window as any).location.href = href;
+          (window as any).location.href = target;
           hardStageRef.current = 'href';
         } catch {}
       }
