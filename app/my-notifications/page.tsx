@@ -32,6 +32,8 @@ export default function PatientNotificationsPage() {
   const [patientId, setPatientId] = useState<string | null>(null);
   const [overlayText, setOverlayText] = useState<string | null>(null);
   const snapshotRef = useRef<Map<string, string>>(new Map());
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const itemsPerPage = 10;
 
   useEffect(() => {
     if (status === 'unauthenticated') {
@@ -154,6 +156,11 @@ export default function PatientNotificationsPage() {
   }, [overlayText]);
 
   useEffect(() => {
+    const totalPages = Math.max(1, Math.ceil(notifications.length / itemsPerPage));
+    if (currentPage > totalPages) setCurrentPage(totalPages);
+  }, [notifications]);
+
+  useEffect(() => {
     if (status !== 'authenticated') return;
     let timer: ReturnType<typeof setInterval> | null = null;
     const run = async () => {
@@ -209,7 +216,7 @@ export default function PatientNotificationsPage() {
       <h1 className="mobile-header">我的通知</h1>
       {error && <div className="mobile-alert">{error}</div>}
       <div className="mobile-notifications-grid">
-        {notifications.length > 0 ? notifications.map(n => (
+        {notifications.length > 0 ? notifications.slice((currentPage - 1) * itemsPerPage, (currentPage - 1) * itemsPerPage + itemsPerPage).map(n => (
           <div key={n.id} className={`mobile-notification-card ${n.isRead ? 'mobile-notification-card-read' : 'mobile-notification-card-unread'}`}>
             <div className="mobile-notification-content">
               <div className={`mobile-notification-title ${n.type === 'APPOINTMENT_CANCELLED_BY_DOCTOR' ? 'mobile-notification-title-cancelled' : 'mobile-notification-title-appointment'}`}>
@@ -254,6 +261,22 @@ export default function PatientNotificationsPage() {
           </div>
         )}
       </div>
+
+      {notifications.length > 0 && (
+        <div className="mobile-pagination">
+          <button
+            className="mobile-pagination-btn"
+            onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+            disabled={currentPage === 1}
+          >上一页</button>
+          <span className="mobile-pagination-info">第 {currentPage} 页，共 {Math.max(1, Math.ceil(notifications.length / itemsPerPage))} 页</span>
+          <button
+            className="mobile-pagination-btn"
+            onClick={() => setCurrentPage(p => Math.min(Math.max(1, Math.ceil(notifications.length / itemsPerPage)), p + 1))}
+            disabled={currentPage === Math.max(1, Math.ceil(notifications.length / itemsPerPage))}
+          >下一页</button>
+        </div>
+      )}
     </div>
   );
 }
