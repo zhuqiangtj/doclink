@@ -243,8 +243,16 @@ reason: session.user.role === 'DOCTOR' ? '医生预约' : '病人预约',
 
   } catch (error) {
     // 確保不會因為引用未定義變量而在錯誤處理時再次拋出異常
+    const errObj: any = error;
+    // Prisma 唯一約束衝突（並發下的雙擊/重複請求）
+    let message = error instanceof Error ? error.message : 'Failed to create appointment';
+    if (errObj && typeof errObj.code === 'string' && errObj.code === 'P2002') {
+      message = '该病人已在此时段有预约，不能重复预约';
+    }
+
     console.error('Error creating appointment:', {
-      error: error instanceof Error ? error.message : error,
+      error: message,
+      original: error instanceof Error ? error.message : error,
       stack: error instanceof Error ? error.stack : undefined,
       timeSlotId,
       userId,
@@ -253,7 +261,6 @@ reason: session.user.role === 'DOCTOR' ? '医生预约' : '病人预约',
       roomId
     });
     
-    const message = error instanceof Error ? error.message : 'Failed to create appointment';
     const status =
       message === '预约的时间段已经过期' ? 400 :
       message === 'Time slot not found.' ? 404 :

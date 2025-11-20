@@ -828,7 +828,28 @@ export default function PatientScheduleHome() {
       refreshDayDetails(selectedDate, selectedDoctorId);
       refreshCalendarStatuses(selectedDate, selectedDoctorId);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "发生未知错误");
+      const msg = err instanceof Error ? err.message : "";
+      let friendly = msg || "发生未知错误";
+      if (msg.includes("已到预约时间") || msg.includes("无法取消")) {
+        friendly = "已到预约时间，无法取消";
+      }
+      setError(friendly);
+      try {
+        const appointmentsRes = await fetch("/api/appointments");
+        if (appointmentsRes.ok) {
+          const data = await appointmentsRes.json();
+          const map: Record<string, string> = {};
+          (data as Appointment[]).forEach((apt) => {
+            if (apt.timeSlotId && apt.status === "PENDING") {
+              map[apt.timeSlotId] = apt.id;
+            }
+          });
+          setMyAppointmentsBySlot(map);
+        }
+      } catch {}
+      refreshDayDetails(selectedDate, selectedDoctorId);
+      refreshCalendarStatuses(selectedDate, selectedDoctorId);
+      setOverlayText(friendly);
     }
   };
 

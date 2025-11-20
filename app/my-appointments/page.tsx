@@ -207,7 +207,21 @@ export default function MyAppointmentsPage() {
       const res = await fetch(`/api/appointments/${appointmentId}`, {
         method: 'DELETE',
       });
-      if (!res.ok) throw new Error('取消预约失败');
+      if (!res.ok) {
+        let message = '取消预约失败';
+        try {
+          const bodyText = await res.text();
+          if (bodyText) {
+            try {
+              const errData = JSON.parse(bodyText);
+              message = (errData && errData.error) ? errData.error : bodyText;
+            } catch {
+              message = bodyText;
+            }
+          }
+        } catch {}
+        throw new Error(message);
+      }
       
       // 重新获取预约列表
       const appointmentsRes = await fetch('/api/appointments');
@@ -217,6 +231,14 @@ export default function MyAppointmentsPage() {
       }
     } catch {
       setError('取消预约失败，请稍后再试');
+      try {
+        const appointmentsRes = await fetch('/api/appointments');
+        if (appointmentsRes.ok) {
+          const data = await appointmentsRes.json();
+          setAppointments(data);
+        }
+      } catch {}
+      setOverlayText('取消预约失败');
     }
   };
 

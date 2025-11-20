@@ -1562,8 +1562,10 @@ export default function DoctorSchedulePage() {
                   <div
                     key={index}
                     className={`mobile-time-slot-single-line ${
-                    isPast ? 'mobile-time-slot-past' : (!isPast && isModified ? 'mobile-time-slot-modified' : '')
-                  } ${expandedActionRows.has(key) ? 'mobile-time-slot-selected' : ''}`}
+                      isPast
+                        ? 'mobile-time-slot-past'
+                        : (hasAppointments ? 'mobile-time-slot-with-appointments' : 'mobile-time-slot-no-appointments')
+                    } ${!isPast && isModified ? 'mobile-time-slot-modified' : ''} ${expandedActionRows.has(key) ? 'mobile-time-slot-selected' : ''}`}
                     onClick={(e) => {
                       const target = e.target as HTMLElement | null;
                       if (!target) return;
