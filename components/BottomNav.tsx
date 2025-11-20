@@ -109,7 +109,14 @@ export default function BottomNav() {
       };
       fetchUnreadCount();
       const interval = setInterval(fetchUnreadCount, 60000);
-      return () => clearInterval(interval);
+      const handleNotificationRead = () => {
+        fetchUnreadCount();
+      };
+      window.addEventListener('notificationRead', handleNotificationRead);
+      return () => {
+        clearInterval(interval);
+        window.removeEventListener('notificationRead', handleNotificationRead);
+      };
     }
   }, [session]);
 

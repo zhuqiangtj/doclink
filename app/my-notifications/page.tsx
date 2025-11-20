@@ -189,6 +189,7 @@ export default function PatientNotificationsPage() {
       setNotifications(prev => 
         prev.map(n => n.id === notificationId ? { ...n, isRead: true } : n)
       );
+      window.dispatchEvent(new CustomEvent('notificationRead'));
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An unknown error occurred');
     }
