@@ -961,7 +961,9 @@ export default function PatientScheduleHome() {
                                 </button>
                               ) : (
                                 <button
-                                  className="mobile-btn mobile-btn-danger"
+                                  className={`mobile-btn ${isPast ? 'mobile-btn-disabled' : 'mobile-btn-danger'}`}
+                                  disabled={isPast}
+                                  title={isPast ? '已到预约时间，无法取消' : '取消预约'}
                                   onClick={() => cancelAppointment(myAptId)}
                                 >
                                   取消预约
