@@ -431,12 +431,22 @@ body {
 }
 
 .mobile-time-slot-single-line {
-  background: var(--card-background);
-  border: 2px solid var(--border-color);
+  background: linear-gradient(180deg, #f5f9ff, #eef4ff);
+  border: 2px solid #e0e7ff;
   border-radius: var(--border-radius-sm);
   padding: var(--spacing-xs);
-  margin-bottom: 4px;
-  transition: all 0.2s ease;
+  margin-bottom: 6px;
+  transition: transform 0.18s ease, box-shadow 0.18s ease, background 0.18s ease, border-color 0.18s ease;
+  box-shadow: 0 8px 18px rgba(17, 24, 39, 0.10), inset 0 1px 0 rgba(255,255,255,0.65);
+  transform: translateZ(0);
+}
+
+.mobile-time-slot-single-line:nth-child(odd) {
+  background: linear-gradient(180deg, #f0f7ff, #eaf2ff);
+}
+
+.mobile-time-slot-single-line:nth-child(even) {
+  background: linear-gradient(180deg, #eef6ff, #e7f0ff);
 }
 
 .mobile-time-slot-modified {
@@ -491,21 +501,23 @@ body {
 .mobile-time-input-inline {
   width: 100px;
   padding: var(--spacing-xs);
-  border: 1px solid var(--border-color);
+  border: 1px solid #c7d2fe;
   border-radius: var(--border-radius-sm);
   font-size: 0.95rem;
-  background: var(--card-background);
+  background: linear-gradient(180deg, #ffffff, #f2f7ff);
   flex-shrink: 0;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.8);
 }
 
 .mobile-total-input-inline {
   width: 80px;
   padding: var(--spacing-xs);
-  border: 1px solid var(--border-color);
+  border: 1px solid #c7d2fe;
   border-radius: var(--border-radius-sm);
   font-size: 0.95rem;
-  background: var(--card-background);
+  background: linear-gradient(180deg, #ffffff, #f2f7ff);
   flex-shrink: 0;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.8);
 }
 
 .mobile-slot-info-inline {
@@ -513,12 +525,19 @@ body {
   justify-content: center;
   align-items: center;
   padding: var(--spacing-xs);
-  background: #f8fafc;
+  background: linear-gradient(180deg, #eaf6ff, #e3f2ff);
+  border: 1px solid #bfdbfe;
   border-radius: var(--border-radius-sm);
-  font-size: 0.875rem;
-  color: var(--text-secondary);
-  min-width: 60px;
+  font-size: 0.9rem;
+  color: #1f2937;
+  min-width: 72px;
   flex-shrink: 0;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.8);
+}
+
+.mobile-time-slot-selected {
+  border-color: #60a5fa;
+  box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.25), 0 12px 22px rgba(17,24,39,0.14), inset 0 1px 0 rgba(255,255,255,0.7);
 }
 
 .mobile-slot-actions-inline {

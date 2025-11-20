@@ -1563,7 +1563,7 @@ export default function DoctorSchedulePage() {
                     key={index}
                     className={`mobile-time-slot-single-line ${
                     isPast ? 'mobile-time-slot-past' : (!isPast && isModified ? 'mobile-time-slot-modified' : '')
-                  }`}
+                  } ${expandedActionRows.has(key) ? 'mobile-time-slot-selected' : ''}`}
                     onClick={(e) => {
                       const target = e.target as HTMLElement | null;
                       if (!target) return;
