@@ -425,8 +425,8 @@
   text-align: center;
   white-space: nowrap;
   position: absolute;
-  top: 0.75rem;
-  right: 0.75rem;
+  top: 0.25rem;
+  right: 0.25rem;
 }
 
 /* Status colors */
