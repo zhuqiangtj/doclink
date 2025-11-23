@@ -674,7 +674,7 @@ export default function DoctorSchedulePage() {
   }, [status, doctorProfile?.id]);
   useEffect(() => {
     if (!overlayText) return;
-    const t = setTimeout(() => setOverlayText(null), 3000);
+    const t = setTimeout(() => setOverlayText(null), 5000);
     return () => clearTimeout(t);
   }, [overlayText]);
   
@@ -1165,7 +1165,10 @@ export default function DoctorSchedulePage() {
     } else if (msg.includes('不能重复预约') || msg.includes('duplicate') || msg.includes('该病人在此时段已有预约')) {
       friendly = '該病人在此時段已有預約';
     }
-    setError(friendly);
+    const isDuplicate = friendly === '該病人在此時段已有預約';
+    if (!isDuplicate) {
+      setError(friendly);
+    }
       try {
         const res = await fetch('/api/schedules', { cache: 'no-store' });
         if (res.ok) {
@@ -1178,8 +1181,10 @@ export default function DoctorSchedulePage() {
         }
     } catch {}
     setOverlayText(friendly);
-    setErrorDialogText(friendly);
-    setShowErrorDialog(true);
+    if (!isDuplicate) {
+      setErrorDialogText(friendly);
+      setShowErrorDialog(true);
+    }
   } finally {
     setIsBookingSubmitting(false);
   }
