@@ -80,7 +80,7 @@ return NextResponse.json({ error: '无法取消已过期的预约' }, { status: 
     } else if (status === 'NO_SHOW' && appointment.status === 'COMPLETED') {
 // 医生标记爽约
 finalReason = '医生确认爽约';
-      credibilityChange = -5;
+      credibilityChange = -6;
     } else if (status === 'COMPLETED' && appointment.status === 'PENDING') {
       // 自動完成
       finalReason = finalReason || '自動到期完成就診';
@@ -265,6 +265,14 @@ async function autoUpdateExpiredAppointments(context?: { requestId?: string }) {
             status: 'COMPLETED',
             reason: '系統自動觸發：日期到期',
             action: 'UPDATE_STATUS_TO_COMPLETED',
+          },
+        });
+
+        // 自动完成时奖励病人 1 分
+        await tx.patient.update({
+          where: { id: appointment.patientId },
+          data: {
+            credibilityScore: { increment: 1 },
           },
         });
       });
