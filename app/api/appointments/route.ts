@@ -1,4 +1,3 @@
-import { PrismaClient } from '@prisma/client';
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '../auth/[...nextauth]/route';
@@ -151,7 +150,20 @@ throw new Error('病人积分不足，无法预约');
         }
       }
 
-      // 防跨医生重复预约：同一病人在同一日期与开始时间仅允许一条预约（状态为待就诊）
+      if (timeSlot.schedule?.date) {
+        const dailyLimit = (patientProfile.credibilityScore ?? 0) > 35 ? 2 : 1;
+        const existingCountForDay = await tx.appointment.count({
+          where: {
+            patientId,
+            status: 'PENDING',
+            schedule: { is: { date: timeSlot.schedule.date } },
+          },
+        });
+        if (existingCountForDay >= dailyLimit) {
+          throw new Error(dailyLimit === 1 ? '当日预约已达上限（最多1个）' : '当日预约已达上限（最多2个）');
+        }
+      }
+
       if (timeSlot.schedule?.date && timeSlot.startTime) {
         const existingSameDateTime = await tx.appointment.findFirst({
           where: {
@@ -258,7 +270,7 @@ reason: session.user.role === 'DOCTOR' ? '医生预约' : '病人预约',
 
   } catch (error) {
     // 確保不會因為引用未定義變量而在錯誤處理時再次拋出異常
-    const errObj: any = error;
+    const errObj = error as { code?: string };
     // Prisma 唯一約束衝突（並發下的雙擊/重複請求）
     let message = error instanceof Error ? error.message : 'Failed to create appointment';
     if (errObj && typeof errObj.code === 'string' && errObj.code === 'P2002') {
@@ -286,6 +298,8 @@ reason: session.user.role === 'DOCTOR' ? '医生预约' : '病人预约',
       message === '该病人在此时段已有预约' ? 400 :
       message === 'Patient profile not found.' ? 404 :
       message === '病人只能预约未来三天内的时段' ? 400 :
+      message === '当日预约已达上限（最多1个）' ? 400 :
+      message === '当日预约已达上限（最多2个）' ? 400 :
       500;
     return NextResponse.json({ error: message }, { status });
   }

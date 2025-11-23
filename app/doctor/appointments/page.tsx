@@ -495,21 +495,21 @@ export default function DoctorAppointmentsPage() {
   const handleMarkNoShow = async (appointmentId: string) => {
     try {
       setNoShowLoading(true);
-      const res = await fetch('/api/appointments/no-show', {
+      const res = await fetch('/api/appointments/status', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ appointmentId }),
+        body: JSON.stringify({ appointmentId, status: 'NO_SHOW' }),
       });
 
       if (!res.ok) {
-        const errorData = await res.json();
+        const errorData = await res.json().catch(() => ({}));
         throw new Error(errorData.error || '標記爽約失敗');
       }
 
-      const result = await res.json();
-      setSuccess('已成功標記為爽約，病人已扣除5分');
+      const prevStatus = selectedAppointmentForNoShow ? normalizeStatus(selectedAppointmentForNoShow.status) : 'PENDING';
+      const deducted = prevStatus === 'COMPLETED' ? 6 : 0;
+      setSuccess(deducted > 0 ? '已成功標記為爽約，病人已扣除6分' : '已成功標記為爽約');
       
-      // 直接更新本地狀態，不重新獲取數據
       setAppointments(prev => 
         prev.map(apt => 
           apt.id === appointmentId 
@@ -518,11 +518,8 @@ export default function DoctorAppointmentsPage() {
         )
       );
       
-      // 關閉對話框
       setShowNoShowDialog(false);
       setSelectedAppointmentForNoShow(null);
-      
-      // 3秒後清除成功消息
       setTimeout(() => setSuccess(null), 3000);
     } catch (err) {
       setError(err instanceof Error ? err.message : '標記爽約時發生錯誤');

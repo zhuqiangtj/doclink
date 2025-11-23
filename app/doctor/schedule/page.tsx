@@ -1285,8 +1285,13 @@ export default function DoctorSchedulePage() {
 
   const handleMarkNoShow = async (appointmentId: string, scheduleId: string, slotIndex: number, patientName: string) => {
     try {
-      const response = await fetch(`/api/appointments/${appointmentId}/no-show`, {
-        method: 'POST'
+      const slotBefore = schedulesForSelectedDay.find(s => s.id === scheduleId)?.timeSlots[slotIndex];
+      const apptBefore = slotBefore?.appointments.find(a => a.id === appointmentId);
+      const wasCompletedBefore = apptBefore?.status === 'COMPLETED';
+      const response = await fetch('/api/appointments/status', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ appointmentId, status: 'NO_SHOW' })
       });
 
       if (!response.ok) {
@@ -1302,17 +1307,18 @@ export default function DoctorSchedulePage() {
               updatedTimeSlots[slotIndex] = {
                 ...updatedTimeSlots[slotIndex],
                 appointments: updatedTimeSlots[slotIndex].appointments.map(
-                  appointment => appointment.id === appointmentId 
-                    ? { 
-                        ...appointment, 
-                        status: 'NO_SHOW',
-                        // 前端即時更新病人積分，與後端扣除5分保持一致
-                        patient: {
-                          ...appointment.patient,
-                          credibilityScore: ((appointment.patient.credibilityScore ?? 0) - 5)
-                        }
-                      } 
-                    : appointment
+                  appointment => {
+                    if (appointment.id !== appointmentId) return appointment;
+                    const deducted = wasCompletedBefore ? 6 : 0;
+                    return {
+                      ...appointment,
+                      status: 'NO_SHOW',
+                      patient: {
+                        ...appointment.patient,
+                        credibilityScore: ((appointment.patient.credibilityScore ?? 0) - deducted)
+                      }
+                    };
+                  }
                 )
               };
               return { ...schedule, timeSlots: updatedTimeSlots };
@@ -1321,13 +1327,12 @@ export default function DoctorSchedulePage() {
           })
       );
 
-      // 同步更新對話框中顯示的積分（若仍在顯示）
       setSelectedAppointmentForNoShow(prev => prev ? { 
         ...prev, 
-        credibilityScore: ((prev.credibilityScore ?? 0) - 5) 
+        credibilityScore: ((prev.credibilityScore ?? 0) - (wasCompletedBefore ? 6 : 0))
       } : prev);
 
-      setSuccess(`已标记 ${patientName} 为爽约并扣分`);
+      setSuccess(wasCompletedBefore ? `已标记 ${patientName} 为爽约并扣除6分` : `已标记 ${patientName} 为爽约`);
       setTimeout(() => setSuccess(null), 3000);
     } catch (error) {
       setError(error instanceof Error ? error.message : '标记爽约失败');
