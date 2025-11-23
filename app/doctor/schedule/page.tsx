@@ -1433,7 +1433,7 @@ export default function DoctorSchedulePage() {
   return (
     <div className="page-container space-y-2">
       {overlayText && (
-        <div className="fixed inset-0 flex items-center justify-center pointer-events-none z-50">
+        <div className="fixed inset-0 flex items-center justify-center pointer-events-none z-[2000]">
           <div className="bg-black/60 text-white text-sm px-4 py-2 rounded">{overlayText}</div>
         </div>
       )}
