@@ -196,6 +196,7 @@ export default function DoctorSchedulePage() {
   const selectedDateRef = useRef<Date>(selectedDate);
   const fetchAllDataForDateRef = useRef<((date: Date) => Promise<void>) | undefined>(undefined);
   const refreshTimeSlotByIdRef = useRef<((id: string) => Promise<void>) | undefined>(undefined);
+  const templateApplyGateRef = useRef<boolean>(false);
 
   const refreshMonthStatuses = useCallback(async () => {
     if (status === 'authenticated' && doctorProfile) {
@@ -686,6 +687,9 @@ export default function DoctorSchedulePage() {
 
   const handleApplyTemplate = async () => {
     if (!selectedRoomIdForTemplate) return;
+    // 前端互斥門：阻止在 setState 生效前的極速連點造成的二次進入
+    if (templateApplyGateRef.current) return;
+    templateApplyGateRef.current = true;
     setIsTemplateApplying(true);
     setIsLoading(true);
     setError(null);
@@ -797,6 +801,7 @@ export default function DoctorSchedulePage() {
     } finally {
       setIsLoading(false);
       setIsTemplateApplying(false);
+      templateApplyGateRef.current = false;
     }
   };
 

@@ -115,17 +115,43 @@ export async function POST(request: Request) {
 // 推断时段类型（内部字段，API不再要求客户端提供）
     const inferredType = startTime < '12:00' ? 'MORNING' : 'AFTERNOON';
 
-    const timeSlot = await prisma.timeSlot.create({
-      data: {
-        scheduleId: schedule.id,
-        startTime,
-        endTime,
-        bedCount: Number(bedCount),
-        availableBeds: Number(bedCount),
-        type: inferredType,
-        isActive: true,
-      },
+    // 幂等：若同一排班、同一时间段已存在，则直接返回已有时段
+    const existing = await prisma.timeSlot.findFirst({
+      where: { scheduleId: schedule.id, startTime, endTime },
     });
+    let timeSlot: TimeSlot | null = null as unknown as TimeSlot;
+    if (existing) {
+      timeSlot = existing as unknown as TimeSlot;
+    } else {
+      try {
+        timeSlot = await prisma.timeSlot.create({
+          data: {
+            scheduleId: schedule.id,
+            startTime,
+            endTime,
+            bedCount: Number(bedCount),
+            availableBeds: Number(bedCount),
+            type: inferredType,
+            isActive: true,
+          },
+        }) as unknown as TimeSlot;
+      } catch (e: any) {
+        // 若启用了唯一约束，处理并返回已存在记录
+        const code = e?.code || e?.meta?.code;
+        if (code === 'P2002') {
+          const fallback = await prisma.timeSlot.findFirst({
+            where: { scheduleId: schedule.id, startTime, endTime },
+          });
+          if (fallback) {
+            timeSlot = fallback as unknown as TimeSlot;
+          } else {
+            throw e;
+          }
+        } else {
+          throw e;
+        }
+      }
+    }
 
     await createAuditLog(session, 'CREATE_SCHEDULE_TIMESLOT', 'TimeSlot', timeSlot.id, { date, startTime, endTime });
     try {
@@ -174,7 +200,7 @@ export async function POST(request: Request) {
     } catch (e) {
       console.error('[Realtime] TIMESLOT_CREATED publish failed', e);
     }
-    return NextResponse.json(timeSlot, { status: 201 });
+    return NextResponse.json(timeSlot, { status: existing ? 200 : 201 });
   } catch (error) {
     console.error('Error creating schedule timeslot:', error);
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
