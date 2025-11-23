@@ -212,6 +212,16 @@ export default function DoctorSchedulePage() {
     }
   }, [status, doctorProfile, selectedDate]);
 
+  const handleCalendarMonthChange = useCallback(async (year: number, month: number) => {
+    if (status !== 'authenticated' || !doctorProfile?.id) return;
+    try {
+      const dateStatusData = await fetchDateStatusesForMonth(year, month, doctorProfile.id);
+      setDateStatuses(dateStatusData);
+    } catch (error) {
+      console.error('Month change refresh failed:', error);
+    }
+  }, [status, doctorProfile?.id]);
+
   const getSlotValue = (scheduleId: string, slotIndex: number, field: 'startTime' | 'endTime' | 'bedCount' | 'type' | 'roomId', originalValue: any) => {
     const key = `${scheduleId}-${slotIndex}`;
     return editingSlots[key]?.[field] ?? originalValue;
@@ -1422,6 +1432,7 @@ export default function DoctorSchedulePage() {
             onDateChange={setSelectedDate}
             dateStatuses={dateStatuses}
             isLoading={isLoading}
+            onMonthChange={handleCalendarMonthChange}
           />
         </div>
 
