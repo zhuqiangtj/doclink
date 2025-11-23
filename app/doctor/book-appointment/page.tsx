@@ -4,6 +4,7 @@ import { useState, useEffect, FormEvent, useRef, useCallback } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import './mobile.css';
+import '../appointments/mobile.css';
 
 // --- Interfaces ---
 interface Patient {
@@ -65,6 +66,8 @@ export default function BookAppointmentPage() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [overlayText, setOverlayText] = useState<string | null>(null);
+  const [showErrorDialog, setShowErrorDialog] = useState(false);
+  const [errorDialogText, setErrorDialogText] = useState<string | null>(null);
   const schedulesSnapshotRef = useRef<Map<string, string>>(new Map());
 
   const getCreditColorClass = (score?: number | null): 'credit-good' | 'credit-medium' | 'credit-low' | 'credit-neutral' => {
@@ -282,32 +285,33 @@ export default function BookAppointmentPage() {
       setSelectedScheduleId('');
       setSelectedTime('');
 
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : '';
-      let friendly = msg || '发生未知错误';
-      if (msg.includes('fully booked') || msg.includes('This time slot is fully booked')) {
-        friendly = '该时段已被抢完，请选择其它时段';
-      } else if (msg.includes('已经过期') || msg.includes('expired')) {
-        friendly = '预约时间已过期';
-      } else if (msg.includes('积分不足') || msg.includes('credibility')) {
-        friendly = '病人积分不足，无法预约';
-      } else if (msg.includes('不能重复预约') || msg.includes('duplicate')) {
-        friendly = '该病人在此时段已有预约';
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : '';
+        let friendly = msg || '发生未知错误';
+        if (msg.includes('fully booked') || msg.includes('This time slot is fully booked')) {
+          friendly = '该时段已被抢完，请选择其它时段';
+        } else if (msg.includes('已经过期') || msg.includes('expired')) {
+          friendly = '预约时间已过期';
+        } else if (msg.includes('积分不足') || msg.includes('credibility')) {
+          friendly = '病人积分不足，无法预约';
+        } else if (msg.includes('不能重复预约') || msg.includes('duplicate')) {
+          friendly = '该病人在此时段已有预约';
+        }
+        setError(friendly);
+        try {
+          const schedulesRes = await fetch(`/api/schedules`, { cache: 'no-store' });
+          const schedulesData: ScheduleApiResponse[] = await schedulesRes.json();
+          const formattedSchedules = schedulesData.map(s => ({ ...s, roomName: s.room.name }));
+          setSchedules(formattedSchedules);
+        } catch {}
+        setOverlayText(friendly);
+        setErrorDialogText(friendly);
+        setShowErrorDialog(true);
       }
-      setError(friendly);
-      try {
-        const schedulesRes = await fetch(`/api/schedules`, { cache: 'no-store' });
-        const schedulesData: ScheduleApiResponse[] = await schedulesRes.json();
-        const formattedSchedules = schedulesData.map(s => ({ ...s, roomName: s.room.name }));
-        setSchedules(formattedSchedules);
-      } catch {}
-      setOverlayText(friendly);
-    }
   };
 
   // --- Render Logic ---
   if (isLoading || status === 'loading') return <div className="mobile-loading">加载中...</div>;
-  if (error) return <div className="mobile-loading" style={{color: '#dc2626'}}>{error}</div>;
 
   return (
     <div className="mobile-container">
@@ -418,6 +422,23 @@ export default function BookAppointmentPage() {
         {success && <div className="mobile-alert mobile-alert-success">{success}</div>}
         {error && <div className="mobile-alert mobile-alert-error">{error}</div>}
       </form>
+
+      {showErrorDialog && (
+        <div className="mobile-dialog-overlay">
+          <div className="mobile-dialog">
+            <div className="mobile-dialog-header">
+              <h3 className="mobile-dialog-title">预约失败</h3>
+              <button onClick={() => { setShowErrorDialog(false); setErrorDialogText(null); }} className="mobile-dialog-close-btn" aria-label="关闭">×</button>
+            </div>
+            <div className="mobile-dialog-content">
+              <p className="mobile-dialog-text">{errorDialogText || '预约失败'}</p>
+            </div>
+            <div className="mobile-dialog-footer">
+              <button onClick={() => { setShowErrorDialog(false); setErrorDialogText(null); }} className="mobile-btn mobile-btn-primary">知道了</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
