@@ -219,15 +219,16 @@ export async function PUT(request: Request) {
 
 // 检查是否有预约，若有则禁止任何编辑（包含时间与床位数）。
 // 目前“取消预约”在本页面语义为删除记录，因此只要存在任何关联预约记录，就视为有预约。
-    const appointmentCount = await prisma.appointment.count({
-      where: { 
-        timeSlotId: timeSlotId
+    const activeAppointmentCount = await prisma.appointment.count({
+      where: {
+        timeSlotId: timeSlotId,
+        status: { not: 'CANCELLED' }
       }
     });
 
-    if (appointmentCount > 0) {
+    if (activeAppointmentCount > 0) {
       return NextResponse.json({
-        error: `此时段已有预约记录（${appointmentCount} 笔），禁止编辑。请先取消所有预约。`
+        error: `此时段仍有未取消的预约记录（${activeAppointmentCount} 笔），禁止编辑。请先取消所有预约。`
       }, { status: 400 });
     }
 
@@ -253,7 +254,7 @@ export async function PUT(request: Request) {
         startTime, 
         endTime, 
         bedCount: newBedCount,
-        availableBeds: newBedCount - appointmentCount,
+        availableBeds: newBedCount - activeAppointmentCount,
         type: inferredType,
         isActive: isActive !== undefined ? isActive : timeSlot.isActive
       },
@@ -344,14 +345,25 @@ export async function DELETE(request: Request) {
 
 // 检查是否有关联预约（任意状态）。目前数据库未设定对 Appointment 的级联删除，
 // 因此只要存在任何关联预约，就不允许删除该时段，以避免外键约束错误。
-    const appointmentCount = await prisma.appointment.count({
-      where: { timeSlotId: timeSlotId }
+    const activeAppointmentCount = await prisma.appointment.count({
+      where: { timeSlotId: timeSlotId, status: { not: 'CANCELLED' } }
     });
 
-    if (appointmentCount > 0) {
+    if (activeAppointmentCount > 0) {
       return NextResponse.json({ 
-error: `此时段已有预约记录（${appointmentCount} 笔），无法删除。`
+        error: `此时段仍有未取消的预约记录（${activeAppointmentCount} 笔），无法删除。`
       }, { status: 400 });
+    }
+
+    // 清理已取消的预约及其历史记录，避免外键约束
+    const cancelledAppointments = await prisma.appointment.findMany({
+      where: { timeSlotId: timeSlotId, status: 'CANCELLED' },
+      select: { id: true }
+    });
+    const cancelledIds = cancelledAppointments.map(a => a.id);
+    if (cancelledIds.length > 0) {
+      await prisma.appointmentHistory.deleteMany({ where: { appointmentId: { in: cancelledIds } } });
+      await prisma.appointment.deleteMany({ where: { id: { in: cancelledIds } } });
     }
 
     // 刪除時間段
