@@ -35,6 +35,19 @@ export default function PatientNotificationsPage() {
   const [currentPage, setCurrentPage] = useState<number>(1);
   const itemsPerPage = 10;
 
+  const getTitleClass = (type: string): string => {
+    if (type === 'APPOINTMENT_CANCELLED_BY_DOCTOR') return 'mobile-notification-title-cancelled';
+    if (type === 'DOCTOR_SCHEDULE_UPDATED') return 'mobile-notification-title-schedule';
+    return 'mobile-notification-title-appointment';
+  };
+
+  const getCardTypeClass = (type: string): string => {
+    if (type === 'APPOINTMENT_CANCELLED_BY_DOCTOR') return 'mobile-notification-card-type-cancelled';
+    if (type === 'APPOINTMENT_CREATED_BY_DOCTOR') return 'mobile-notification-card-type-appointment';
+    if (type === 'DOCTOR_SCHEDULE_UPDATED') return 'mobile-notification-card-type-schedule';
+    return '';
+  };
+
   useEffect(() => {
     if (status === 'unauthenticated') {
       router.push('/auth/signin');
@@ -90,7 +103,7 @@ export default function PatientNotificationsPage() {
         try {
           const evt = JSON.parse(ev.data);
           const type = evt?.type as string | undefined;
-          const payload = evt?.payload as any;
+          const payload = evt?.payload as Record<string, unknown>;
           const actorRole = typeof payload?.actorRole === 'string' ? payload.actorRole : undefined;
           const appointmentId = typeof payload?.appointmentId === 'string' ? payload.appointmentId : undefined;
           const timeSlotId = typeof payload?.timeSlotId === 'string' ? payload.timeSlotId : undefined;
@@ -217,9 +230,9 @@ export default function PatientNotificationsPage() {
       {error && <div className="mobile-alert">{error}</div>}
       <div className="mobile-notifications-grid">
         {notifications.length > 0 ? notifications.slice((currentPage - 1) * itemsPerPage, (currentPage - 1) * itemsPerPage + itemsPerPage).map(n => (
-          <div key={n.id} className={`mobile-notification-card ${n.isRead ? 'mobile-notification-card-read' : 'mobile-notification-card-unread'}`}>
+          <div key={n.id} className={`mobile-notification-card ${n.isRead ? 'mobile-notification-card-read' : 'mobile-notification-card-unread'} ${getCardTypeClass(n.type)}`}>
             <div className="mobile-notification-content">
-              <div className={`mobile-notification-title ${n.type === 'APPOINTMENT_CANCELLED_BY_DOCTOR' ? 'mobile-notification-title-cancelled' : 'mobile-notification-title-appointment'}`}>
+              <div className={`mobile-notification-title ${getTitleClass(n.type)}`}>
                 {n.type === 'APPOINTMENT_CANCELLED_BY_DOCTOR' ? '预约被取消' : n.type === 'DOCTOR_SCHEDULE_UPDATED' ? '医生日程更新' : '新预约通知'}
               </div>
               <div className="mobile-notification-details">

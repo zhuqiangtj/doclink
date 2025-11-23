@@ -116,7 +116,7 @@ export default function DoctorAppointmentsPage() {
     if (typeof document === 'undefined') return '';
     const nameEQ = name + '=';
     const parts = document.cookie.split(';');
-    for (let p of parts) {
+    for (const p of parts) {
       const c = p.trim();
       if (c.indexOf(nameEQ) === 0) return decodeURIComponent(c.substring(nameEQ.length));
     }
@@ -635,13 +635,10 @@ export default function DoctorAppointmentsPage() {
           {showNotifications && (
             <div className="mobile-notifications-list">
               {unreadNotifications.map(notification => (
-                <div key={notification.id} className="mobile-notification-item">
+                <div key={notification.id} className={`mobile-notification-item ${getNotificationItemClass(notification.type)}`}>
                   <div className="mobile-notification-content">
-                    <p className={`mobile-notification-type ${
-                      notification.type === 'APPOINTMENT_CANCELLED' ? 'mobile-notification-cancelled' : 'mobile-notification-appointment'
-                    }`}>
-                      {notification.type === 'APPOINTMENT_CANCELLED' ? '预约已取消' : 
-                       notification.type === 'APPOINTMENT_CREATED' ? '新预约提醒' : '预约通知'}
+                    <p className={`mobile-notification-type ${getNotificationTypeClass(notification.type)}`}>
+                      {getNotificationLabel(notification.type)}
                     </p>
                     <div className="mobile-notification-details">
                       <p className="mobile-notification-patient">
@@ -987,3 +984,33 @@ export default function DoctorAppointmentsPage() {
     </div>
   );
 }
+  const getNotificationTypeClass = (type: string): string => {
+    if (type === 'APPOINTMENT_CANCELLED') return 'mobile-notification-cancelled';
+    if (type === 'APPOINTMENT_CREATED') return 'mobile-notification-appointment';
+    if (type === 'APPOINTMENT_STATUS_UPDATED') return 'mobile-notification-status';
+    if (type === 'TIMESLOT_CREATED' || type === 'TIMESLOT_UPDATED' || type === 'TIMESLOT_DELETED') return 'mobile-notification-timeslot';
+    if (type === 'SCHEDULE_CREATED' || type === 'SCHEDULE_UPDATED' || type === 'SCHEDULE_DELETED') return 'mobile-notification-schedule';
+    return 'mobile-notification-appointment';
+  };
+
+  const getNotificationItemClass = (type: string): string => {
+    if (type === 'APPOINTMENT_CANCELLED') return 'mobile-notification-item-type-cancelled';
+    if (type === 'APPOINTMENT_CREATED') return 'mobile-notification-item-type-appointment';
+    if (type === 'APPOINTMENT_STATUS_UPDATED') return 'mobile-notification-item-type-status';
+    if (type === 'TIMESLOT_CREATED' || type === 'TIMESLOT_UPDATED' || type === 'TIMESLOT_DELETED') return 'mobile-notification-item-type-timeslot';
+    if (type === 'SCHEDULE_CREATED' || type === 'SCHEDULE_UPDATED' || type === 'SCHEDULE_DELETED') return 'mobile-notification-item-type-schedule';
+    return '';
+  };
+
+  const getNotificationLabel = (type: string): string => {
+    if (type === 'APPOINTMENT_CANCELLED') return '预约已取消';
+    if (type === 'APPOINTMENT_CREATED') return '新预约提醒';
+    if (type === 'APPOINTMENT_STATUS_UPDATED') return '预约状态变更';
+    if (type === 'TIMESLOT_CREATED') return '新增时段';
+    if (type === 'TIMESLOT_UPDATED') return '时段已更新';
+    if (type === 'TIMESLOT_DELETED') return '时段已删除';
+    if (type === 'SCHEDULE_CREATED') return '排班已创建';
+    if (type === 'SCHEDULE_UPDATED') return '排班已更新';
+    if (type === 'SCHEDULE_DELETED') return '排班已删除';
+    return '预约通知';
+  };

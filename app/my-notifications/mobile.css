@@ -266,3 +266,8 @@
 .mobile-notification-indicator-read {
   background-color: #d1d5db;
 }
+
+.mobile-notification-title-schedule { color: #7c3aed; }
+.mobile-notification-card-type-appointment { border-left-color: #059669; }
+.mobile-notification-card-type-cancelled { border-left-color: #dc2626; }
+.mobile-notification-card-type-schedule { border-left-color: #7c3aed; }

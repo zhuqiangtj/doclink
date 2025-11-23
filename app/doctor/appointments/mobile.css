@@ -599,6 +599,15 @@
   text-align: center;
 }
 
+.mobile-notification-status { color: #2563eb; }
+.mobile-notification-timeslot { color: #10b981; }
+.mobile-notification-schedule { color: #7c3aed; }
+.mobile-notification-item-type-appointment { border-left-color: #059669; }
+.mobile-notification-item-type-cancelled { border-left-color: #ef4444; }
+.mobile-notification-item-type-status { border-left-color: #2563eb; }
+.mobile-notification-item-type-timeslot { border-left-color: #10b981; }
+.mobile-notification-item-type-schedule { border-left-color: #7c3aed; }
+
 .mobile-access-title {
   font-size: 1.5rem;
   font-weight: bold;
