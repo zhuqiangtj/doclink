@@ -725,6 +725,16 @@ export default function PatientScheduleHome() {
     return diffDays >= 0 && diffDays <= 3;
   };
 
+  const isWithinSeventyTwoHoursFromNow = (dateStr: string, time: string) => {
+    if (!time || !time.includes(":")) return false;
+    const [y, m, d] = dateStr.split("-").map(Number);
+    const [hh, mm] = time.split(":").map(Number);
+    const slot = new Date(y || 0, (m || 1) - 1, d || 1, hh || 0, mm || 0, 0, 0);
+    const now = new Date();
+    const diff = slot.getTime() - now.getTime();
+    return diff >= 0 && diff <= 72 * 60 * 60 * 1000;
+  };
+
   const bookAppointment = async (slot: TimeSlot, schedule: Schedule) => {
     if (!session || !patientId || !selectedDoctorId) return;
     setError(null);
@@ -782,8 +792,16 @@ export default function PatientScheduleHome() {
     }
   };
 
+  const [, triggerTimeRefresh] = useState(0);
+  useEffect(() => {
+    const timer = setInterval(() => triggerTimeRefresh(v => v + 1), 60000);
+    return () => clearInterval(timer);
+  }, []);
+
   // 打開預約確認模態框
   const openBookingConfirm = (slot: TimeSlot, schedule: Schedule) => {
+    const allowed = isWithinSeventyTwoHoursFromNow(schedule.date, slot.startTime) && !isTimeSlotPast(schedule.date, slot.startTime);
+    if (!allowed) { setOverlayText('仅可预约未来三天内的时段'); return; }
     setConfirmBookingData({ slot, schedule });
     setIsConfirmOpen(true);
   };
@@ -951,7 +969,7 @@ export default function PatientScheduleHome() {
                     <div className="mobile-time-grid">
                       {schedule.timeSlots.map((slot) => {
                         const isPast = isTimeSlotPast(schedule.date, slot.startTime);
-                        const within3Days = isWithinThreeDaysFromToday(schedule.date);
+                        const within3Days = isWithinSeventyTwoHoursFromNow(schedule.date, slot.startTime);
                         const isFull = slot.availableBeds <= 0;
                         const myAptId = slot.id && myAppointmentsBySlot[slot.id];
                         return (
