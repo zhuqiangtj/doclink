@@ -115,42 +115,54 @@ export async function POST(request: Request) {
 // 推断时段类型（内部字段，API不再要求客户端提供）
     const inferredType = startTime < '12:00' ? 'MORNING' : 'AFTERNOON';
 
-    // 幂等：若同一排班、同一时间段已存在，则直接返回已有时段
+    // 防重：同一排班下，開始時間或結束時間相同均不可新增
+    const sameStart = await prisma.timeSlot.findFirst({
+      where: { scheduleId: schedule.id, startTime }
+    });
+    if (sameStart) {
+      return NextResponse.json({ error: '该排班已有相同开始时间的时段' }, { status: 400 });
+    }
+    const sameEnd = await prisma.timeSlot.findFirst({
+      where: { scheduleId: schedule.id, endTime }
+    });
+    if (sameEnd) {
+      return NextResponse.json({ error: '该排班已有相同结束时间的时段' }, { status: 400 });
+    }
+
+    // 防重：同一排班相同的開始與結束時間視為同一時段，不允許重複新增
     const existing = await prisma.timeSlot.findFirst({
       where: { scheduleId: schedule.id, startTime, endTime },
     });
-    let timeSlot: TimeSlot | null = null as unknown as TimeSlot;
     if (existing) {
-      timeSlot = existing as unknown as TimeSlot;
-    } else {
-      try {
-        timeSlot = await prisma.timeSlot.create({
-          data: {
-            scheduleId: schedule.id,
-            startTime,
-            endTime,
-            bedCount: Number(bedCount),
-            availableBeds: Number(bedCount),
-            type: inferredType,
-            isActive: true,
-          },
-        }) as unknown as TimeSlot;
-      } catch (e: any) {
-        // 若启用了唯一约束，处理并返回已存在记录
-        const code = e?.code || e?.meta?.code;
-        if (code === 'P2002') {
-          const fallback = await prisma.timeSlot.findFirst({
-            where: { scheduleId: schedule.id, startTime, endTime },
-          });
-          if (fallback) {
-            timeSlot = fallback as unknown as TimeSlot;
-          } else {
-            throw e;
-          }
-        } else {
-          throw e;
+      return NextResponse.json({ error: '该排班已存在该时间段' }, { status: 400 });
+    }
+
+    let timeSlot: TimeSlot | null = null as unknown as TimeSlot;
+    try {
+      timeSlot = await prisma.timeSlot.create({
+        data: {
+          scheduleId: schedule.id,
+          startTime,
+          endTime,
+          bedCount: Number(bedCount),
+          availableBeds: Number(bedCount),
+          type: inferredType,
+          isActive: true,
+        },
+      }) as unknown as TimeSlot;
+    } catch (e: any) {
+      const code = e?.code || e?.meta?.code;
+      if (code === 'P2002') {
+        const target = e?.meta?.target as string | undefined;
+        if (target?.includes('scheduleId_startTime')) {
+          return NextResponse.json({ error: '该排班已有相同开始时间的时段' }, { status: 400 });
         }
+        if (target?.includes('scheduleId_endTime')) {
+          return NextResponse.json({ error: '该排班已有相同结束时间的时段' }, { status: 400 });
+        }
+        return NextResponse.json({ error: '该排班已存在该时间段' }, { status: 400 });
       }
+      throw e;
     }
 
     await createAuditLog(session, 'CREATE_SCHEDULE_TIMESLOT', 'TimeSlot', timeSlot.id, { date, startTime, endTime });
@@ -200,7 +212,7 @@ export async function POST(request: Request) {
     } catch (e) {
       console.error('[Realtime] TIMESLOT_CREATED publish failed', e);
     }
-    return NextResponse.json(timeSlot, { status: existing ? 200 : 201 });
+    return NextResponse.json(timeSlot, { status: 201 });
   } catch (error) {
     console.error('Error creating schedule timeslot:', error);
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
@@ -273,6 +285,20 @@ export async function PUT(request: Request) {
 
     // 重新推斷類型以滿足資料庫欄位，但不對外暴露或要求
     const inferredType = startTime < '12:00' ? 'MORNING' : 'AFTERNOON';
+
+    // 防重：同一排班下，開始時間或結束時間相同均不可更新為重複值
+    const startDup = await prisma.timeSlot.findFirst({
+      where: { scheduleId: timeSlot.scheduleId, startTime, id: { not: timeSlotId } }
+    });
+    if (startDup) {
+      return NextResponse.json({ error: '该排班已有相同开始时间的时段' }, { status: 400 });
+    }
+    const endDup = await prisma.timeSlot.findFirst({
+      where: { scheduleId: timeSlot.scheduleId, endTime, id: { not: timeSlotId } }
+    });
+    if (endDup) {
+      return NextResponse.json({ error: '该排班已有相同结束时间的时段' }, { status: 400 });
+    }
 
     const updatedTimeSlot = await prisma.timeSlot.update({
       where: { id: timeSlotId },

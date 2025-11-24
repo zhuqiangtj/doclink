@@ -951,6 +951,19 @@ export default function DoctorSchedulePage() {
       return;
     }
 
+    // 防重校驗：同一診室同一天，開始或結束時間不可與現有時段相同
+    const sc = schedulesForSelectedDay.find(s => s.room.id === selectedRoomIdForTemplate);
+    const startDup = !!(sc && sc.timeSlots.some(ts => ts.startTime === newTimeSlotData.startTime));
+    const endDup = !!(sc && sc.timeSlots.some(ts => ts.endTime === newTimeSlotData.endTime));
+    if (startDup) {
+      setOverlayText('该排班已有相同开始时间的时段');
+      return;
+    }
+    if (endDup) {
+      setOverlayText('该排班已有相同结束时间的时段');
+      return;
+    }
+
     let addedOk = false;
     try {
       setIsLoading(true);
@@ -980,7 +993,12 @@ export default function DoctorSchedulePage() {
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.error || '新增時段失敗');
+        const msg = errorData.error || '新增時段失敗';
+        if (msg.includes('相同开始时间') || msg.includes('相同結束時間') || msg.includes('相同结束时间') || msg.includes('已存在该时间段')) {
+          setOverlayText(msg);
+          return;
+        }
+        throw new Error(msg);
       }
 
       const newTimeSlot = await response.json();
@@ -1041,7 +1059,12 @@ export default function DoctorSchedulePage() {
       setSuccess('時段新增成功');
       setTimeout(() => setSuccess(null), 3000);
     } catch (error) {
-      setError(error instanceof Error ? error.message : '新增時段失敗');
+      const msg = error instanceof Error ? error.message : '新增時段失敗';
+      if (msg.includes('相同开始时间') || msg.includes('相同結束時間') || msg.includes('相同结束时间') || msg.includes('已存在该时间段')) {
+        setOverlayText(msg);
+      } else {
+        setError(msg);
+      }
     } finally {
       setIsLoading(false);
       setIsAddingTimeSlot(false);
@@ -2179,6 +2202,16 @@ export default function DoctorSchedulePage() {
                     required
                   />
                 </div>
+                {(() => {
+                  const sc = schedulesForSelectedDay.find(s => s.room.id === selectedRoomIdForTemplate);
+                  const dup = !!(sc && newTimeSlotData.startTime && sc.timeSlots.some(ts => ts.startTime === newTimeSlotData.startTime));
+                  return dup ? (<p className="text-xs text-red-600 mt-1">开始时间与现有时段重复</p>) : null;
+                })()}
+                {(() => {
+                  const sc = schedulesForSelectedDay.find(s => s.room.id === selectedRoomIdForTemplate);
+                  const dup = !!(sc && newTimeSlotData.endTime && sc.timeSlots.some(ts => ts.endTime === newTimeSlotData.endTime));
+                  return dup ? (<p className="text-xs text-red-600">结束时间与现有时段重复</p>) : null;
+                })()}
               </div>
               
               
@@ -2215,7 +2248,22 @@ export default function DoctorSchedulePage() {
               <button
                 type="button"
                 onClick={handleAddTimeSlot}
-                disabled={isAddingTimeSlot || !selectedRoomIdForTemplate || !newTimeSlotData.startTime || !newTimeSlotData.endTime || !newTimeSlotData.bedCount || (newTimeSlotData.endTime <= newTimeSlotData.startTime)}
+                disabled={
+                  isAddingTimeSlot ||
+                  !selectedRoomIdForTemplate ||
+                  !newTimeSlotData.startTime ||
+                  !newTimeSlotData.endTime ||
+                  !newTimeSlotData.bedCount ||
+                  (newTimeSlotData.endTime <= newTimeSlotData.startTime) ||
+                  (() => {
+                    const sc = schedulesForSelectedDay.find(s => s.room.id === selectedRoomIdForTemplate);
+                    return !!(sc && newTimeSlotData.startTime && sc.timeSlots.some(ts => ts.startTime === newTimeSlotData.startTime));
+                  })() ||
+                  (() => {
+                    const sc = schedulesForSelectedDay.find(s => s.room.id === selectedRoomIdForTemplate);
+                    return !!(sc && newTimeSlotData.endTime && sc.timeSlots.some(ts => ts.endTime === newTimeSlotData.endTime));
+                  })()
+                }
                 className="mobile-btn mobile-btn-success flex-1 disabled:opacity-50 disabled:cursor-not-allowed"
                 aria-busy={isAddingTimeSlot}
               >

@@ -104,6 +104,8 @@ model TimeSlot {
 
   @@index([scheduleId])
   @@index([startTime, endTime])
+  @@unique([scheduleId, startTime])
+  @@unique([scheduleId, endTime])
   @@unique([scheduleId, startTime, endTime])
 }
 
