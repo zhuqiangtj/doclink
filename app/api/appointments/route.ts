@@ -500,3 +500,158 @@ message: `您的预约 (预约时间: ${appointment.timeSlot?.startTime || appoi
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }
+
+export async function PATCH(request: Request) {
+  const session = await getServerSession(authOptions);
+  if (!session) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
+  }
+
+  try {
+    const { appointmentId, newTimeSlotId } = await request.json();
+    if (!appointmentId || !newTimeSlotId) {
+      return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
+    }
+
+    if (session.user.role !== 'DOCTOR' && session.user.role !== 'ADMIN') {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+
+    const appointment = await prisma.appointment.findUnique({
+      where: { id: appointmentId },
+      include: { schedule: true, timeSlot: true }
+    });
+    if (!appointment) {
+      return NextResponse.json({ error: 'Appointment not found' }, { status: 404 });
+    }
+
+    if (session.user.role === 'DOCTOR') {
+      const userProfile = await prisma.user.findUnique({ where: { id: session.user.id }, include: { doctorProfile: true } });
+      if (userProfile?.doctorProfile?.id !== appointment.doctorId) {
+        return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+      }
+    }
+
+    const newTimeSlot = await prisma.timeSlot.findUnique({
+      where: { id: newTimeSlotId },
+      include: { schedule: true }
+    });
+    if (!newTimeSlot || !newTimeSlot.schedule) {
+      return NextResponse.json({ error: 'New time slot not found' }, { status: 404 });
+    }
+    if (!newTimeSlot.isActive) {
+      return NextResponse.json({ error: 'Target time slot is not active' }, { status: 400 });
+    }
+    const [ny, nm, nd] = newTimeSlot.schedule.date.split('-').map(Number);
+    const [nh, nmin] = newTimeSlot.startTime.split(':').map(Number);
+    const startDt = new Date(ny, (nm || 1) - 1, nd || 1, nh || 0, nmin || 0, 0, 0);
+    if (startDt.getTime() <= Date.now()) {
+      return NextResponse.json({ error: 'Target time slot has expired' }, { status: 400 });
+    }
+    const scheduleDoctorOk = (await prisma.schedule.findUnique({ where: { id: newTimeSlot.scheduleId } }))?.doctorId === appointment.doctorId;
+    if (!scheduleDoctorOk) {
+      return NextResponse.json({ error: 'Cannot reschedule to another doctor' }, { status: 400 });
+    }
+
+    const updated = await prisma.$transaction(async (tx) => {
+      const dup = await tx.appointment.findFirst({
+        where: {
+          patientId: appointment.patientId,
+          timeSlotId: newTimeSlotId,
+          status: { not: 'CANCELLED' },
+          id: { not: appointmentId }
+        }
+      });
+      if (dup) {
+        throw new Error('该病人在目标时段已有预约');
+      }
+
+      const decNew = await tx.timeSlot.updateMany({
+        where: { id: newTimeSlotId, availableBeds: { gt: 0 } },
+        data: { availableBeds: { decrement: 1 } }
+      });
+      if (decNew.count === 0) {
+        throw new Error('目标时段已满');
+      }
+
+      if (appointment.timeSlotId) {
+        await tx.timeSlot.update({
+          where: { id: appointment.timeSlotId },
+          data: { availableBeds: { increment: 1 } }
+        });
+      }
+
+      const next = await tx.appointment.update({
+        where: { id: appointmentId },
+        data: {
+          scheduleId: newTimeSlot.scheduleId,
+          timeSlotId: newTimeSlotId,
+          time: newTimeSlot.startTime,
+          roomId: newTimeSlot.schedule.roomId
+        },
+        include: {
+          schedule: true,
+          timeSlot: true,
+          room: true
+        }
+      });
+
+      await createAppointmentHistoryInTransaction(tx, {
+        appointmentId,
+        operatorName: session.user.name || session.user.username || 'Unknown',
+        operatorId: session.user.id,
+        status: next.status,
+        reason: '医生改期',
+        action: 'RESCHEDULE'
+      });
+
+      return next;
+    });
+
+    await createAuditLog(session, 'RESCHEDULE_APPOINTMENT', 'Appointment', appointmentId, {
+      oldScheduleId: appointment.scheduleId,
+      oldTimeSlotId: appointment.timeSlotId,
+      newScheduleId: updated.scheduleId,
+      newTimeSlotId
+    });
+
+    try {
+      const actor = await prisma.user.findUnique({ where: { id: session.user.id } });
+      if (actor) {
+        await prisma.patientNotification.create({
+          data: {
+            userId: appointment.userId,
+            appointmentId: appointment.id,
+            doctorName: actor.name,
+            message: `您的预约已改期为 ${updated.timeSlot?.startTime || updated.time}`,
+            type: 'APPOINTMENT_RESCHEDULED_BY_DOCTOR'
+          }
+        });
+      }
+    } catch {}
+
+    try {
+      await Promise.all([
+        publishDoctorEvent(appointment.doctorId, 'APPOINTMENT_RESCHEDULED', {
+          appointmentId,
+          oldTimeSlotId: appointment.timeSlotId,
+          newTimeSlotId,
+          actorRole: session.user.role
+        }),
+        publishPatientEvent(appointment.patientId, 'APPOINTMENT_RESCHEDULED', {
+          appointmentId,
+          oldTimeSlotId: appointment.timeSlotId,
+          newTimeSlotId,
+          actorRole: session.user.role
+        })
+      ]);
+    } catch (e) {
+      console.error('[Realtime] APPOINTMENT_RESCHEDULED publish failed', e);
+    }
+
+    return NextResponse.json(updated);
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : 'Failed to reschedule appointment';
+    return NextResponse.json({ error: msg }, { status: 400 });
+  }
+}

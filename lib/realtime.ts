@@ -209,6 +209,15 @@ export async function publishPatientEvent(
   type: string,
   payload: unknown
 ): Promise<void> {
+  const allowedPatientTypes = new Set([
+    'APPOINTMENT_CREATED',
+    'APPOINTMENT_CANCELLED',
+    'APPOINTMENT_STATUS_UPDATED',
+    'APPOINTMENT_RESCHEDULED',
+  ]);
+  if (!allowedPatientTypes.has(type)) {
+    return;
+  }
   const key = streamPatient(patientId);
   await xadd(key, {
     type,

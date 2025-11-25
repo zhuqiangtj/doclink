@@ -515,6 +515,7 @@ export default function DoctorSchedulePage() {
           const type = evt?.type as string | undefined;
           const payload = evt?.payload as any;
           const timeSlotId = payload?.timeSlotId as string | undefined;
+          const actorRole = payload?.actorRole as string | undefined;
           let msg: string | null = null;
           if (type === 'APPOINTMENT_CREATED') msg = '新增预约已同步';
           else if (type === 'APPOINTMENT_CANCELLED') msg = '取消预约已同步';
@@ -525,7 +526,8 @@ export default function DoctorSchedulePage() {
           else if (type === 'SCHEDULE_CREATED' || type === 'SCHEDULE_UPDATED' || type === 'SCHEDULE_DELETED') msg = '排班已同步';
           const ts = Number(evt?.ts ?? 0);
           const isRecent = Number.isFinite(ts) && (Date.now() - ts) < 15000;
-          if (msg && isRecent) setOverlayText(msg);
+          const isScheduleEvent = type === 'TIMESLOT_CREATED' || type === 'TIMESLOT_UPDATED' || type === 'TIMESLOT_DELETED' || type === 'SCHEDULE_CREATED' || type === 'SCHEDULE_UPDATED' || type === 'SCHEDULE_DELETED';
+          if (msg && isRecent && !isScheduleEvent && actorRole !== 'DOCTOR') setOverlayText(msg);
           switch (type) {
             case 'APPOINTMENT_CREATED': {
               if (timeSlotId) {

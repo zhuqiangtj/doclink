@@ -38,6 +38,7 @@ export default function PatientNotificationsPage() {
   const getTitleClass = (type: string): string => {
     if (type === 'APPOINTMENT_CANCELLED_BY_DOCTOR') return 'mobile-notification-title-cancelled';
     if (type === 'DOCTOR_SCHEDULE_UPDATED') return 'mobile-notification-title-schedule';
+    if (type === 'APPOINTMENT_RESCHEDULED_BY_DOCTOR') return 'mobile-notification-title-appointment';
     return 'mobile-notification-title-appointment';
   };
 
@@ -45,6 +46,7 @@ export default function PatientNotificationsPage() {
     if (type === 'APPOINTMENT_CANCELLED_BY_DOCTOR') return 'mobile-notification-card-type-cancelled';
     if (type === 'APPOINTMENT_CREATED_BY_DOCTOR') return 'mobile-notification-card-type-appointment';
     if (type === 'DOCTOR_SCHEDULE_UPDATED') return 'mobile-notification-card-type-schedule';
+    if (type === 'APPOINTMENT_RESCHEDULED_BY_DOCTOR') return 'mobile-notification-card-type-appointment';
     return '';
   };
 
@@ -133,6 +135,17 @@ export default function PatientNotificationsPage() {
                   const item: PatientNotification = await res.json();
                   upsert(item);
                   setOverlayText('取消通知已同步');
+                }
+              }
+              break;
+            }
+            case 'APPOINTMENT_RESCHEDULED': {
+              if (appointmentId) {
+                const res = await fetch(`/api/patient-notifications?appointmentId=${appointmentId}`);
+                if (res.ok) {
+                  const item: PatientNotification = await res.json();
+                  upsert(item);
+                  setOverlayText('改期通知已同步');
                 }
               }
               break;
@@ -233,7 +246,7 @@ export default function PatientNotificationsPage() {
           <div key={n.id} className={`mobile-notification-card ${n.isRead ? 'mobile-notification-card-read' : 'mobile-notification-card-unread'} ${getCardTypeClass(n.type)}`}>
             <div className="mobile-notification-content">
               <div className={`mobile-notification-title ${getTitleClass(n.type)}`}>
-                {n.type === 'APPOINTMENT_CANCELLED_BY_DOCTOR' ? '预约被取消' : n.type === 'DOCTOR_SCHEDULE_UPDATED' ? '医生日程更新' : '新预约通知'}
+                {n.type === 'APPOINTMENT_CANCELLED_BY_DOCTOR' ? '预约被取消' : n.type === 'DOCTOR_SCHEDULE_UPDATED' ? '医生日程更新' : n.type === 'APPOINTMENT_RESCHEDULED_BY_DOCTOR' ? '预约改期' : '新预约通知'}
               </div>
               <div className="mobile-notification-details">
                 {n.appointment && (
@@ -257,6 +270,7 @@ export default function PatientNotificationsPage() {
                 n.type === 'APPOINTMENT_CREATED_BY_DOCTOR' ? '创建时间' :
                 n.type === 'APPOINTMENT_CANCELLED_BY_DOCTOR' ? '取消时间' :
                 n.type === 'DOCTOR_SCHEDULE_UPDATED' ? '更新时间' :
+                n.type === 'APPOINTMENT_RESCHEDULED_BY_DOCTOR' ? '改期时间' :
                 '通知时间'
               }：</strong>{new Date(n.createdAt).toLocaleString('zh-CN')}</div>
             </div>

@@ -334,13 +334,15 @@ export default function PatientScheduleHome() {
           const payload = evt?.payload as any;
           const timeSlotId = payload?.timeSlotId as string | undefined;
           const appointmentId = payload?.appointmentId as string | undefined;
+          const actorRole = payload?.actorRole as string | undefined;
           if (!type) return;
           let msg: string | null = null;
           if (type === 'APPOINTMENT_CREATED') msg = '新增预约已同步';
           else if (type === 'APPOINTMENT_CANCELLED') msg = '取消预约已同步';
           else if (type === 'APPOINTMENT_STATUS_UPDATED') msg = '预约状态已同步';
           else if (type === 'DOCTOR_SCHEDULE_UPDATED') msg = '医生排班已更新';
-          if (msg) setOverlayText(msg);
+          else if (type === 'APPOINTMENT_RESCHEDULED') msg = '预约改期已同步';
+          if (msg && actorRole !== 'PATIENT') setOverlayText(msg);
           if (!selectedDoctorId) return;
           switch (type) {
             case 'APPOINTMENT_CREATED':
@@ -461,6 +463,46 @@ export default function PatientScheduleHome() {
                   await refreshDayDetails(selectedDate, selectedDoctorId);
                   await refreshCalendarStatuses(selectedDate, selectedDoctorId);
                 }
+              }
+              break;
+            case 'APPOINTMENT_RESCHEDULED':
+              {
+                const oldId = (payload?.oldTimeSlotId as string | undefined) || undefined;
+                const newId = (payload?.newTimeSlotId as string | undefined) || undefined;
+                const apptId = (payload?.appointmentId as string | undefined) || undefined;
+                if (oldId) {
+                  setMyAppointmentsBySlot(prev => {
+                    const copy = { ...prev };
+                    delete copy[oldId];
+                    return copy;
+                  });
+                }
+                if (newId && apptId) {
+                  setMyAppointmentsBySlot(prev => ({ ...prev, [newId]: apptId }));
+                }
+                const selectedDateStr = toYYYYMMDD(selectedDate);
+                setSchedulesForSelectedDay(prev => {
+                  const next = prev.map(s => {
+                    if (s.date !== selectedDateStr) return s;
+                    return {
+                      ...s,
+                      timeSlots: s.timeSlots.map(t => {
+                        if (oldId && t.id === oldId) {
+                          const nb = Math.min(Number(t.bedCount || 0), Number(t.availableBeds || 0) + 1);
+                          return { ...t, availableBeds: nb };
+                        }
+                        if (newId && t.id === newId) {
+                          const nb = Math.max(0, Number(t.availableBeds || 0) - 1);
+                          return { ...t, availableBeds: nb };
+                        }
+                        return t;
+                      })
+                    };
+                  });
+                  return next;
+                });
+                if (oldId) await refreshPublicTimeSlotById(oldId);
+                if (newId) await refreshPublicTimeSlotById(newId);
               }
               break;
             default:

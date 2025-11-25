@@ -4,7 +4,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '../auth/[...nextauth]/route';
 import { createAuditLog } from '@/lib/audit';
 import { DEFAULT_TIME_SLOTS } from '@/scripts/seed-time-slots';
-import { publishDoctorEvent, publishPatientEvent } from '@/lib/realtime';
+import { publishDoctorEvent } from '@/lib/realtime';
 
 
 interface Appointment {
@@ -174,41 +174,6 @@ export async function POST(request: Request) {
         endTime,
         roomId,
       });
-      // 向有该医生即将到来预约的病人发布事件，并创建通知
-      const upcomingAppointments = await prisma.appointment.findMany({
-        where: {
-          doctorId: doctorProfile.id,
-          status: { not: 'CANCELLED' }
-        },
-        select: { patientId: true, userId: true }
-      });
-      const uniquePatientUserIds = Array.from(new Set(upcomingAppointments.map(a => a.userId)));
-      const doctorUser = await prisma.user.findUnique({ where: { id: session.user.id }, select: { name: true } });
-      await Promise.all(uniquePatientUserIds.map(async (uid) => {
-        // 发布患者事件
-        const patientIdForEvent = upcomingAppointments.find(a => a.userId === uid)?.patientId;
-        if (patientIdForEvent) {
-          await publishPatientEvent(patientIdForEvent, 'DOCTOR_SCHEDULE_UPDATED', {
-            action: 'TIMESLOT_CREATED',
-            doctorId: doctorProfile.id,
-            timeSlotId: timeSlot.id,
-            date,
-            startTime,
-            endTime,
-            roomId,
-          });
-        }
-        // 创建患者通知
-        await prisma.patientNotification.create({
-          data: {
-            userId: uid,
-            appointmentId: timeSlot.id,
-            doctorName: doctorUser?.name || '医生',
-            message: `医生 ${doctorUser?.name || ''} 在 ${date} 更新了新的时段 ${startTime}-${endTime}`,
-            type: 'DOCTOR_SCHEDULE_UPDATED'
-          }
-        });
-      }));
     } catch (e) {
       console.error('[Realtime] TIMESLOT_CREATED publish failed', e);
     }
@@ -321,38 +286,6 @@ export async function PUT(request: Request) {
         bedCount: newBedCount,
         isActive: isActive !== undefined ? isActive : timeSlot.isActive,
       });
-      const upcomingAppointments = await prisma.appointment.findMany({
-        where: {
-          doctorId: doctorProfile.id,
-          status: { not: 'CANCELLED' }
-        },
-        select: { patientId: true, userId: true }
-      });
-      const uniquePatientUserIds = Array.from(new Set(upcomingAppointments.map(a => a.userId)));
-      const doctorUser = await prisma.user.findUnique({ where: { id: session.user.id }, select: { name: true } });
-      await Promise.all(uniquePatientUserIds.map(async (uid) => {
-        const patientIdForEvent = upcomingAppointments.find(a => a.userId === uid)?.patientId;
-        if (patientIdForEvent) {
-          await publishPatientEvent(patientIdForEvent, 'DOCTOR_SCHEDULE_UPDATED', {
-            action: 'TIMESLOT_UPDATED',
-            doctorId: doctorProfile.id,
-            timeSlotId,
-            startTime,
-            endTime,
-            bedCount: newBedCount,
-            isActive: isActive !== undefined ? isActive : timeSlot.isActive,
-          });
-        }
-        await prisma.patientNotification.create({
-          data: {
-            userId: uid,
-            appointmentId: timeSlotId,
-            doctorName: doctorUser?.name || '医生',
-            message: `医生 ${doctorUser?.name || ''} 更新了时段 ${startTime}-${endTime}`,
-            type: 'DOCTOR_SCHEDULE_UPDATED'
-          }
-        });
-      }));
     } catch (e) {
       console.error('[Realtime] TIMESLOT_UPDATED publish failed', e);
     }
@@ -424,35 +357,6 @@ export async function DELETE(request: Request) {
     await createAuditLog(session, 'DELETE_SCHEDULE_TIMESLOT', 'TimeSlot', timeSlotId, { timeSlotId });
     try {
       await publishDoctorEvent(doctorProfile.id, 'TIMESLOT_DELETED', { timeSlotId });
-      const upcomingAppointments = await prisma.appointment.findMany({
-        where: {
-          doctorId: doctorProfile.id,
-          status: { not: 'CANCELLED' }
-        },
-        select: { patientId: true, userId: true }
-      });
-      const uniquePatientUserIds = Array.from(new Set(upcomingAppointments.map(a => a.userId)));
-      const doctorUser = await prisma.user.findUnique({ where: { id: session.user.id }, select: { name: true } });
-      await Promise.all(uniquePatientUserIds.map(async (uid) => {
-        const patientIdForEvent = upcomingAppointments.find(a => a.userId === uid)?.patientId;
-        if (patientIdForEvent) {
-          await publishPatientEvent(patientIdForEvent, 'DOCTOR_SCHEDULE_UPDATED', {
-            action: 'TIMESLOT_DELETED',
-            doctorId: doctorProfile.id,
-            timeSlotId,
-            date: timeSlot?.schedule?.date,
-          });
-        }
-        await prisma.patientNotification.create({
-          data: {
-            userId: uid,
-            appointmentId: timeSlotId,
-            doctorName: doctorUser?.name || '医生',
-            message: `医生 ${doctorUser?.name || ''} 删除了 ${timeSlot?.schedule?.date || ''} 的一个时段`,
-            type: 'DOCTOR_SCHEDULE_UPDATED'
-          }
-        });
-      }));
     } catch (e) {
       console.error('[Realtime] TIMESLOT_DELETED publish failed', e);
     }
