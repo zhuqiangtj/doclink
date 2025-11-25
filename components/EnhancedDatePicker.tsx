@@ -135,7 +135,7 @@ const EnhancedDatePicker: React.FC<EnhancedDatePickerProps> = ({
       classes.push('today');
     }
     
-    if (isSelected(date)) {
+    if (isSelected(date) && isCurrentMonth(date)) {
       classes.push('selected');
     }
     
