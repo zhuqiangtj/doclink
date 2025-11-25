@@ -33,6 +33,7 @@ export default function UsernameBadge() {
     };
   }, []);
   if (isAuthPage || status !== 'authenticated') return null;
+  if (role === 'PATIENT') return null;
   if (!uname) return null;
   return (
     <div ref={rootRef}>

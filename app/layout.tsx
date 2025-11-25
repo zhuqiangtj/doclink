@@ -27,9 +27,9 @@ export default function RootLayout({
         <Providers>
           <SessionLogger />
           <div className="global-badge-stack">
+            <PatientNameBadge />
             <PatientCreditBadge />
             <UsernameBadge />
-            <PatientNameBadge />
           </div>
           <main className="pb-20">{children}</main>
           <BottomNav />
