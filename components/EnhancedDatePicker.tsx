@@ -65,14 +65,14 @@ const EnhancedDatePicker: React.FC<EnhancedDatePickerProps> = ({
     const startingDayOfWeek = firstDay.getDay();
     
     // Previous month's trailing days
-    const prevMonth = new Date(year, month - 1, 0);
-    const prevMonthDays = prevMonth.getDate();
+    const prevMonthLastDay = new Date(year, month, 0);
+    const prevMonthDays = prevMonthLastDay.getDate();
     
     const days: (Date | null)[] = [];
     
     // Add previous month's trailing days
     for (let i = startingDayOfWeek - 1; i >= 0; i--) {
-      days.push(new Date(year, month - 1, prevMonthDays - i));
+      days.push(new Date(prevMonthLastDay.getFullYear(), prevMonthLastDay.getMonth(), prevMonthDays - i));
     }
     
     // Add current month's days
