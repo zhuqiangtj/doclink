@@ -923,11 +923,11 @@ export default function DoctorSchedulePage() {
   };
 
   const searchPatients = async (query: string) => {
-    if (query.length < 2) {
+    const isCJK = /[\u3400-\u9FFF]/.test(query);
+    if (!isCJK && query.length < 2) {
       setSearchedPatients([]);
       return;
     }
-    
     try {
       const response = await fetch(`/api/patients/search?q=${encodeURIComponent(query)}`);
       if (response.ok) {

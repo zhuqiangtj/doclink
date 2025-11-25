@@ -19,7 +19,8 @@ export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const searchQuery = searchParams.get('search');
 
-  if (!searchQuery || searchQuery.length < 2) {
+  const isCJK = !!searchQuery && /[\u3400-\u9FFF]/.test(searchQuery);
+  if (!searchQuery || (!isCJK && searchQuery.length < 2)) {
     return NextResponse.json({ error: 'A search query with at least 2 characters is required.' }, { status: 400 });
   }
 
