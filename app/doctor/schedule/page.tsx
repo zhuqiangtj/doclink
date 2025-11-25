@@ -1464,7 +1464,9 @@ export default function DoctorSchedulePage() {
       )}
       <div className="mobile-card">
         <div className="w-full flex justify-between items-center mb-2">
-          <p className="text-xs text-gray-500">{doctorProfile?.name ?? '医生'}</p>
+          {doctorProfile?.name ? (
+            <h1 className="mobile-header" style={{ marginBottom: 0 }}>{doctorProfile.name}</h1>
+          ) : null}
         </div>
         <div style={{ marginBottom: '24px', display: 'flex', justifyContent: 'center', width: '100%' }}>
           <EnhancedDatePicker

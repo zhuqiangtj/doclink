@@ -246,10 +246,10 @@ export default function DoctorRoomsPage() {
       )}
       <div className="mobile-header">
         <h1 className="text-2xl md:text-4xl font-bold text-foreground">
-          我的诊室
+          {doctorProfile?.name || session?.user?.name || ''}
         </h1>
         <p className="text-sm text-gray-600 mt-1">
-          {doctorProfile.name}
+          我的诊室
         </p>
       </div>
       

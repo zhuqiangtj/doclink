@@ -320,7 +320,7 @@ export default function BookAppointmentPage() {
           <div className="bg-black/60 text-white text-sm px-4 py-2 rounded">{overlayText}</div>
         </div>
       )}
-      <h1 className="mobile-header">为病人预约</h1>
+      <h1 className="mobile-header">{session?.user?.name || ''}</h1>
       <form onSubmit={handleSubmit} className="mobile-form">
         
         {/* Patient Selection */}

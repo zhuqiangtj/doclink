@@ -3,6 +3,9 @@ import "./globals.css";
 import Providers from "./providers";
 import BottomNav from "@/components/BottomNav";
 import SessionLogger from "@/components/SessionLogger";
+import UsernameBadge from "@/components/UsernameBadge";
+import PatientCreditBadge from "@/components/PatientCreditBadge";
+import PatientNameBadge from "@/components/PatientNameBadge";
 
 export const metadata: Metadata = {
   title: "DocLink",
@@ -23,6 +26,11 @@ export default function RootLayout({
       <body style={{ fontFamily: 'system-ui, -apple-system, sans-serif' }}>
         <Providers>
           <SessionLogger />
+          <div className="global-badge-stack">
+            <PatientCreditBadge />
+            <UsernameBadge />
+            <PatientNameBadge />
+          </div>
           <main className="pb-20">{children}</main>
           <BottomNav />
         </Providers>
