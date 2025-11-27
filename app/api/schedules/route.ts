@@ -96,20 +96,18 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Doctor profile not found' }, { status: 404 });
     }
 
-// 查找或创建排班
-    let schedule = await prisma.schedule.findFirst({
-      where: { date, doctorId: doctorProfile.id, roomId },
-    });
-
-    if (!schedule) {
-      schedule = await prisma.schedule.create({
-        data: {
+// 查找或创建排班（复合唯一约束：doctorId+date+roomId）
+    const schedule = await prisma.schedule.upsert({
+      where: {
+        doctorId_date_roomId: {
           doctorId: doctorProfile.id,
           date,
           roomId,
         },
-      });
-    }
+      },
+      update: {},
+      create: { doctorId: doctorProfile.id, date, roomId },
+    });
 
 // 创建新的时段
 // 推断时段类型（内部字段，API不再要求客户端提供）
@@ -150,14 +148,14 @@ export async function POST(request: Request) {
           isActive: true,
         },
       }) as unknown as TimeSlot;
-    } catch (e: any) {
-      const code = e?.code || e?.meta?.code;
+    } catch (e) {
+      const code = (e as { code?: string; meta?: { code?: string } }).code || (e as { meta?: { code?: string } }).meta?.code;
       if (code === 'P2002') {
-        const target = e?.meta?.target as string | undefined;
-        if (target?.includes('scheduleId_startTime')) {
+        const target = (e as { meta?: { target?: string } }).meta?.target;
+        if (target && target.includes('scheduleId_startTime')) {
           return NextResponse.json({ error: '该排班已有相同开始时间的时段' }, { status: 400 });
         }
-        if (target?.includes('scheduleId_endTime')) {
+        if (target && target.includes('scheduleId_endTime')) {
           return NextResponse.json({ error: '该排班已有相同结束时间的时段' }, { status: 400 });
         }
         return NextResponse.json({ error: '该排班已存在该时间段' }, { status: 400 });

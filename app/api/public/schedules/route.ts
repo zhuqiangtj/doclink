@@ -11,6 +11,13 @@ interface TimeSlot {
   isActive: boolean;
 }
 
+interface PublicSchedule {
+  id: string;
+  date: string;
+  room: { id: string; name: string };
+  timeSlots: TimeSlot[];
+}
+
 // This is a public endpoint to get available schedules for a specific doctor
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
@@ -128,7 +135,7 @@ export async function GET(request: Request) {
       }
 
       // Default: monthly overview (distinct dates having active timeslots)
-      const schedules = await prisma.schedule.findMany({
+  const schedules = await prisma.schedule.findMany({
         where: {
           doctorId,
           date: { gte: startDate, lt: endDate },
@@ -179,9 +186,24 @@ export async function GET(request: Request) {
         },
       },
       orderBy: { date: 'asc' },
-    });
-
-    return NextResponse.json(schedules);
+  });
+    const byRoom = new Map<string, PublicSchedule>();
+    for (const s of schedules) {
+      const key = s?.room?.id || s.id;
+      const existing = byRoom.get(key);
+      if (!existing) {
+        const sortedSlots = [...(s.timeSlots || [])].sort((a, b) => a.startTime.localeCompare(b.startTime));
+        byRoom.set(key, { ...s, timeSlots: sortedSlots });
+      } else {
+        const slotsMap = new Map<string, TimeSlot>();
+        for (const t of existing.timeSlots || []) slotsMap.set(t.id, t);
+        for (const t of s.timeSlots || []) slotsMap.set(t.id, t);
+        const mergedSlots = Array.from(slotsMap.values()).sort((a, b) => a.startTime.localeCompare(b.startTime));
+        byRoom.set(key, { ...existing, timeSlots: mergedSlots });
+      }
+    }
+    const merged = Array.from(byRoom.values());
+    return NextResponse.json(merged);
   } catch (error) {
     console.error('Error fetching public schedules:', error);
     return NextResponse.json({ error: 'Failed to fetch schedules' }, { status: 500 });

@@ -35,6 +35,25 @@ interface Schedule {
   timeSlots: TimeSlot[];
 }
 
+const dedupeSchedulesByRoom = (arr: Schedule[]): Schedule[] => {
+  const map = new Map<string, Schedule>();
+  for (const s of arr || []) {
+    const key = s?.room?.id || s.id;
+    const existing = map.get(key);
+    if (!existing) {
+      const slots = [...(s.timeSlots || [])].sort((a, b) => a.startTime.localeCompare(b.startTime));
+      map.set(key, { ...s, timeSlots: slots });
+    } else {
+      const slotsMap = new Map<string, TimeSlot>();
+      for (const t of existing.timeSlots || []) slotsMap.set(t.id, t);
+      for (const t of s.timeSlots || []) slotsMap.set(t.id, t);
+      const mergedSlots = Array.from(slotsMap.values()).sort((a, b) => a.startTime.localeCompare(b.startTime));
+      map.set(key, { ...existing, timeSlots: mergedSlots });
+    }
+  }
+  return Array.from(map.values());
+};
+
 const toYYYYMMDD = (date: Date): string => {
   const y = date.getFullYear();
   const m = String(date.getMonth() + 1).padStart(2, "0");
@@ -153,11 +172,12 @@ export default function PatientScheduleHome() {
       const detailsRes = await fetch(`/api/public/schedules?doctorId=${doctorId}&date=${dateStr}`);
       if (!detailsRes.ok) throw new Error("获取当天排班详情失败。");
       const details: Schedule[] = await detailsRes.json();
-      setSchedulesForSelectedDay(details);
+      const mergedDetails = dedupeSchedulesByRoom(details);
+      setSchedulesForSelectedDay(mergedDetails);
 
       // 构建当日诊室列表（去重）并设置默认选中
       const uniqueRoomsMap = new Map<string, string>();
-      details.forEach((d) => {
+      mergedDetails.forEach((d) => {
         if (d?.room?.id && d?.room?.name) {
           uniqueRoomsMap.set(d.room.id, d.room.name);
         }
@@ -218,7 +238,7 @@ export default function PatientScheduleHome() {
     const nextById = new Map<string, Schedule>();
     for (const s of next) nextById.set(s.id, s);
     let changed = false;
-    const merged: Schedule[] = prev.map((s) => {
+    let merged: Schedule[] = prev.map((s) => {
       const ns = nextById.get(s.id);
       if (!ns) return s;
       const nsSlotsById = new Map<string, TimeSlot>();
@@ -261,6 +281,9 @@ export default function PatientScheduleHome() {
         changed = true;
       }
     }
+    const deduped = dedupeSchedulesByRoom(merged);
+    if (deduped.length !== merged.length) changed = true;
+    merged = deduped;
     const totals = merged.reduce((acc: { bookedBeds: number; totalBeds: number }, sch) => {
       for (const ts of sch.timeSlots || []) {
         acc.totalBeds += Number(ts.bedCount || 0);
@@ -539,14 +562,15 @@ export default function PatientScheduleHome() {
             case 'TIMESLOT_UPDATED':
             case 'TIMESLOT_DELETED':
               if (timeSlotId) {
-                if (type === 'TIMESLOT_DELETED') {
+              if (type === 'TIMESLOT_DELETED') {
                   setSchedulesForSelectedDay(prev => {
                     const next = prev.map(s => ({
                       ...s,
                       timeSlots: (s.timeSlots || []).filter(t => t.id !== timeSlotId)
                     }));
+                    const dedupedNext = dedupeSchedulesByRoom(next);
                     const dateStr = toYYYYMMDD(selectedDate);
-                    const totals = next.reduce((acc: { bookedBeds: number; totalBeds: number }, sch) => {
+                    const totals = dedupedNext.reduce((acc: { bookedBeds: number; totalBeds: number }, sch) => {
                       for (const ts of sch.timeSlots || []) {
                         acc.totalBeds += Number(ts.bedCount || 0);
                         const used = Number(ts.bedCount || 0) - Number(ts.availableBeds || 0);
@@ -556,7 +580,7 @@ export default function PatientScheduleHome() {
                     }, { bookedBeds: 0, totalBeds: 0 });
                     const updatedStatus = {
                       date: dateStr,
-                      hasSchedule: next.some(s => (s.timeSlots || []).length > 0),
+                      hasSchedule: dedupedNext.some(s => (s.timeSlots || []).length > 0),
                       hasAppointments: totals.bookedBeds > 0,
                       bookedBeds: totals.bookedBeds,
                       totalBeds: totals.totalBeds,
@@ -571,7 +595,7 @@ export default function PatientScheduleHome() {
                       }
                       return [...prevStatuses, updatedStatus];
                     });
-                    return next;
+                    return dedupedNext;
                   });
                 } else {
                   await refreshPublicTimeSlotById(timeSlotId);
@@ -711,8 +735,9 @@ export default function PatientScheduleHome() {
           return s;
         });
         const finalNext = scheduleExists ? next : [...next, updatedSchedule];
+        const deduped = dedupeSchedulesByRoom(finalNext);
         const dateStr = selectedDateStr;
-        const totals = finalNext.reduce((acc: { bookedBeds: number; totalBeds: number }, sch) => {
+        const totals = deduped.reduce((acc: { bookedBeds: number; totalBeds: number }, sch) => {
           for (const ts of sch.timeSlots || []) {
             acc.totalBeds += Number(ts.bedCount || 0);
             const used = Number(ts.bedCount || 0) - Number(ts.availableBeds || 0);
@@ -722,7 +747,7 @@ export default function PatientScheduleHome() {
         }, { bookedBeds: 0, totalBeds: 0 });
         const updatedStatus = {
           date: dateStr,
-          hasSchedule: finalNext.some(s => (s.timeSlots || []).length > 0),
+          hasSchedule: deduped.some(s => (s.timeSlots || []).length > 0),
           hasAppointments: totals.bookedBeds > 0,
           bookedBeds: totals.bookedBeds,
           totalBeds: totals.totalBeds,
@@ -737,7 +762,7 @@ export default function PatientScheduleHome() {
           }
           return [...prevStatuses, updatedStatus];
         });
-        return finalNext;
+        return deduped;
       });
     } catch {}
   };

@@ -40,6 +40,25 @@ interface Schedule {
   timeSlots: ScheduleTimeSlot[];
 }
 
+const dedupeSchedulesByRoomId = (arr: Schedule[]): Schedule[] => {
+  const map = new Map<string, Schedule>();
+  for (const s of arr || []) {
+    const key = s.roomId || s.id;
+    const existing = map.get(key);
+    if (!existing) {
+      const slots = [...(s.timeSlots || [])].sort((a, b) => a.time.localeCompare(b.time));
+      map.set(key, { ...s, timeSlots: slots });
+    } else {
+      const slotsMap = new Map<string, ScheduleTimeSlot>();
+      for (const t of existing.timeSlots || []) slotsMap.set(t.time, t);
+      for (const t of s.timeSlots || []) slotsMap.set(t.time, t);
+      const mergedSlots = Array.from(slotsMap.values()).sort((a, b) => a.time.localeCompare(b.time));
+      map.set(key, { ...existing, timeSlots: mergedSlots });
+    }
+  }
+  return Array.from(map.values());
+};
+
 interface DoctorProfile {
   id: string;
   name: string;
@@ -116,7 +135,7 @@ export default function BookAppointmentPage() {
           const schedulesRes = await fetch(`/api/schedules`); // Fetches own schedules
           const schedulesData: ScheduleApiResponse[] = await schedulesRes.json();
           const formattedSchedules = schedulesData.map(s => ({ ...s, roomName: s.room.name }));
-          setSchedules(formattedSchedules);
+          setSchedules(dedupeSchedulesByRoomId(formattedSchedules));
 
         } catch (err) {
           setError(err instanceof Error ? err.message : 'An unknown error occurred');
@@ -131,7 +150,7 @@ export default function BookAppointmentPage() {
     const nextById = new Map<string, Schedule>();
     for (const s of next) nextById.set(s.id, s);
     let changed = false;
-    const merged: Schedule[] = prev.map((s) => {
+    let merged: Schedule[] = prev.map((s) => {
       const ns = nextById.get(s.id);
       if (!ns) return s;
       const nsSlotsByTime = new Map<string, ScheduleTimeSlot>();
@@ -155,7 +174,9 @@ export default function BookAppointmentPage() {
       return { ...s, timeSlots: updated };
     });
     for (const s of next) { if (!prev.some(ps => ps.id === s.id)) { merged.push(s); changed = true; } }
-    return { merged, changed };
+    const deduped = dedupeSchedulesByRoomId(merged);
+    if (deduped.length !== merged.length) changed = true;
+    return { merged: deduped, changed };
   }, []);
 
   useEffect(() => {

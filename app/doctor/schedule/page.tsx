@@ -45,6 +45,25 @@ interface Schedule {
   room: Room;
   timeSlots: TimeSlot[];
 }
+
+const dedupeSchedulesByRoom = (arr: Schedule[]): Schedule[] => {
+  const map = new Map<string, Schedule>();
+  for (const s of arr || []) {
+    const key = s?.room?.id || s.id;
+    const existing = map.get(key);
+    if (!existing) {
+      const slots = [...(s.timeSlots || [])].sort((a, b) => a.startTime.localeCompare(b.startTime));
+      map.set(key, { ...s, timeSlots: slots });
+    } else {
+      const slotsMap = new Map<string, TimeSlot>();
+      for (const t of existing.timeSlots || []) slotsMap.set(t.id, t);
+      for (const t of s.timeSlots || []) slotsMap.set(t.id, t);
+      const mergedSlots = Array.from(slotsMap.values()).sort((a, b) => a.startTime.localeCompare(b.startTime));
+      map.set(key, { ...existing, timeSlots: mergedSlots });
+    }
+  }
+  return Array.from(map.values());
+};
 interface PatientSearchResult { id: string; userId: string; name: string; username: string; phone?: string | null; credibilityScore?: number; gender?: string | null; dateOfBirth?: string | null; }
 
 const DEFAULT_TIMES = ["08:00", "09:00", "10:00", "11:00", "14:00", "15:00", "16:00"];
@@ -339,7 +358,7 @@ export default function DoctorSchedulePage() {
     const nextById = new Map<string, Schedule>();
     for (const s of next) nextById.set(s.id, s);
     let changed = false;
-    const merged: Schedule[] = prev.map((s) => {
+    let merged: Schedule[] = prev.map((s) => {
       const ns = nextById.get(s.id);
       if (!ns) return s;
       const nsSlotsById = new Map<string, TimeSlot>();
@@ -382,6 +401,9 @@ export default function DoctorSchedulePage() {
         changed = true;
       }
     }
+    const deduped = dedupeSchedulesByRoom(merged);
+    if (deduped.length !== merged.length) changed = true;
+    merged = deduped;
     const totals = merged.reduce((acc: { bookedBeds: number; totalBeds: number }, sch) => {
       for (const ts of sch.timeSlots || []) {
         acc.totalBeds += Number(ts.bedCount || 0);
@@ -462,7 +484,7 @@ export default function DoctorSchedulePage() {
         highlightsRes.json()
       ]);
 
-      setSchedulesForSelectedDay(detailsData);
+      setSchedulesForSelectedDay(dedupeSchedulesByRoom(detailsData));
 
       const initialCollapsedState: Record<string, boolean> = {};
       detailsData.forEach((schedule: any) => {

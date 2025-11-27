@@ -3,6 +3,24 @@ import { prisma } from '@/lib/prisma';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '../../auth/[...nextauth]/route';
 
+interface DTimeSlot {
+  id: string;
+  startTime: string;
+  endTime: string;
+  bedCount: number;
+  availableBeds: number;
+  type: string;
+  isActive: boolean;
+  appointments: unknown[];
+}
+
+interface DSchedule {
+  id: string;
+  date: string;
+  room: { id: string; name: string };
+  timeSlots: DTimeSlot[];
+  doctor: unknown;
+}
 
 // GET detailed schedule for a specific date
 export async function GET(request: Request) {
@@ -123,7 +141,23 @@ export async function GET(request: Request) {
         }
       }
     });
-    return NextResponse.json(schedules);
+    const byRoom = new Map<string, DSchedule>();
+    for (const s of schedules) {
+      const key = s?.room?.id || s.id;
+      const existing = byRoom.get(key);
+      if (!existing) {
+        const sortedSlots = [...(s.timeSlots || [])].sort((a, b) => a.startTime.localeCompare(b.startTime));
+        byRoom.set(key, { ...s, timeSlots: sortedSlots });
+      } else {
+        const slotsMap = new Map<string, DTimeSlot>();
+        for (const t of existing.timeSlots || []) slotsMap.set(t.id, t);
+        for (const t of s.timeSlots || []) slotsMap.set(t.id, t);
+        const mergedSlots = Array.from(slotsMap.values()).sort((a, b) => a.startTime.localeCompare(b.startTime));
+        byRoom.set(key, { ...existing, timeSlots: mergedSlots });
+      }
+    }
+    const merged = Array.from(byRoom.values());
+    return NextResponse.json(merged);
 
   } catch (error) {
     console.error('Error fetching schedule details:', error);

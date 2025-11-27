@@ -88,6 +88,8 @@ model Schedule {
   doctor       Doctor        @relation(fields: [doctorId], references: [id])
   room         Room          @relation(fields: [roomId], references: [id])
   timeSlots    TimeSlot[]
+
+  @@unique([doctorId, date, roomId])
 }
 
 model TimeSlot {
