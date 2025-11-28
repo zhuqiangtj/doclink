@@ -34,6 +34,7 @@ export default function PatientNotificationsPage() {
   const snapshotRef = useRef<Map<string, string>>(new Map());
   const [currentPage, setCurrentPage] = useState<number>(1);
   const itemsPerPage = 10;
+  const totalPages = Math.max(1, Math.ceil(notifications.length / itemsPerPage));
 
   const getTitleClass = (type: string): string => {
     if (type === 'APPOINTMENT_CANCELLED_BY_DOCTOR') return 'mobile-notification-title-cancelled';
@@ -182,7 +183,6 @@ export default function PatientNotificationsPage() {
   }, [overlayText]);
 
   useEffect(() => {
-    const totalPages = Math.max(1, Math.ceil(notifications.length / itemsPerPage));
     if (currentPage > totalPages) setCurrentPage(totalPages);
   }, [notifications]);
 
@@ -289,21 +289,19 @@ export default function PatientNotificationsPage() {
         )}
       </div>
 
-      {notifications.length > 0 && (
-        <div className="mobile-pagination">
-          <button
-            className="mobile-pagination-btn"
-            onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-            disabled={currentPage === 1}
-          >上一页</button>
-          <span className="mobile-pagination-info">第 {currentPage} 页，共 {Math.max(1, Math.ceil(notifications.length / itemsPerPage))} 页</span>
-          <button
-            className="mobile-pagination-btn"
-            onClick={() => setCurrentPage(p => Math.min(Math.max(1, Math.ceil(notifications.length / itemsPerPage)), p + 1))}
-            disabled={currentPage === Math.max(1, Math.ceil(notifications.length / itemsPerPage))}
-          >下一页</button>
-        </div>
-      )}
+      <div className="mobile-pagination">
+        <button
+          className="mobile-pagination-btn"
+          onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+          disabled={currentPage === 1}
+        >上一页</button>
+        <span className="mobile-pagination-info">第 {currentPage} 页，共 {totalPages} 页</span>
+        <button
+          className="mobile-pagination-btn"
+          onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+          disabled={currentPage === totalPages}
+        >下一页</button>
+      </div>
     </div>
   );
 }
