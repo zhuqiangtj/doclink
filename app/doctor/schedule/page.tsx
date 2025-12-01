@@ -714,7 +714,8 @@ export default function DoctorSchedulePage() {
             case 'TIMESLOT_DELETED':
             case 'SCHEDULE_CREATED':
             case 'SCHEDULE_UPDATED':
-            case 'SCHEDULE_DELETED':
+            case 'APPOINTMENT_STATUS_UPDATED':
+            case 'APPOINTMENT_RESCHEDULED':
               if (timeSlotId) {
                 if (refreshTimeSlotByIdRef.current) {
                   await refreshTimeSlotByIdRef.current(timeSlotId);
