@@ -1464,21 +1464,45 @@ export default function DoctorSchedulePage() {
         throw new Error(errorData.error || 'Failed to delete time slot');
       }
 
-      setSchedulesForSelectedDay(
-        prev => 
-          prev.map(schedule => {
-            if (schedule.id === scheduleId) {
-              return {
-                ...schedule,
-                timeSlots: schedule.timeSlots.filter(slot => slot.id !== timeSlotId)
-              };
-            }
-            return schedule;
-          })
-      );
-
-      setSuccess('Time slot deleted successfully!');
-      setTimeout(() => setSuccess(null), 3000);
+      setSchedulesForSelectedDay(prev => {
+        const next = prev.map(schedule => {
+          if (schedule.id === scheduleId) {
+            return {
+              ...schedule,
+              timeSlots: schedule.timeSlots.filter(slot => slot.id !== timeSlotId)
+            };
+          }
+          return schedule;
+        });
+        const dedupedNext = dedupeSchedulesByRoom(next);
+        const dateStr = toYYYYMMDD(selectedDate);
+        const totals = dedupedNext.reduce((acc: { bookedBeds: number; totalBeds: number }, sch) => {
+          for (const ts of sch.timeSlots || []) {
+            acc.totalBeds += Number(ts.bedCount || 0);
+            const used = Number(ts.bedCount || 0) - Number(ts.availableBeds || 0);
+            acc.bookedBeds += used > 0 ? used : 0;
+          }
+          return acc;
+        }, { bookedBeds: 0, totalBeds: 0 });
+        const updatedStatus = {
+          date: dateStr,
+          hasSchedule: dedupedNext.some(s => (s.timeSlots || []).length > 0),
+          hasAppointments: totals.bookedBeds > 0,
+          bookedBeds: totals.bookedBeds,
+          totalBeds: totals.totalBeds,
+          isPast: isPastDate(selectedDate),
+        };
+        setDateStatuses(prevStatuses => {
+          const idx = prevStatuses.findIndex(st => st.date === dateStr);
+          if (idx >= 0) {
+            const copy = [...prevStatuses];
+            copy[idx] = updatedStatus;
+            return copy;
+          }
+          return [...prevStatuses, updatedStatus];
+        });
+        return dedupedNext;
+      });
     } catch (err) {
       setError(`Error deleting time slot: ${err instanceof Error ? err.message : 'Unknown error'}`);
     } finally {
