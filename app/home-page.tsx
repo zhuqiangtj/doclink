@@ -149,6 +149,12 @@ export default function PatientScheduleHome() {
     try {
       const year = date.getFullYear();
       const month = date.getMonth();
+      try {
+        const mod = await import('../utils/publicDateStatusUtils');
+        if (typeof mod.invalidatePublicMonthCache === 'function') {
+          mod.invalidatePublicMonthCache(doctorId, year, month);
+        }
+      } catch {}
       const statuses = await fetchPublicDateStatusesForMonth(year, month, doctorId);
       setDateStatuses(statuses);
       // 预取相邻月份，提升月份切换体验
@@ -372,7 +378,7 @@ export default function PatientScheduleHome() {
           else if (type === 'APPOINTMENT_RESCHEDULED') msg = '预约改期已同步';
           if (msg && actorRole !== 'PATIENT') setOverlayText(msg);
           if (!selectedDoctorId) return;
-          switch (type) {
+        switch (type) {
             case 'APPOINTMENT_CREATED':
               if (timeSlotId && appointmentId) {
                 setMyAppointmentsBySlot(prev => ({ ...prev, [timeSlotId]: appointmentId }));
@@ -617,6 +623,8 @@ export default function PatientScheduleHome() {
                 }
               } else {
                 await refreshDayDetails(selectedDate, selectedDoctorId);
+                const ds = toYYYYMMDD(selectedDate);
+                await refreshSingleDateStatus(ds, selectedDoctorId);
               }
               break;
             case 'APPOINTMENT_CREATED':

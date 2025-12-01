@@ -232,6 +232,41 @@ export default function DoctorSchedulePage() {
     }
   }, [status, doctorProfile, selectedDate]);
 
+  const refreshSingleDateStatus = useCallback(async (dateVal: Date) => {
+    if (status !== 'authenticated' || !doctorProfile?.id) return;
+    const dateStr = toYYYYMMDD(dateVal);
+    try {
+      const detailsRes = await fetch(`/api/schedules/details?date=${dateStr}`, { cache: 'no-store' });
+      if (!detailsRes.ok) return;
+      const details: Schedule[] = await detailsRes.json();
+      const totals = details.reduce((acc: { bookedBeds: number; totalBeds: number }, sch) => {
+        for (const ts of sch.timeSlots || []) {
+          acc.totalBeds += Number(ts.bedCount || 0);
+          const used = Number(ts.bedCount || 0) - Number(ts.availableBeds || 0);
+          acc.bookedBeds += used > 0 ? used : 0;
+        }
+        return acc;
+      }, { bookedBeds: 0, totalBeds: 0 });
+      const updatedStatus = {
+        date: dateStr,
+        hasSchedule: details.some(s => (s.timeSlots || []).length > 0),
+        hasAppointments: totals.bookedBeds > 0,
+        bookedBeds: totals.bookedBeds,
+        totalBeds: totals.totalBeds,
+        isPast: isPastDate(dateVal),
+      };
+      setDateStatuses(prevStatuses => {
+        const idx = prevStatuses.findIndex(st => st.date === dateStr);
+        if (idx >= 0) {
+          const copy = [...prevStatuses];
+          copy[idx] = updatedStatus;
+          return copy;
+        }
+        return [...prevStatuses, updatedStatus];
+      });
+    } catch {}
+  }, [status, doctorProfile]);
+
   const handleCalendarMonthChange = useCallback(async (year: number, month: number) => {
     if (status !== 'authenticated' || !doctorProfile?.id) return;
     try {
@@ -610,6 +645,7 @@ export default function DoctorSchedulePage() {
                   await fetchAllDataForDateRef.current(selectedDateRef.current);
                 }
               }
+              await refreshSingleDateStatus(selectedDateRef.current);
               await refreshMonthStatuses();
               break;
             }
@@ -686,6 +722,7 @@ export default function DoctorSchedulePage() {
                   await fetchAllDataForDateRef.current(selectedDateRef.current);
                 }
               }
+              await refreshSingleDateStatus(selectedDateRef.current);
               await refreshMonthStatuses();
               break;
             default:
