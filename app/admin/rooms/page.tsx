@@ -39,6 +39,7 @@ export default function AdminRoomsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [overlayText, setOverlayText] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   
   // --- Modal States ---
@@ -88,6 +89,16 @@ export default function AdminRoomsPage() {
     };
     fetchRoomsAndDoctors();
   }, [status, session]);
+
+  useEffect(() => {
+    if (!overlayText) return;
+    const t = setTimeout(() => setOverlayText(null), 3000);
+    return () => clearTimeout(t);
+  }, [overlayText]);
+
+  useEffect(() => {
+    if (error) setOverlayText(error);
+  }, [error]);
 
   // --- Modal Logic ---
   const openModal = (mode: 'add' | 'edit', room: Room | null = null) => {
@@ -168,6 +179,11 @@ export default function AdminRoomsPage() {
 
   return (
     <div className="page-container">
+      {overlayText && (
+        <div className="fixed inset-0 flex items-center justify-center pointer-events-none z-[2000]">
+          <div className="bg-black/60 text-white text-sm px-4 py-2 rounded">{overlayText}</div>
+        </div>
+      )}
       <div className="mobile-header-section">
         <h1 className="mobile-header">诊室管理</h1>
         <button onClick={() => openModal('add')} className="mobile-add-btn">
@@ -175,7 +191,7 @@ export default function AdminRoomsPage() {
         </button>
       </div>
 
-      {error && <div className="mobile-error">{error}</div>}
+      
       {success && <div className="mobile-success">{success}</div>}
 
       <div className="mobile-content-section">

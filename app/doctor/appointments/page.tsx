@@ -302,6 +302,9 @@ export default function DoctorAppointmentsPage() {
     const t = setTimeout(() => setOverlayText(null), 3000);
     return () => clearTimeout(t);
   }, [overlayText]);
+  useEffect(() => {
+    if (error) setOverlayText(error);
+  }, [error]);
 
   useEffect(() => {
     if (status !== 'authenticated') return;
@@ -679,7 +682,7 @@ export default function DoctorAppointmentsPage() {
         </div>
       )}
       
-      {error && <div className="mobile-error">{error}</div>}
+      
       {success && <div className="mobile-success">{success}</div>}
 
       {/* Filters */}

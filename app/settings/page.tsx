@@ -24,6 +24,7 @@ export default function SettingsPage() {
   // UI states
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [overlayText, setOverlayText] = useState<string | null>(null);
 
   useEffect(() => {
     if (status === 'authenticated') {
@@ -67,6 +68,16 @@ export default function SettingsPage() {
       setCredibilityScore(null);
     }
   }, [status, session]);
+
+  useEffect(() => {
+    if (!overlayText) return;
+    const t = setTimeout(() => setOverlayText(null), 3000);
+    return () => clearTimeout(t);
+  }, [overlayText]);
+
+  useEffect(() => {
+    if (error) setOverlayText(error);
+  }, [error]);
 
   const handleProfileSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -149,8 +160,13 @@ export default function SettingsPage() {
 
   return (
     <div className="page-container">
+      {overlayText && (
+        <div className="fixed inset-0 flex items-center justify-center pointer-events-none z-[2000]">
+          <div className="bg-black/60 text-white text-sm px-4 py-2 rounded">{overlayText}</div>
+        </div>
+      )}
       <h1 className="mobile-header">设置</h1>
-      {error && <div className="mobile-error">{error}</div>}
+      
       {success && <div className="mobile-success">{success}</div>}
 
       <div className="mobile-section">

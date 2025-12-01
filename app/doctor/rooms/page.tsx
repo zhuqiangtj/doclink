@@ -108,6 +108,10 @@ export default function DoctorRoomsPage() {
   }, [overlayText]);
 
   useEffect(() => {
+    if (error) setOverlayText(error);
+  }, [error]);
+
+  useEffect(() => {
     if (status !== 'authenticated') return;
     let timer: ReturnType<typeof setInterval> | null = null;
     const run = async () => {
@@ -259,7 +263,7 @@ export default function DoctorRoomsPage() {
         </button>
       </div>
 
-      {error && <div className="mobile-error">{error}</div>}
+      
       {success && <div className="mobile-success">{success}</div>}
 
       <div className="mobile-card">

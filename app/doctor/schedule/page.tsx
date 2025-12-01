@@ -746,6 +746,9 @@ export default function DoctorSchedulePage() {
     const t = setTimeout(() => setOverlayText(null), 5000);
     return () => clearTimeout(t);
   }, [overlayText]);
+  useEffect(() => {
+    if (error) setOverlayText(error);
+  }, [error]);
   
 
   // 監聽月份變化，重新獲取日期狀態數據
@@ -1532,17 +1535,6 @@ export default function DoctorSchedulePage() {
   if (status === 'loading') return (
     <div className="mobile-loading">
       <div className="mobile-loading-spinner"></div>
-    </div>
-  );
-  if (error) return (
-    <div className="mobile-message mobile-message-error">
-      错误: {error}
-    </div>
-  );
-  // 僅在會話已認證且不在載入中時，才提示無法載入
-  if (status === 'authenticated' && !isLoading && !doctorProfile) return (
-    <div className="mobile-message mobile-message-error">
-      无法载入医生信息
     </div>
   );
 
