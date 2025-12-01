@@ -349,25 +349,32 @@ export default function PatientScheduleHome() {
     if (status !== 'authenticated') return;
     if (!patientId) return;
     try {
-      const es = new EventSource(`/api/realtime/subscribe?kind=patient&id=${patientId}`);
-      es.onmessage = async (ev) => {
+      let es: EventSource | null = null;
+      let retry = 0;
+      let stopped = false;
+      let timer: any = null;
+      const connect = () => {
+        if (stopped) return;
         try {
-          const evt = JSON.parse(ev.data);
-          const type = evt?.type as string | undefined;
-          const payload = evt?.payload as any;
-          const timeSlotId = payload?.timeSlotId as string | undefined;
-          const appointmentId = payload?.appointmentId as string | undefined;
-          const actorRole = payload?.actorRole as string | undefined;
-          if (!type) return;
-          let msg: string | null = null;
-          if (type === 'APPOINTMENT_CREATED') msg = '新增预约已同步';
-          else if (type === 'APPOINTMENT_CANCELLED') msg = '取消预约已同步';
-          else if (type === 'APPOINTMENT_STATUS_UPDATED') msg = '预约状态已同步';
-          else if (type === 'DOCTOR_SCHEDULE_UPDATED') msg = '医生排班已更新';
-          else if (type === 'APPOINTMENT_RESCHEDULED') msg = '预约改期已同步';
-          if (msg && actorRole !== 'PATIENT') setOverlayText(msg);
-          if (!selectedDoctorId) return;
-          switch (type) {
+          es = new EventSource(`/api/realtime/subscribe?kind=patient&id=${patientId}`);
+          es.onmessage = async (ev) => {
+          try {
+            const evt = JSON.parse(ev.data);
+            const type = evt?.type as string | undefined;
+            const payload = evt?.payload as any;
+            const timeSlotId = payload?.timeSlotId as string | undefined;
+            const appointmentId = payload?.appointmentId as string | undefined;
+            const actorRole = payload?.actorRole as string | undefined;
+            if (!type) return;
+            let msg: string | null = null;
+            if (type === 'APPOINTMENT_CREATED') msg = '新增预约已同步';
+            else if (type === 'APPOINTMENT_CANCELLED') msg = '取消预约已同步';
+            else if (type === 'APPOINTMENT_STATUS_UPDATED') msg = '预约状态已同步';
+            else if (type === 'DOCTOR_SCHEDULE_UPDATED') msg = '医生排班已更新';
+            else if (type === 'APPOINTMENT_RESCHEDULED') msg = '预约改期已同步';
+            if (msg && actorRole !== 'PATIENT') setOverlayText(msg);
+            if (!selectedDoctorId) return;
+            switch (type) {
             case 'APPOINTMENT_CREATED':
               if (timeSlotId && appointmentId) {
                 setMyAppointmentsBySlot(prev => ({ ...prev, [timeSlotId]: appointmentId }));
@@ -531,10 +538,18 @@ export default function PatientScheduleHome() {
             default:
               break;
           }
-        } catch {}
+          } catch {}
+        };
+        es.onerror = () => {
+          try { es?.close(); } catch {}
+          if (stopped) return;
+          retry = Math.min(retry + 1, 5);
+          const delay = Math.min(30000, 1000 * Math.pow(2, retry));
+          timer = setTimeout(connect, delay);
+        };
       };
-      es.onerror = () => {};
-      return () => es.close();
+      connect();
+      return () => { stopped = true; if (es) es.close(); if (timer) clearTimeout(timer); };
     } catch (err) {
       console.error('SSE subscribe (patient) failed:', err);
     }
@@ -545,19 +560,26 @@ export default function PatientScheduleHome() {
     if (status !== 'authenticated') return;
     if (!selectedDoctorId) return;
     try {
-      const es = new EventSource(`/api/realtime/subscribe?kind=doctor&id=${selectedDoctorId}`);
-      es.onmessage = async (ev) => {
+      let es: EventSource | null = null;
+      let retry = 0;
+      let stopped = false;
+      let timer: any = null;
+      const connect = () => {
+        if (stopped) return;
         try {
-          const evt = JSON.parse(ev.data);
-          const type = evt?.type as string | undefined;
-          const payload = evt?.payload as any;
-          const timeSlotId = payload?.timeSlotId as string | undefined;
-          let msg: string | null = null;
-          if (type === 'TIMESLOT_CREATED') msg = '新增时段已同步';
-          else if (type === 'TIMESLOT_UPDATED') msg = '时段修改已同步';
-          else if (type === 'TIMESLOT_DELETED') msg = '时段删除已同步';
-          if (msg) setOverlayText(msg);
-          switch (type) {
+          es = new EventSource(`/api/realtime/subscribe?kind=doctor&id=${selectedDoctorId}`);
+          es.onmessage = async (ev) => {
+          try {
+            const evt = JSON.parse(ev.data);
+            const type = evt?.type as string | undefined;
+            const payload = evt?.payload as any;
+            const timeSlotId = payload?.timeSlotId as string | undefined;
+            let msg: string | null = null;
+            if (type === 'TIMESLOT_CREATED') msg = '新增时段已同步';
+            else if (type === 'TIMESLOT_UPDATED') msg = '时段修改已同步';
+            else if (type === 'TIMESLOT_DELETED') msg = '时段删除已同步';
+            if (msg) setOverlayText(msg);
+            switch (type) {
             case 'TIMESLOT_CREATED':
             case 'TIMESLOT_UPDATED':
             case 'TIMESLOT_DELETED':
@@ -617,12 +639,18 @@ export default function PatientScheduleHome() {
             default:
               break;
           }
-        } catch {}
+          } catch {}
+        };
+        es.onerror = () => {
+          try { es?.close(); } catch {}
+          if (stopped) return;
+          retry = Math.min(retry + 1, 5);
+          const delay = Math.min(30000, 1000 * Math.pow(2, retry));
+          timer = setTimeout(connect, delay);
+        };
       };
-      es.onerror = () => {
-        // 自动重连
-      };
-      return () => es.close();
+      connect();
+      return () => { stopped = true; if (es) es.close(); if (timer) clearTimeout(timer); };
     } catch (err) {
       console.error('SSE subscribe (doctor) failed:', err);
     }
@@ -703,6 +731,15 @@ export default function PatientScheduleHome() {
         }
         return [...prevStatuses, updatedStatus];
       });
+      const ap = dateStr.split('-').map(Number);
+      const y = ap[0] || 0;
+      const m = (ap[1] || 1) - 1;
+      try {
+        const mod = await import('../utils/publicDateStatusUtils');
+        if (typeof mod.invalidatePublicMonthCache === 'function') {
+          mod.invalidatePublicMonthCache(doctorId, y, m);
+        }
+      } catch {}
     } catch {}
   };
 

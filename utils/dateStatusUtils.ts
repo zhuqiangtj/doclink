@@ -16,7 +16,7 @@ interface TimeSlot {
 interface Schedule {
   id: string;
   date: string; // YYYY-MM-DD
-  room: { id: string; name: string; bedCount: number };
+  room: { id: string; name: string; bedCount?: number };
   timeSlots: TimeSlot[];
 }
 

@@ -89,16 +89,50 @@ export default function BottomNav() {
       fetchUnreadCount();
       const interval = setInterval(fetchUnreadCount, 60000);
       
-      // 監聽通知已讀事件
       const handleNotificationRead = () => {
         fetchUnreadCount();
       };
       
       window.addEventListener('notificationRead', handleNotificationRead);
+      let es: EventSource | null = null;
+      let retry = 0;
+      let stopped = false;
+      let timer: any = null;
+      (async () => {
+        try {
+          const userRes = await fetch(`/api/user/${session.user.id}`);
+          if (!userRes.ok) return;
+          const userData = await userRes.json();
+          const doctorId = userData?.doctorProfile?.id as string | undefined;
+          if (!doctorId) return;
+          const connect = () => {
+            if (stopped) return;
+            try {
+              es = new EventSource(`/api/realtime/subscribe?kind=doctor&id=${doctorId}`);
+              es.onmessage = () => { fetchUnreadCount(); };
+              es.onerror = () => {
+                try { es?.close(); } catch {}
+                if (stopped) return;
+                retry = Math.min(retry + 1, 5);
+                const delay = Math.min(30000, 1000 * Math.pow(2, retry));
+                timer = setTimeout(connect, delay);
+              };
+            } catch {
+              retry = Math.min(retry + 1, 5);
+              const delay = Math.min(30000, 1000 * Math.pow(2, retry));
+              timer = setTimeout(connect, delay);
+            }
+          };
+          connect();
+        } catch {}
+      })();
       
       return () => {
         clearInterval(interval);
         window.removeEventListener('notificationRead', handleNotificationRead);
+        stopped = true;
+        if (es) es.close();
+        if (timer) clearTimeout(timer);
       };
     } else if (session?.user?.role === 'PATIENT') {
       const fetchUnreadCount = async () => {
@@ -126,9 +160,44 @@ export default function BottomNav() {
         fetchUnreadCount();
       };
       window.addEventListener('notificationRead', handleNotificationRead);
+      let es: EventSource | null = null;
+      let retry = 0;
+      let stopped = false;
+      let timer: any = null;
+      (async () => {
+        try {
+          const userRes = await fetch(`/api/user/${session.user.id}`);
+          if (!userRes.ok) return;
+          const userData = await userRes.json();
+          const patientId = userData?.patientProfile?.id as string | undefined;
+          if (!patientId) return;
+          const connect = () => {
+            if (stopped) return;
+            try {
+              es = new EventSource(`/api/realtime/subscribe?kind=patient&id=${patientId}`);
+              es.onmessage = () => { fetchUnreadCount(); };
+              es.onerror = () => {
+                try { es?.close(); } catch {}
+                if (stopped) return;
+                retry = Math.min(retry + 1, 5);
+                const delay = Math.min(30000, 1000 * Math.pow(2, retry));
+                timer = setTimeout(connect, delay);
+              };
+            } catch {
+              retry = Math.min(retry + 1, 5);
+              const delay = Math.min(30000, 1000 * Math.pow(2, retry));
+              timer = setTimeout(connect, delay);
+            }
+          };
+          connect();
+        } catch {}
+      })();
       return () => {
         clearInterval(interval);
         window.removeEventListener('notificationRead', handleNotificationRead);
+        stopped = true;
+        if (es) es.close();
+        if (timer) clearTimeout(timer);
       };
     }
   }, [session]);
@@ -289,7 +358,8 @@ export default function BottomNav() {
 
   const role = session.user.role;
 
-  let navItems = [];
+  type NavCfg = { href: string; label: string; Icon: React.ElementType; badgeCount?: number; iconColor?: string };
+  let navItems: NavCfg[] = [];
 
   // Define navigation items based on user role
   if (role === 'PATIENT') {

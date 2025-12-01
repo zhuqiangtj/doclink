@@ -16,7 +16,7 @@ interface TimeSlot {
 interface Schedule {
   id: string;
   date: string; // YYYY-MM-DD
-  room: { id: string; name: string };
+  room: { id: string; name: string; bedCount?: number };
   timeSlots: TimeSlot[];
 }
 
@@ -33,7 +33,7 @@ export async function fetchPublicDateStatusesForMonth(
     const monthStr = `${year}-${String(month + 1).padStart(2, '0')}`;
 
     // 單次請求獲取整月詳細時段（aggregate=1），前端自行分組
-    const aggregateRes = await fetch(`/api/public/schedules?doctorId=${doctorId}&month=${monthStr}&aggregate=1`);
+    const aggregateRes = await fetch(`/api/public/schedules?doctorId=${doctorId}&month=${monthStr}&aggregate=1`, { cache: 'no-store' });
     if (!aggregateRes.ok) throw new Error('Failed to fetch public monthly aggregated details');
     const aggregateData: { scheduledDates: string[]; schedules: Schedule[] } = await aggregateRes.json();
     const scheduledDates: string[] = aggregateData.scheduledDates || [];
@@ -64,9 +64,14 @@ export async function prefetchPublicMonthStatuses(year: number, month: number, d
   const cacheKey = keyFor(doctorId, year, month);
   if (monthCache.has(cacheKey)) return;
   try {
-    const statuses = await fetchPublicDateStatusesForMonth(year, month, doctorId);
+    await fetchPublicDateStatusesForMonth(year, month, doctorId);
     // fetchPublicDateStatusesForMonth 本身會寫入緩存
   } catch {
     // 静默失败：预取不影响当前 UI
   }
+}
+
+export function invalidatePublicMonthCache(doctorId: string, year: number, month: number): void {
+  const cacheKey = keyFor(doctorId, year, month);
+  monthCache.delete(cacheKey);
 }

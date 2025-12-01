@@ -38,6 +38,11 @@ const EnhancedDatePicker: React.FC<EnhancedDatePickerProps> = ({
   onMonthChange
 }) => {
   const [currentMonth, setCurrentMonth] = useState(new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1));
+  const statusMap = useMemo(() => {
+    const m = new Map<string, DateStatus>();
+    for (const s of dateStatuses || []) m.set(s.date, s);
+    return m;
+  }, [dateStatuses]);
   
   // Helper function to format date as YYYY-MM-DD (timezone-safe, local)
   const formatDate = (date: Date): string => {
@@ -50,7 +55,7 @@ const EnhancedDatePicker: React.FC<EnhancedDatePickerProps> = ({
   // Get status for a specific date
   const getDateStatus = (date: Date): DateStatus | null => {
     const dateStr = formatDate(date);
-    return dateStatuses.find(status => status.date === dateStr) || null;
+    return statusMap.get(dateStr) || null;
   };
 
   // Generate calendar days for current month
@@ -154,6 +159,16 @@ const EnhancedDatePicker: React.FC<EnhancedDatePickerProps> = ({
     return classes.join(' ');
   };
 
+  const getAriaLabel = (date: Date): string => {
+    const status = getDateStatus(date);
+    const y = date.getFullYear();
+    const m = date.getMonth() + 1;
+    const d = date.getDate();
+    if (!status || !status.hasSchedule) return `${y}年${m}月${d}日，无排班`;
+    const past = status.isPast ? '（已过期）' : '';
+    return `${y}年${m}月${d}日，有排班，预约${status.bookedBeds}，总床位${status.totalBeds}${past}`;
+  };
+
   // Handle date click
   const handleDateClick = (date: Date) => {
     if (isCurrentMonth(date)) {
@@ -185,7 +200,7 @@ const EnhancedDatePicker: React.FC<EnhancedDatePickerProps> = ({
             <FaClock size={8} />
           </div>
         )}
-        <div className="status-info">
+        <div className="status-info" aria-live="polite">
           <span className={countClass}>{status.bookedBeds}/{status.totalBeds}</span>
         </div>
       </div>
@@ -231,9 +246,9 @@ const EnhancedDatePicker: React.FC<EnhancedDatePickerProps> = ({
                 return (
                   <div className="schedule-summary-inline">
                     {status.isPast ? (
-        <span className="past-notice">已过期</span>
+              <span className="past-notice">已过期</span>
                     ) : (
-                      <span className="appointment-notice">
+                      <span className="appointment-notice" aria-live="polite">
                         {status.bookedBeds}/{status.totalBeds}
                       </span>
                     )}
@@ -274,7 +289,15 @@ const EnhancedDatePicker: React.FC<EnhancedDatePickerProps> = ({
               <div
                 key={index}
                 className={getDateClasses(date)}
+                role={isCurrentMonth(date) ? 'button' : undefined}
+                tabIndex={isCurrentMonth(date) ? 0 : -1}
+                aria-disabled={!isCurrentMonth(date)}
+                aria-label={getAriaLabel(date)}
                 onClick={() => handleDateClick(date)}
+                onKeyDown={(e) => {
+                  if (!isCurrentMonth(date)) return;
+                  if (e.key === 'Enter' || e.key === ' ') onDateChange(date);
+                }}
               >
                 <span className="date-number">{date.getDate()}</span>
                 {getStatusIndicator(date)}
