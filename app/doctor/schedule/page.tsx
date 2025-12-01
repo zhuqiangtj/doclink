@@ -529,35 +529,33 @@ export default function DoctorSchedulePage() {
   useEffect(() => {
     if (status !== 'authenticated') return;
     if (!doctorProfile?.id) return;
-    try {
-      let es: EventSource | null = null;
-      let retry = 0;
-      let stopped = false;
-      let timer: any = null;
-      const connect = () => {
-        if (stopped) return;
+    let es: EventSource | null = null;
+    let retry = 0;
+    let stopped = false;
+    let timer: any = null;
+    const connect = () => {
+      if (stopped) return;
+      es = new EventSource(`/api/realtime/subscribe?kind=doctor&id=${doctorProfile.id}`);
+      es.onmessage = async (ev) => {
         try {
-          es = new EventSource(`/api/realtime/subscribe?kind=doctor&id=${doctorProfile.id}`);
-          es.onmessage = async (ev) => {
-          try {
-            const evt = JSON.parse(ev.data);
-            const type = evt?.type as string | undefined;
-            const payload = evt?.payload as any;
-            const timeSlotId = payload?.timeSlotId as string | undefined;
-            const actorRole = payload?.actorRole as string | undefined;
-            let msg: string | null = null;
-            if (type === 'APPOINTMENT_CREATED') msg = '新增预约已同步';
-            else if (type === 'APPOINTMENT_CANCELLED') msg = '取消预约已同步';
-            else if (type === 'APPOINTMENT_STATUS_UPDATED') msg = '预约状态已同步';
-            else if (type === 'TIMESLOT_CREATED') msg = '新增时段已同步';
-            else if (type === 'TIMESLOT_UPDATED') msg = '时段修改已同步';
-            else if (type === 'TIMESLOT_DELETED') msg = '时段删除已同步';
-            else if (type === 'SCHEDULE_CREATED' || type === 'SCHEDULE_UPDATED' || type === 'SCHEDULE_DELETED') msg = '排班已同步';
-            const ts = Number(evt?.ts ?? 0);
-            const isRecent = Number.isFinite(ts) && (Date.now() - ts) < 15000;
-            const isScheduleEvent = type === 'TIMESLOT_CREATED' || type === 'TIMESLOT_UPDATED' || type === 'TIMESLOT_DELETED' || type === 'SCHEDULE_CREATED' || type === 'SCHEDULE_UPDATED' || type === 'SCHEDULE_DELETED';
-            if (msg && isRecent && !isScheduleEvent && actorRole !== 'DOCTOR') setOverlayText(msg);
-            switch (type) {
+          const evt = JSON.parse(ev.data);
+          const type = evt?.type as string | undefined;
+          const payload = evt?.payload as any;
+          const timeSlotId = payload?.timeSlotId as string | undefined;
+          const actorRole = payload?.actorRole as string | undefined;
+          let msg: string | null = null;
+          if (type === 'APPOINTMENT_CREATED') msg = '新增预约已同步';
+          else if (type === 'APPOINTMENT_CANCELLED') msg = '取消预约已同步';
+          else if (type === 'APPOINTMENT_STATUS_UPDATED') msg = '预约状态已同步';
+          else if (type === 'TIMESLOT_CREATED') msg = '新增时段已同步';
+          else if (type === 'TIMESLOT_UPDATED') msg = '时段修改已同步';
+          else if (type === 'TIMESLOT_DELETED') msg = '时段删除已同步';
+          else if (type === 'SCHEDULE_CREATED' || type === 'SCHEDULE_UPDATED' || type === 'SCHEDULE_DELETED') msg = '排班已同步';
+          const ts = Number(evt?.ts ?? 0);
+          const isRecent = Number.isFinite(ts) && (Date.now() - ts) < 15000;
+          const isScheduleEvent = type === 'TIMESLOT_CREATED' || type === 'TIMESLOT_UPDATED' || type === 'TIMESLOT_DELETED' || type === 'SCHEDULE_CREATED' || type === 'SCHEDULE_UPDATED' || type === 'SCHEDULE_DELETED';
+          if (msg && isRecent && !isScheduleEvent && actorRole !== 'DOCTOR') setOverlayText(msg);
+          switch (type) {
             case 'APPOINTMENT_CREATED': {
               if (timeSlotId) {
                 const selectedDateStr = toYYYYMMDD(selectedDateRef.current);
@@ -693,21 +691,18 @@ export default function DoctorSchedulePage() {
             default:
               break;
           }
-          } catch {}
-        };
-        es.onerror = () => {
-          try { es?.close(); } catch {}
-          if (stopped) return;
-          retry = Math.min(retry + 1, 5);
-          const delay = Math.min(30000, 1000 * Math.pow(2, retry));
-          timer = setTimeout(connect, delay);
-        };
+        } catch {}
       };
-      connect();
-      return () => { stopped = true; if (es) es.close(); if (timer) clearTimeout(timer); };
-    } catch (err) {
-      console.error('SSE subscribe (doctor schedule) failed:', err);
-    }
+      es.onerror = () => {
+        try { es?.close(); } catch {}
+        if (stopped) return;
+        retry = Math.min(retry + 1, 5);
+        const delay = Math.min(30000, 1000 * Math.pow(2, retry));
+        timer = setTimeout(connect, delay);
+      };
+    };
+    connect();
+    return () => { stopped = true; if (es) es.close(); if (timer) clearTimeout(timer); };
   }, [status, doctorProfile?.id]);
   useEffect(() => {
     if (!overlayText) return;
