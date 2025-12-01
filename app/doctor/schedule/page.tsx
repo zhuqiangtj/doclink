@@ -1132,6 +1132,8 @@ export default function DoctorSchedulePage() {
       
       setSuccess('時段新增成功');
       setTimeout(() => setSuccess(null), 3000);
+      await refreshSingleDateStatus(selectedDate);
+      await refreshMonthStatuses();
     } catch (error) {
       const msg = error instanceof Error ? error.message : '新增時段失敗';
       if (msg.includes('相同开始时间') || msg.includes('相同結束時間') || msg.includes('相同结束时间') || msg.includes('已存在该时间段')) {
@@ -1250,6 +1252,8 @@ export default function DoctorSchedulePage() {
       setIsBookingModalOpen(false);
       setSuccess(`Successfully added appointment for ${selectedPatient.name}`);
       setTimeout(() => setSuccess(null), 3000);
+      await refreshSingleDateStatus(selectedDate);
+      await refreshMonthStatuses();
   } catch (error) {
     const msg = error instanceof Error ? error.message : '';
     let friendly = msg || 'Failed to add appointment';
@@ -1344,6 +1348,8 @@ export default function DoctorSchedulePage() {
       setSelectedAppointmentForCancel(null);
       setSuccess(`已成功取消 ${selectedAppointmentForCancel.patientName} 的预约`);
       setTimeout(() => setSuccess(null), 3000);
+      await refreshSingleDateStatus(selectedDate);
+      await refreshMonthStatuses();
     } catch (error) {
       setError(error instanceof Error ? error.message : '取消預約失敗');
     } finally {
