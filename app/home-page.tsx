@@ -382,7 +382,7 @@ export default function PatientScheduleHome() {
             case 'APPOINTMENT_CREATED':
               if (timeSlotId && appointmentId) {
                 setMyAppointmentsBySlot(prev => ({ ...prev, [timeSlotId]: appointmentId }));
-                const selectedDateStr = toYYYYMMDD(selectedDate);
+                const selectedDateStr = toYYYYMMDD(selectedDateRef.current);
                 setSchedulesForSelectedDay(prev => {
                   const next = prev.map(s => {
                     if (s.date !== selectedDateStr) return s;
@@ -411,7 +411,7 @@ export default function PatientScheduleHome() {
                     hasAppointments: totals.bookedBeds > 0,
                     bookedBeds: totals.bookedBeds,
                     totalBeds: totals.totalBeds,
-                    isPast: isPastDate(selectedDate),
+                    isPast: isPastDate(selectedDateRef.current),
                   };
                   setDateStatuses(prevStatuses => {
                     const idx = prevStatuses.findIndex(st => st.date === selectedDateStr);
@@ -425,9 +425,10 @@ export default function PatientScheduleHome() {
                   return next;
                 });
                 await refreshPublicTimeSlotById(timeSlotId);
+                await refreshSingleDateStatus(selectedDateStr, selectedDoctorId);
               } else {
-                await refreshDayDetails(selectedDate, selectedDoctorId);
-                await refreshCalendarStatuses(selectedDate, selectedDoctorId);
+                await refreshDayDetails(selectedDateRef.current, selectedDoctorIdRef.current || selectedDoctorId);
+                await refreshCalendarStatuses(selectedDateRef.current, selectedDoctorIdRef.current || selectedDoctorId);
               }
               break;
             case 'APPOINTMENT_CANCELLED':
@@ -437,7 +438,7 @@ export default function PatientScheduleHome() {
                   delete copy[timeSlotId];
                   return copy;
                 });
-                const selectedDateStr = toYYYYMMDD(selectedDate);
+                const selectedDateStr = toYYYYMMDD(selectedDateRef.current);
                 setSchedulesForSelectedDay(prev => {
                   const next = prev.map(s => {
                     if (s.date !== selectedDateStr) return s;
@@ -462,7 +463,7 @@ export default function PatientScheduleHome() {
                     hasAppointments: totals.bookedBeds > 0,
                     bookedBeds: totals.bookedBeds,
                     totalBeds: totals.totalBeds,
-                    isPast: isPastDate(selectedDate),
+                    isPast: isPastDate(selectedDateRef.current),
                   };
                   setDateStatuses(prevStatuses => {
                     const idx = prevStatuses.findIndex(st => st.date === selectedDateStr);
@@ -476,9 +477,10 @@ export default function PatientScheduleHome() {
                   return next;
                 });
                 await refreshPublicTimeSlotById(timeSlotId);
+                await refreshSingleDateStatus(selectedDateStr, selectedDoctorId);
               } else {
-                await refreshDayDetails(selectedDate, selectedDoctorId);
-                await refreshCalendarStatuses(selectedDate, selectedDoctorId);
+                await refreshDayDetails(selectedDateRef.current, selectedDoctorIdRef.current || selectedDoctorId);
+                await refreshCalendarStatuses(selectedDateRef.current, selectedDoctorIdRef.current || selectedDoctorId);
               }
               break;
             case 'APPOINTMENT_STATUS_UPDATED':
@@ -493,9 +495,10 @@ export default function PatientScheduleHome() {
                 }
                 if (timeSlotId) {
                   await refreshPublicTimeSlotById(timeSlotId);
+                  await refreshSingleDateStatus(toYYYYMMDD(selectedDateRef.current), selectedDoctorId);
                 } else {
-                  await refreshDayDetails(selectedDate, selectedDoctorId);
-                  await refreshCalendarStatuses(selectedDate, selectedDoctorId);
+                  await refreshDayDetails(selectedDateRef.current, selectedDoctorIdRef.current || selectedDoctorId);
+                  await refreshCalendarStatuses(selectedDateRef.current, selectedDoctorIdRef.current || selectedDoctorId);
                 }
               }
               break;
@@ -514,7 +517,7 @@ export default function PatientScheduleHome() {
                 if (newId && apptId) {
                   setMyAppointmentsBySlot(prev => ({ ...prev, [newId]: apptId }));
                 }
-                const selectedDateStr = toYYYYMMDD(selectedDate);
+                const selectedDateStr = toYYYYMMDD(selectedDateRef.current);
                 setSchedulesForSelectedDay(prev => {
                   const next = prev.map(s => {
                     if (s.date !== selectedDateStr) return s;
@@ -537,6 +540,7 @@ export default function PatientScheduleHome() {
                 });
                 if (oldId) await refreshPublicTimeSlotById(oldId);
                 if (newId) await refreshPublicTimeSlotById(newId);
+                await refreshSingleDateStatus(selectedDateStr, selectedDoctorId);
               }
               break;
             default:
