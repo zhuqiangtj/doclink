@@ -1570,17 +1570,7 @@ export default function DoctorSchedulePage() {
           />
         </div>
 
-        {success && (
-          <div className="mobile-toast mobile-toast-success">
-            {success}
-          </div>
-        )}
-
-        {error && (
-          <div className="mobile-toast mobile-toast-error">
-            {error}
-          </div>
-        )}
+        {/* 移除非中央透明提示（success/error toast） */}
         
         <div className="w-full grid grid-cols-2 gap-2">
           <button
