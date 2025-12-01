@@ -102,9 +102,9 @@ export async function POST(request: Request) {
       if ((patientProfile.credibilityScore ?? 0) <= 0) {
 throw new Error('病人积分不足，无法预约');
       }
-      // 防重复预约：同一患者在同一时段只能有一条预约记录
+      // 防重复预约：同一患者在同一时段只能有一条「未取消」的预约记录
       const existingForSlot = await tx.appointment.findFirst({
-        where: { patientId, timeSlotId }
+        where: { patientId, timeSlotId, status: 'PENDING' }
       });
       if (existingForSlot) {
         throw new Error('该病人已在此时段有预约，不能重复预约');

@@ -4,6 +4,7 @@ import { authOptions } from '../../auth/[...nextauth]/route';
 import { prisma } from '@/lib/prisma';
 import { createAuditLog } from '@/lib/audit';
 import { createAppointmentHistoryInTransaction } from '@/lib/appointment-history';
+import { publishDoctorEvent, publishPatientEvent } from '@/lib/realtime';
 
 export async function GET(
   request: Request,
@@ -231,6 +232,24 @@ export async function DELETE(
       }
     } catch (notificationError) {
       console.error('Failed to create notifications:', notificationError);
+    }
+
+    // Publish realtime cancellation to doctor and patient channels
+    try {
+      await Promise.all([
+        publishDoctorEvent(appointment.doctorId, 'APPOINTMENT_CANCELLED', {
+          appointmentId: appointment.id,
+          actorRole: session.user.role,
+          reason,
+        }),
+        publishPatientEvent(appointment.patientId, 'APPOINTMENT_CANCELLED', {
+          appointmentId: appointment.id,
+          actorRole: session.user.role,
+          reason,
+        }),
+      ]);
+    } catch (e) {
+      console.error('[Realtime] APPOINTMENT_CANCELLED publish failed', e);
     }
 
     return NextResponse.json({ message: 'Appointment cancelled successfully' });

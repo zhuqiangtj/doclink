@@ -48,15 +48,16 @@ export function convertToDateStatuses(
       }
     }
 
-// 计算当天总床位与已预约数量
-// 需求：已预约数量为「所有时段的已预约总数」（不管是否过期）
-// 使用 appointments.length 更精准地表达已预约数量
+    // 计算当天总床位与已预约数量
+    // 使用「总床位 - 可用床位」作为已预约数量，避免因不同接口返回的预约列表包含已取消记录而导致统计偏差
     let totalBeds = 0;
     let bookedBeds = 0;
     for (const slot of daySlots) {
-      totalBeds += Number(slot.bedCount) || 0;
-      const bookedForSlot = Array.isArray(slot.appointments) ? slot.appointments.length : Math.max(0, (Number(slot.bedCount) || 0) - (Number(slot.availableBeds) || 0));
-      bookedBeds += bookedForSlot;
+      const total = Number(slot.bedCount) || 0;
+      const available = Number(slot.availableBeds) || 0;
+      totalBeds += total;
+      const used = total - available;
+      bookedBeds += used > 0 ? used : 0;
     }
 
     const hasAppointments = bookedBeds > 0;

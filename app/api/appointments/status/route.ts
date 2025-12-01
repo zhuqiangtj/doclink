@@ -62,6 +62,9 @@ export async function PUT(request: Request) {
 
     // 處理不同的狀態變更邏輯
     if (status === 'CANCELLED') {
+      if (appointment.status !== 'PENDING') {
+        return NextResponse.json({ error: 'Only pending appointments can be cancelled' }, { status: 400 });
+      }
       const appointmentDate = new Date(appointment.schedule.date);
       const today = new Date();
       today.setHours(0, 0, 0, 0);
@@ -115,6 +118,13 @@ finalReason = '医生确认爽约';
               increment: credibilityChange 
             } 
           }
+        });
+      }
+
+      if (status === 'CANCELLED' && appointment.timeSlotId) {
+        await tx.timeSlot.update({
+          where: { id: appointment.timeSlotId },
+          data: { availableBeds: { increment: 1 } }
         });
       }
 
