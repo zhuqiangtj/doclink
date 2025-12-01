@@ -221,8 +221,8 @@ export default function DoctorSchedulePage() {
     if (status === 'authenticated' && doctorProfile) {
       try {
         const dateStatusData = await fetchDateStatusesForMonth(
-          selectedDate.getFullYear(),
-          selectedDate.getMonth(),
+          currentMonth.getFullYear(),
+          currentMonth.getMonth(),
           doctorProfile.id
         );
         setDateStatuses(dateStatusData);
@@ -230,7 +230,7 @@ export default function DoctorSchedulePage() {
         console.error('Error fetching date statuses:', error);
       }
     }
-  }, [status, doctorProfile, selectedDate]);
+  }, [status, doctorProfile, currentMonth]);
 
   const refreshSingleDateStatus = useCallback(async (dateVal: Date) => {
     if (status !== 'authenticated' || !doctorProfile?.id) return;
@@ -270,6 +270,7 @@ export default function DoctorSchedulePage() {
   const handleCalendarMonthChange = useCallback(async (year: number, month: number) => {
     if (status !== 'authenticated' || !doctorProfile?.id) return;
     try {
+      setCurrentMonth(new Date(year, month, 1));
       const dateStatusData = await fetchDateStatusesForMonth(year, month, doctorProfile.id);
       setDateStatuses(dateStatusData);
     } catch (error) {
@@ -505,10 +506,10 @@ export default function DoctorSchedulePage() {
       }
 
       // 並行拉取當日排班詳情與當月高亮日期，縮短等待時間
-      const currentMonth = toYYYYMMDD(date).substring(0, 7);
+      const monthStr = toYYYYMMDD(date).substring(0, 7);
       const [detailsRes, highlightsRes] = await Promise.all([
         fetch(`/api/schedules/details?date=${toYYYYMMDD(date)}`, { cache: 'no-store' }),
-        fetch(`/api/schedules?month=${currentMonth}`, { cache: 'no-store' })
+        fetch(`/api/schedules?month=${monthStr}`, { cache: 'no-store' })
       ]);
 
       if (!detailsRes.ok) throw new Error('Failed to fetch schedule details.');
@@ -549,6 +550,7 @@ export default function DoctorSchedulePage() {
       setModifiedTimeSlots(new Set());
       setSavingTimeSlots(new Set());
       selectedDateRef.current = selectedDate;
+      setCurrentMonth(new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1));
       fetchAllDataForDate(selectedDate);
     }
   }, [selectedDate, status, fetchAllDataForDate]);
@@ -754,7 +756,7 @@ export default function DoctorSchedulePage() {
   // 監聽月份變化，重新獲取日期狀態數據
   useEffect(() => {
     refreshMonthStatuses();
-  }, [selectedDate.getFullYear(), selectedDate.getMonth(), status, doctorProfile, refreshMonthStatuses]);
+  }, [currentMonth.getFullYear(), currentMonth.getMonth(), status, doctorProfile, refreshMonthStatuses]);
 
 
   const handleApplyTemplate = async () => {
