@@ -103,7 +103,7 @@ export async function fetchDateStatusesForMonth(
     const monthStr = `${year}-${String(month + 1).padStart(2, '0')}`;
     
     // 获取该月份有排班的日期
-    const schedulesRes = await fetch(`/api/schedules?month=${monthStr}`);
+    const schedulesRes = await fetch(`/api/schedules?month=${monthStr}`, { cache: 'no-store' });
     if (!schedulesRes.ok) {
       throw new Error('Failed to fetch schedules');
     }
@@ -121,7 +121,7 @@ export async function fetchDateStatusesForMonth(
     // 批量获取所有日期的详细信息
     const detailPromises = schedulesData.scheduledDates.map(async (dateStr: string) => {
       try {
-        const detailsRes = await fetch(`/api/schedules/details?date=${dateStr}`);
+        const detailsRes = await fetch(`/api/schedules/details?date=${dateStr}`, { cache: 'no-store' });
         if (detailsRes.ok) {
           const details = await detailsRes.json();
           detailedSchedulesData[dateStr] = details;
