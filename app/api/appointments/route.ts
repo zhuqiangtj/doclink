@@ -168,17 +168,17 @@ throw new Error('病人积分不足，无法预约');
         const existingSameDateTime = await tx.appointment.findFirst({
           where: {
             patientId,
+            doctorId,
             status: 'PENDING',
             schedule: { is: { date: timeSlot.schedule.date } },
             time: timeSlot.startTime,
+            timeSlot: { is: { isActive: true } },
           },
         });
         if (existingSameDateTime) {
           throw new Error('该病人在此时段已有预约');
         }
       }
-
-      // 原子性防超訂：僅在 availableBeds > 0 時遞減，否則報錯
       const decResult = await tx.timeSlot.updateMany({
         where: { id: timeSlotId, availableBeds: { gt: 0 } },
         data: { availableBeds: { decrement: 1 } }
@@ -187,33 +187,52 @@ throw new Error('病人积分不足，无法预约');
         throw new Error('This time slot is fully booked.');
       }
 
-// 创建预约，使用时段的开始时间作为 time 字段（向后兼容）
-      const newAppointment = await tx.appointment.create({
-        data: { 
-          userId, 
-          patientId, 
-          doctorId, 
-          scheduleId: timeSlot.scheduleId,
-          timeSlotId,
-          time: timeSlot.startTime, // 向後兼容
-          roomId, 
-          bedId: 0, 
-          status: 'PENDING', 
-reason: session.user.role === 'DOCTOR' ? '医生预约' : '病人预约'
-        },
+      const cancelledForSlot = await tx.appointment.findFirst({
+        where: { patientId, timeSlotId, status: 'CANCELLED' }
       });
 
-// 创建预约历史记录
-      await createAppointmentHistoryInTransaction(tx, {
-        appointmentId: newAppointment.id,
-        operatorName: session.user.name || session.user.username || 'Unknown',
-        operatorId: session.user.id,
-        status: 'PENDING',
-reason: session.user.role === 'DOCTOR' ? '医生预约' : '病人预约',
-        action: 'CREATE',
-      });
+      let newAppointment;
+      if (cancelledForSlot) {
+        newAppointment = await tx.appointment.update({
+          where: { id: cancelledForSlot.id },
+          data: {
+            status: 'PENDING',
+            reason: session.user.role === 'DOCTOR' ? '医生预约' : '病人预约'
+          }
+        });
+        await createAppointmentHistoryInTransaction(tx, {
+          appointmentId: newAppointment.id,
+          operatorName: session.user.name || session.user.username || 'Unknown',
+          operatorId: session.user.id,
+          status: 'PENDING',
+          reason: session.user.role === 'DOCTOR' ? '医生预约' : '病人预约',
+          action: 'REBOOK',
+        });
+      } else {
+        newAppointment = await tx.appointment.create({
+          data: {
+            userId,
+            patientId,
+            doctorId,
+            scheduleId: timeSlot.scheduleId,
+            timeSlotId,
+            time: timeSlot.startTime,
+            roomId,
+            bedId: 0,
+            status: 'PENDING',
+            reason: session.user.role === 'DOCTOR' ? '医生预约' : '病人预约'
+          }
+        });
+        await createAppointmentHistoryInTransaction(tx, {
+          appointmentId: newAppointment.id,
+          operatorName: session.user.name || session.user.username || 'Unknown',
+          operatorId: session.user.id,
+          status: 'PENDING',
+          reason: session.user.role === 'DOCTOR' ? '医生预约' : '病人预约',
+          action: 'CREATE',
+        });
+      }
 
-      // Create a notification for the doctor ONLY when the actor is PATIENT
       if (session.user.role === 'PATIENT') {
         const patientUser = await tx.user.findUnique({ where: { id: userId } });
         if (patientUser) {
@@ -229,7 +248,6 @@ reason: session.user.role === 'DOCTOR' ? '医生预约' : '病人预约',
         }
       }
 
-      // Create a notification for the patient if the doctor is booking
       if (session.user.role === 'DOCTOR') {
         const doctorUser = await tx.user.findUnique({ where: { id: session.user.id } });
         if (doctorUser) {
