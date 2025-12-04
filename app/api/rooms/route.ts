@@ -2,7 +2,8 @@ import { prisma } from '@/lib/prisma';
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '../auth/[...nextauth]/route';
-import { createAuditLog } from '@/lib/audit'; // Import from shared utility
+import { createAuditLog } from '@/lib/audit';
+import { publishDoctorEvent } from '@/lib/realtime';
 
 
 // GET rooms (Admin gets all, Doctor gets their own)
@@ -90,6 +91,9 @@ export async function POST(request: Request) {
     });
 
     await createAuditLog(session, 'CREATE_ROOM', 'Room', newRoom.id, { name, bedCount, doctorId: targetDoctorId });
+    try {
+      await publishDoctorEvent(targetDoctorId, 'ROOM_CREATED', { roomId: newRoom.id, name: newRoom.name, bedCount: newRoom.bedCount });
+    } catch {}
     return NextResponse.json(newRoom, { status: 201 });
 
   } catch (err) {
@@ -157,6 +161,9 @@ export async function PUT(request: Request) {
     });
 
     await createAuditLog(session, 'UPDATE_ROOM', 'Room', updatedRoom.id, { old: existingRoom, new: updatedRoom });
+    try {
+      await publishDoctorEvent(updatedRoom.doctorId, 'ROOM_UPDATED', { roomId: updatedRoom.id, name: updatedRoom.name, bedCount: updatedRoom.bedCount });
+    } catch {}
     return NextResponse.json(updatedRoom);
 
   } catch (err) {
@@ -204,6 +211,9 @@ export async function DELETE(request: Request) {
     });
 
     await createAuditLog(session, 'DELETE_ROOM', 'Room', roomId, { name: existingRoom.name });
+    try {
+      await publishDoctorEvent(existingRoom.doctorId, 'ROOM_DELETED', { roomId });
+    } catch {}
     return NextResponse.json({ message: 'Room deleted successfully' }, { status: 200 });
 
   } catch (err) {

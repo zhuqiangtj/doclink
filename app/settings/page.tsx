@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, FormEvent } from 'react';
+import { useState, useEffect, FormEvent, useRef } from 'react';
 import { useSession, signOut } from 'next-auth/react';
 import './mobile.css';
 
@@ -25,6 +25,7 @@ export default function SettingsPage() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [overlayText, setOverlayText] = useState<string | null>(null);
+  const lastSnapRef = useRef<string>('');
 
   useEffect(() => {
     if (status === 'authenticated') {
@@ -68,6 +69,41 @@ export default function SettingsPage() {
       setCredibilityScore(null);
     }
   }, [status, session]);
+
+  useEffect(() => {
+    if (status !== 'authenticated') return;
+    let timer: number | null = null;
+    const sync = async () => {
+      try {
+        const res = await fetch('/api/user', { cache: 'no-store' });
+        if (!res.ok) return;
+        const data = await res.json();
+        const dobVal = data?.dateOfBirth ? (() => { const d = new Date(data.dateOfBirth); const y = d.getFullYear(); const m = String(d.getMonth() + 1).padStart(2, '0'); const day = String(d.getDate()).padStart(2, '0'); return `${y}-${m}-${day}`; })() : '';
+        const scoreVal = typeof data?.patientProfile?.credibilityScore === 'number' ? data.patientProfile.credibilityScore : null;
+        const snap = JSON.stringify({ u: data?.username || '', n: data?.name || '', p: data?.phone || '', dob: dobVal, g: data?.gender || '', s: scoreVal });
+        const changed = lastSnapRef.current && lastSnapRef.current !== snap;
+        lastSnapRef.current = snap;
+        setUsername(data?.username || '');
+        setName(data?.name || '');
+        setPhone(data?.phone || '');
+        setDateOfBirth(dobVal);
+        setGender(data?.gender || '');
+        setCredibilityScore(scoreVal);
+        if (changed) setOverlayText('已自动更新');
+      } catch {}
+    };
+    sync();
+    timer = setInterval(sync, 60000);
+    const onFocus = () => { sync(); };
+    const onVisibility = () => { if (document.visibilityState === 'visible') sync(); };
+    window.addEventListener('focus', onFocus);
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => {
+      if (timer) clearInterval(timer);
+      window.removeEventListener('focus', onFocus);
+      document.removeEventListener('visibilitychange', onVisibility);
+    };
+  }, [status]);
 
   useEffect(() => {
     if (!overlayText) return;
@@ -175,7 +211,7 @@ export default function SettingsPage() {
           <div className="mobile-form-group">
             <label className="mobile-form-label">用户名</label>
             <div className="mobile-form-input" style={{ display: 'flex', alignItems: 'center' }}>
-              {session?.user?.username || session?.user?.name || ''}
+              {username || name || ''}
             </div>
           </div>
           <div className="mobile-form-group">
