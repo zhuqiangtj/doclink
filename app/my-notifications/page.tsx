@@ -33,7 +33,7 @@ export default function PatientNotificationsPage() {
   const [overlayText, setOverlayText] = useState<string | null>(null);
   const snapshotRef = useRef<Map<string, string>>(new Map());
   const [currentPage, setCurrentPage] = useState<number>(1);
-  const itemsPerPage = 10;
+  const itemsPerPage = 5;
   const totalPages = Math.max(1, Math.ceil(notifications.length / itemsPerPage));
 
   const getTitleClass = (type: string): string => {
@@ -183,7 +183,10 @@ export default function PatientNotificationsPage() {
   }, [overlayText]);
 
   useEffect(() => {
-    if (currentPage > totalPages) setCurrentPage(totalPages);
+    setCurrentPage(prev => {
+      const tp = Math.max(1, Math.ceil(notifications.length / itemsPerPage));
+      return prev > tp ? tp : prev;
+    });
   }, [notifications]);
 
   useEffect(() => {

@@ -163,6 +163,54 @@
   color: #6b7280;
 }
 
+/* Pagination */
+.mobile-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.mobile-pagination-btn {
+  padding: 10px 14px;
+  border-radius: 10px;
+  border: 1px solid #d1d5db;
+  background: #f9fafb;
+  color: #1f2937;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  min-height: 36px;
+}
+
+.mobile-pagination-btn:hover:not(:disabled) {
+  background: #f3f4f6;
+  border-color: #9ca3af;
+}
+
+.mobile-pagination-btn:disabled {
+  background: #e5e7eb;
+  color: #9ca3af;
+  border-color: #e5e7eb;
+  cursor: not-allowed;
+}
+
+.mobile-pagination-info {
+  font-size: 0.9rem;
+  color: #6b7280;
+}
+
+/* Info rows */
+.mobile-notification-datetime,
+.mobile-notification-room {
+  font-size: 0.875rem;
+  color: #374151;
+  line-height: 1.4;
+  margin-bottom: 0.25rem;
+}
+
 /* Responsive adjustments */
 @media (max-width: 480px) {
   .mobile-container {
@@ -271,3 +319,48 @@
 .mobile-notification-card-type-appointment { border-left-color: #059669; }
 .mobile-notification-card-type-cancelled { border-left-color: #dc2626; }
 .mobile-notification-card-type-schedule { border-left-color: #7c3aed; }
+.mobile-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.mobile-pagination-btn {
+  padding: 10px 14px;
+  border-radius: 0.5rem;
+  border: 1px solid #d1d5db;
+  background: #f9fafb;
+  color: #1f2937;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  min-height: 36px;
+}
+
+.mobile-pagination-btn:hover:not(:disabled) {
+  background: #f3f4f6;
+  border-color: #9ca3af;
+}
+
+.mobile-pagination-btn:disabled {
+  background: #e5e7eb;
+  color: #9ca3af;
+  border-color: #e5e7eb;
+  cursor: not-allowed;
+}
+
+.mobile-pagination-info {
+  font-size: 0.9rem;
+  color: #6b7280;
+}
+
+.mobile-notification-datetime,
+.mobile-notification-room {
+  font-size: 0.875rem;
+  color: #374151;
+  line-height: 1.4;
+  margin-bottom: 0.25rem;
+}
