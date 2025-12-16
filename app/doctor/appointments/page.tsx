@@ -686,72 +686,97 @@ export default function DoctorAppointmentsPage() {
       {success && <div className="mobile-success">{success}</div>}
 
       {/* Filters */}
+      {/* Filters */}
       <div className="mobile-filters-card">
-        <h2 className="mobile-filters-title">過濾器</h2>
+        <div className="flex justify-between items-center mb-4">
+          <h2 className="mobile-filters-title mb-0">筛选</h2>
+          <button onClick={resetFilters} className="text-sm text-blue-600 flex items-center gap-1 font-medium active:opacity-70">
+             重置
+          </button>
+        </div>
         
-        <div className="mobile-filters-grid">
-          <div className="mobile-filter-group">
-            <label htmlFor="date-filter" className="mobile-filter-label">日期</label>
-            <input
-              id="date-filter"
-              type="date"
-              value={selectedDate}
-              onChange={(e) => {
-                setSelectedDate(e.target.value);
-                setCurrentPage(1);
-              }}
-              className="mobile-filter-input"
-            />
-          </div>
-
-          <div className="mobile-filter-group">
-            <label htmlFor="room-filter" className="mobile-filter-label">诊室</label>
-            <select
-              id="room-filter"
-              value={selectedRoomId}
-              onChange={(e) => {
-                setSelectedRoomId(e.target.value);
-                setCurrentPage(1);
-              }}
-              className="mobile-filter-select"
-            >
-              <option value="">所有诊室</option>
-              {doctorProfile?.Room.map(room => (
-                <option key={room.id} value={room.id}>{room.name}</option>
-              ))}
-            </select>
-          </div>
-
-          <div className="mobile-filter-group">
-            <label htmlFor="status-filter" className="mobile-filter-label">狀態</label>
-            <select
-              id="status-filter"
-              value={selectedStatus}
-              onChange={(e) => {
-                const next = e.target.value;
-                setSelectedStatus(next);
-                if (next) {
-                  setSelectedDate('');
-                }
-                setCurrentPage(1);
-              }}
-              className="mobile-filter-select"
-            >
-              <option value="">所有狀態</option>
-              <option value="PENDING">待就診</option>
-              <option value="COMPLETED">已完成</option>
-              <option value="CANCELLED">已取消</option>
-              <option value="NO_SHOW">未到診</option>
-            </select>
+        {/* Status Pills */}
+        <div className="mb-4">
+          <label className="mobile-filter-label block mb-2">状态</label>
+          <div className="flex overflow-x-auto pb-2 -mx-1 px-1 gap-2 no-scrollbar" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+            {[
+              { value: '', label: '全部' },
+              { value: 'PENDING', label: '待就诊' },
+              { value: 'COMPLETED', label: '已完成' },
+              { value: 'CANCELLED', label: '已取消' },
+              { value: 'NO_SHOW', label: '未到诊' }
+            ].map((statusOption) => (
+              <button
+                key={statusOption.value}
+                onClick={() => {
+                   const next = statusOption.value;
+                   setSelectedStatus(next);
+                   if (next) setSelectedDate('');
+                   setCurrentPage(1);
+                }}
+                className={`whitespace-nowrap px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 border ${
+                  selectedStatus === statusOption.value
+                    ? 'bg-blue-600 text-white border-blue-600 shadow-md transform scale-105'
+                    : 'bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100'
+                }`}
+              >
+                {statusOption.label}
+              </button>
+            ))}
           </div>
         </div>
 
-        <div className="mobile-filters-actions">
-          <button onClick={resetFilters} className="mobile-reset-filters-btn">
-            重置過濾器
-          </button>
-          <span className="mobile-results-count">
-            共 {sortedAppointments.length} 條記錄
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="mobile-filter-group">
+            <label htmlFor="date-filter" className="mobile-filter-label block mb-2">日期</label>
+            <div className="relative">
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
+                <FaCalendarAlt />
+              </div>
+              <input
+                id="date-filter"
+                type="date"
+                value={selectedDate}
+                onChange={(e) => {
+                  setSelectedDate(e.target.value);
+                  setCurrentPage(1);
+                }}
+                className="mobile-filter-input pl-10 w-full appearance-none"
+              />
+            </div>
+          </div>
+
+          <div className="mobile-filter-group">
+            <label htmlFor="room-filter" className="mobile-filter-label block mb-2">诊室</label>
+            <div className="relative">
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
+                <FaHospital />
+              </div>
+              <select
+                id="room-filter"
+                value={selectedRoomId}
+                onChange={(e) => {
+                  setSelectedRoomId(e.target.value);
+                  setCurrentPage(1);
+                }}
+                className="mobile-filter-select pl-10 w-full appearance-none bg-no-repeat"
+                style={{ backgroundImage: 'none' }} 
+              >
+                <option value="">所有诊室</option>
+                {doctorProfile?.Room.map(room => (
+                  <option key={room.id} value={room.id}>{room.name}</option>
+                ))}
+              </select>
+              <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none text-gray-400">
+                 <FaChevronRight className="transform rotate-90 text-xs" />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-4 pt-3 border-t border-gray-100 flex justify-end">
+          <span className="mobile-results-count text-xs text-gray-400">
+            共 {sortedAppointments.length} 条记录
           </span>
         </div>
       </div>

@@ -273,6 +273,27 @@
   box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
 }
 
+/* Hide scrollbar for Chrome, Safari and Opera */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+/* Hide scrollbar for IE, Edge and Firefox */
+.no-scrollbar {
+  -ms-overflow-style: none;  /* IE and Edge */
+  scrollbar-width: none;  /* Firefox */
+}
+
+/* Adjust padding for inputs with icons */
+.mobile-filter-input {
+  /* ... inherited properties */
+  padding: 0.75rem 0.75rem 0.75rem 2.8rem; /* Left padding for icon */
+}
+
+.mobile-filter-select {
+  /* ... inherited properties */
+  padding: 0.75rem 2.5rem 0.75rem 2.8rem; /* Right padding for chevron, Left for icon */
+}
+
 .mobile-filters-actions {
   display: flex;
   justify-content: space-between;
