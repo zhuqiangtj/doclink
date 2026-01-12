@@ -193,6 +193,18 @@
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
 
+.patient-appointment-dot {
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  width: 8px;
+  height: 8px;
+  background-color: #ef4444; /* red-500 */
+  border-radius: 50%;
+  box-shadow: 0 0 4px rgba(239, 68, 68, 0.5);
+  z-index: 5;
+}
+
 /* 選中日期的hover效果 */
 .enhanced-date-cell.selected:hover {
   transform: scale(1.12) !important;

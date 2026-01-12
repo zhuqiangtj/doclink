@@ -1099,6 +1099,7 @@ export default function PatientScheduleHome() {
           onDateChange={handleDateChange}
           dateStatuses={dateStatuses}
           isLoading={isCalendarLoading}
+          patientAppointmentDates={patientAppointmentDates}
           onMonthChange={(year, month) => {
             if (selectedDoctorId) {
               const firstDay = new Date(year, month, 1);

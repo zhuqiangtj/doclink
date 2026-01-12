@@ -298,10 +298,14 @@ const EnhancedDatePicker: React.FC<EnhancedDatePickerProps> = ({
                   if (!isCurrentMonth(date)) return;
                   if (e.key === 'Enter' || e.key === ' ') onDateChange(date);
                 }}
-              >
-                <span className="date-number">{date.getDate()}</span>
-                {getStatusIndicator(date)}
-              </div>
+          >
+            {/* 病人预约红点标记 */}
+            {patientAppointmentSet.has(formatDate(date)) && (
+              <div className="patient-appointment-dot" title="您在此日有预约" />
+            )}
+            <span className="date-number">{date.getDate()}</span>
+            {getStatusIndicator(date)}
+          </div>
             );
           })}
         </div>
