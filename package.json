@@ -2,6 +2,11 @@
   "name": "doclink",
   "version": "0.1.0",
   "private": true,
+  "overrides": {
+    "next-auth": {
+      "next": "$next"
+    }
+  },
   "scripts": {
     "dev": "next dev",
     "build": "prisma generate && next build",
