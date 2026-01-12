@@ -719,8 +719,10 @@ export default function PatientScheduleHome() {
   }, [overlayText]);
 
   const refreshSingleDateStatus = async (dateStr: string, doctorId: string) => {
+    if (doctorId !== selectedDoctorIdRef.current) return;
     try {
       const res = await fetch(`/api/public/schedules?doctorId=${doctorId}&date=${dateStr}`, { cache: 'no-store' });
+      if (doctorId !== selectedDoctorIdRef.current) return;
       if (!res.ok) return;
       const details: Schedule[] = await res.json();
       const totals = details.reduce((acc: { bookedBeds: number; totalBeds: number }, sch) => {
@@ -763,9 +765,11 @@ export default function PatientScheduleHome() {
   };
 
   const refreshPublicTimeSlotById = async (id: string) => {
-    if (!selectedDoctorId) return;
+    const doctorId = selectedDoctorId;
+    if (!doctorId) return;
     try {
-      const res = await fetch(`/api/public/schedules?doctorId=${selectedDoctorId}&timeSlotId=${id}`, { cache: 'no-store' });
+      const res = await fetch(`/api/public/schedules?doctorId=${doctorId}&timeSlotId=${id}`, { cache: 'no-store' });
+      if (doctorId !== selectedDoctorIdRef.current) return;
       if (!res.ok) return;
       const arr = await res.json();
       const updatedSchedule: Schedule | null = Array.isArray(arr) ? arr[0] : null;
@@ -859,7 +863,8 @@ export default function PatientScheduleHome() {
   };
 
   const bookAppointment = async (slot: TimeSlot, schedule: Schedule) => {
-    if (!session || !patientId || !selectedDoctorId) return;
+    const currentDocId = selectedDoctorId;
+    if (!session || !patientId || !currentDocId) return;
     setError(null);
     try {
       const res = await fetch("/api/appointments", {
@@ -868,7 +873,7 @@ export default function PatientScheduleHome() {
         body: JSON.stringify({
           userId: session.user.id,
           patientId,
-          doctorId: selectedDoctorId,
+          doctorId: currentDocId,
           timeSlotId: slot.id,
           roomId: schedule.room.id,
         }),
@@ -876,9 +881,13 @@ export default function PatientScheduleHome() {
       // 安全解析，避免空響應導致 JSON 解析錯誤
       let data: any = null;
       try { data = await res.json(); } catch {}
+      if (currentDocId !== selectedDoctorIdRef.current) return;
+
       if (!res.ok) throw new Error(data?.error || "预约失败");
       // 刷新我的预约映射
       const appointmentsRes = await fetch("/api/appointments");
+      if (currentDocId !== selectedDoctorIdRef.current) return;
+      
       let appointments: Appointment[] = [];
       try { appointments = await appointmentsRes.json(); } catch { appointments = []; }
       const map: Record<string, string> = {};
@@ -889,9 +898,10 @@ export default function PatientScheduleHome() {
       });
       setMyAppointmentsBySlot(map);
       // 刷新当天详情与日历状态
-      refreshDayDetails(selectedDate, selectedDoctorId);
-      refreshCalendarStatuses(selectedDate, selectedDoctorId);
+      refreshDayDetails(selectedDate, currentDocId);
+      refreshCalendarStatuses(selectedDate, currentDocId);
     } catch (err) {
+      if (currentDocId !== selectedDoctorIdRef.current) return;
       const msg = err instanceof Error ? err.message : "";
       let friendly = msg || "发生未知错误";
       if (msg.includes("fully booked") || msg.includes("已被抢完") || msg.includes("This time slot is fully booked")) {
@@ -943,6 +953,7 @@ export default function PatientScheduleHome() {
   };
 
   const cancelAppointment = async (appointmentId: string) => {
+    const currentDocId = selectedDoctorId;
     setError(null);
     try {
       // 操作前確認
@@ -955,9 +966,14 @@ export default function PatientScheduleHome() {
       // 安全解析，避免空響應導致 JSON 解析錯誤
       let data: any = null;
       try { data = await res.json(); } catch {}
+
+      if (currentDocId !== selectedDoctorIdRef.current) return;
+
       if (!res.ok) throw new Error(data?.error || "取消预约失败");
       // 刷新我的预约映射
       const appointmentsRes = await fetch("/api/appointments");
+      if (currentDocId !== selectedDoctorIdRef.current) return;
+
       let appointments: Appointment[] = [];
       try { appointments = await appointmentsRes.json(); } catch { appointments = []; }
       const map: Record<string, string> = {};
@@ -968,9 +984,12 @@ export default function PatientScheduleHome() {
       });
       setMyAppointmentsBySlot(map);
       // 刷新当天详情与日历状态
-      refreshDayDetails(selectedDate, selectedDoctorId);
-      refreshCalendarStatuses(selectedDate, selectedDoctorId);
+      if (currentDocId) {
+        refreshDayDetails(selectedDate, currentDocId);
+        refreshCalendarStatuses(selectedDate, currentDocId);
+      }
     } catch (err) {
+      if (currentDocId !== selectedDoctorIdRef.current) return;
       const msg = err instanceof Error ? err.message : "";
       let friendly = msg || "发生未知错误";
       if (msg.includes("已到预约时间") || msg.includes("无法取消")) {
