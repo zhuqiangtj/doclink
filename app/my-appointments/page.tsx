@@ -341,7 +341,7 @@ export default function MyAppointmentsPage() {
         {/* Status Filter */}
         <div className="mb-4">
           <label className="block text-sm font-medium text-gray-700 mb-2">状态</label>
-          <div className="flex overflow-x-auto pb-2 -mx-1 px-1 gap-2 no-scrollbar" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+          <div className="flex flex-wrap gap-2">
             {[
               { value: '', label: '全部' },
               { value: 'PENDING', label: '待就诊' },
@@ -367,7 +367,7 @@ export default function MyAppointmentsPage() {
         {/* Room Filter */}
         <div className="mb-4">
           <label className="block text-sm font-medium text-gray-700 mb-2">诊室</label>
-          <div className="flex overflow-x-auto pb-2 -mx-1 px-1 gap-2 no-scrollbar" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+          <div className="flex flex-wrap gap-2">
             <button
               onClick={() => { setSelectedRoomName(''); setCurrentPage(1); }}
               className={`whitespace-nowrap px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 border ${
@@ -397,7 +397,7 @@ export default function MyAppointmentsPage() {
         {/* Date Filter */}
         <div className="mb-4">
           <label className="block text-sm font-medium text-gray-700 mb-2">日期</label>
-          <div className="flex overflow-x-auto pb-2 -mx-1 px-1 gap-2 no-scrollbar" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+          <div className="flex flex-wrap gap-2">
             <button
               onClick={() => { setSelectedDate(''); setCurrentPage(1); }}
               className={`whitespace-nowrap px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 border ${
