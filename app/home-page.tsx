@@ -79,6 +79,7 @@ export default function PatientScheduleHome() {
 
   const [patientId, setPatientId] = useState<string | null>(null);
   const [myAppointmentsBySlot, setMyAppointmentsBySlot] = useState<Record<string, string>>({}); // timeSlotId -> appointmentId
+  const [patientAppointmentDates, setPatientAppointmentDates] = useState<string[]>([]);
   const [selectedTimeSlotId, setSelectedTimeSlotId] = useState<string | null>(null);
   // 預約確認模態框狀態
   const [isConfirmOpen, setIsConfirmOpen] = useState<boolean>(false);
@@ -131,13 +132,17 @@ export default function PatientScheduleHome() {
         if (!appointmentsRes.ok) throw new Error("获取我的预约失败。");
         const appointments: Appointment[] = await appointmentsRes.json();
         const map: Record<string, string> = {};
+        const datesSet = new Set<string>();
+
         appointments.forEach((apt) => {
           // 仅将“待进行”预约映射到时间段，避免取消/完成等状态误标记
-          if (apt.timeSlotId && apt.status === "PENDING") {
-            map[apt.timeSlotId] = apt.id;
+          if (apt.status === "PENDING") {
+             if (apt.timeSlotId) map[apt.timeSlotId] = apt.id;
+             if (apt.date) datesSet.add(apt.date);
           }
         });
         setMyAppointmentsBySlot(map);
+        setPatientAppointmentDates(Array.from(datesSet));
       } catch (err) {
         setError(err instanceof Error ? err.message : "发生未知错误");
       }
