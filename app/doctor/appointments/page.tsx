@@ -9,8 +9,21 @@ import { getStatusText } from '../../../utils/statusText';
 import EnhancedDatePicker, { DateStatus } from '../../../components/EnhancedDatePicker';
 import AppointmentHistoryModal from '../../../components/AppointmentHistoryModal';
 import CancelAppointmentModal from '../../../components/CancelAppointmentModal';
+import PatientDetailModal from '../../../components/PatientDetailModal';
 
 // --- Interfaces ---
+interface PatientListItem {
+  id: string;
+  name: string;
+  gender: string | null;
+  age: number | null;
+  phone: string | null;
+  credibilityScore: number;
+  visitCount: number;
+  noShowCount: number;
+  totalAppointments: number;
+}
+
 interface Patient {
   user: { name: string; phone?: string; dateOfBirth?: string; gender?: string };
   credibilityScore?: number;
@@ -130,6 +143,15 @@ export default function DoctorAppointmentsPage() {
   // --- History Modal States ---
   const [showHistoryModal, setShowHistoryModal] = useState(false);
   const [selectedAppointmentId, setSelectedAppointmentId] = useState<string | null>(null);
+
+  // --- Patient List States ---
+  const [activeTab, setActiveTab] = useState<'appointments' | 'patients'>('appointments');
+  const [patients, setPatients] = useState<PatientListItem[]>([]);
+  const [patientLoading, setPatientLoading] = useState(false);
+  const [patientTotal, setPatientTotal] = useState(0);
+  const [patientPage, setPatientPage] = useState(1);
+  const [selectedPatient, setSelectedPatient] = useState<PatientListItem | null>(null);
+  const [showPatientModal, setShowPatientModal] = useState(false);
 
   // --- Effects ---
   useEffect(() => {
@@ -489,6 +511,28 @@ export default function DoctorAppointmentsPage() {
     }
   };
 
+  const fetchPatients = async (page = 1) => {
+    setPatientLoading(true);
+    try {
+      const res = await fetch(`/api/doctor/patients?page=${page}&limit=10`);
+      if (!res.ok) throw new Error('Failed to fetch patients');
+      const data = await res.json();
+      setPatients(data.patients);
+      setPatientTotal(data.total);
+    } catch (err) {
+      console.error(err);
+      setError('获取病人列表失败');
+    } finally {
+      setPatientLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === 'patients') {
+      fetchPatients(patientPage);
+    }
+  }, [activeTab, patientPage]);
+
   // 移除自動標記為已讀的機制：僅在手動點擊「我知道了」時變更狀態
 
   const openCancelDialog = (appointment: Appointment) => {
@@ -727,8 +771,34 @@ export default function DoctorAppointmentsPage() {
       
       {success && <div className="mobile-success">{success}</div>}
 
+      {/* Tabs */}
+      <div className="flex space-x-1 bg-gray-100 p-1 rounded-lg mb-6 mx-4 sm:mx-0">
+        <button
+          onClick={() => setActiveTab('appointments')}
+          className={`flex-1 py-2 text-sm font-medium rounded-md transition-all duration-200 ${
+            activeTab === 'appointments'
+              ? 'bg-white text-blue-600 shadow-sm'
+              : 'text-gray-500 hover:text-gray-700'
+          }`}
+        >
+          预约列表
+        </button>
+        <button
+          onClick={() => setActiveTab('patients')}
+          className={`flex-1 py-2 text-sm font-medium rounded-md transition-all duration-200 ${
+            activeTab === 'patients'
+              ? 'bg-white text-blue-600 shadow-sm'
+              : 'text-gray-500 hover:text-gray-700'
+          }`}
+        >
+          病人列表
+        </button>
+      </div>
+
       {/* Filters */}
       {/* Filters */}
+      {activeTab === 'appointments' && (
+        <>
       <div className="mobile-filters-card">
         <div className="flex justify-between items-center mb-4">
           <h2 className="mobile-filters-title mb-0">筛选</h2>
@@ -966,6 +1036,90 @@ export default function DoctorAppointmentsPage() {
           </div>
         )}
       </div>
+      </>
+      )}
+
+      {activeTab === 'patients' && (
+        <div className="mobile-content-card">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="bg-gray-50 border-b border-gray-200">
+                  <th className="p-4 text-xs font-medium text-gray-500 uppercase tracking-wider">姓名</th>
+                  <th className="p-4 text-xs font-medium text-gray-500 uppercase tracking-wider hidden sm:table-cell">性别</th>
+                  <th className="p-4 text-xs font-medium text-gray-500 uppercase tracking-wider hidden sm:table-cell">年龄</th>
+                  <th className="p-4 text-xs font-medium text-gray-500 uppercase tracking-wider">积分</th>
+                  <th className="p-4 text-xs font-medium text-gray-500 uppercase tracking-wider hidden sm:table-cell">爽约</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {patientLoading ? (
+                  <tr><td colSpan={5} className="p-8 text-center text-gray-500">加载中...</td></tr>
+                ) : patients.length === 0 ? (
+                  <tr><td colSpan={5} className="p-8 text-center text-gray-500">暂无病人记录</td></tr>
+                ) : (
+                  patients.map((patient) => (
+                    <tr 
+                      key={patient.id} 
+                      onClick={() => { setSelectedPatient(patient); setShowPatientModal(true); }}
+                      className="hover:bg-gray-50 cursor-pointer transition-colors"
+                    >
+                      <td className="p-4">
+                        <div className="font-medium text-gray-900">{patient.name}</div>
+                        <div className="text-xs text-gray-500 sm:hidden">
+                          {patient.gender === 'MALE' ? '男' : patient.gender === 'FEMALE' ? '女' : '未知'} · {patient.age ? `${patient.age}岁` : '未知'}
+                        </div>
+                      </td>
+                      <td className="p-4 hidden sm:table-cell">
+                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                          patient.gender === 'MALE' ? 'bg-blue-100 text-blue-800' : 
+                          patient.gender === 'FEMALE' ? 'bg-pink-100 text-pink-800' : 'bg-gray-100 text-gray-800'
+                        }`}>
+                          {patient.gender === 'MALE' ? '男' : patient.gender === 'FEMALE' ? '女' : '未知'}
+                        </span>
+                      </td>
+                      <td className="p-4 hidden sm:table-cell text-gray-600">
+                        {patient.age ? `${patient.age}岁` : '-'}
+                      </td>
+                      <td className="p-4">
+                        <span className={`font-semibold ${patient.credibilityScore < 60 ? 'text-red-600' : 'text-green-600'}`}>
+                          {patient.credibilityScore}
+                        </span>
+                      </td>
+                      <td className="p-4 hidden sm:table-cell text-red-600 font-medium">
+                        {patient.noShowCount} 次
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+          
+          {/* Patient Pagination */}
+          {Math.ceil(patientTotal / 10) > 1 && (
+            <div className="mobile-pagination">
+              <button
+                onClick={() => setPatientPage(prev => Math.max(prev - 1, 1))}
+                disabled={patientPage === 1}
+                className="mobile-pagination-btn"
+              >
+                上一页
+              </button>
+              <span className="mobile-pagination-info">
+                第 {patientPage} 页，共 {Math.ceil(patientTotal / 10)} 页
+              </span>
+              <button
+                onClick={() => setPatientPage(prev => Math.min(prev + 1, Math.ceil(patientTotal / 10)))}
+                disabled={patientPage >= Math.ceil(patientTotal / 10)}
+                className="mobile-pagination-btn"
+              >
+                下一页
+              </button>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* 爽约确认对话框 */}
       {showNoShowDialog && selectedAppointmentForNoShow && (
@@ -1051,6 +1205,13 @@ export default function DoctorAppointmentsPage() {
           isProcessing={cancelLoading}
         />
       )}
+
+      {/* Patient Detail Modal */}
+      <PatientDetailModal
+        isOpen={showPatientModal}
+        onClose={() => setShowPatientModal(false)}
+        patient={selectedPatient}
+      />
 
       {/* Date Picker Dialog */}
       {showDatePicker && (
