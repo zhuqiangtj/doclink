@@ -20,6 +20,7 @@ interface EnhancedDatePickerProps {
   isLoading?: boolean;
   className?: string;
   onMonthChange?: (year: number, month: number) => void; // 新增：月份切換回調
+  patientAppointmentDates?: string[];
 }
 
 const MONTHS = [
@@ -35,9 +36,16 @@ const EnhancedDatePicker: React.FC<EnhancedDatePickerProps> = ({
   dateStatuses,
   isLoading = false,
   className = '',
-  onMonthChange
+  onMonthChange,
+  patientAppointmentDates = []
 }) => {
   const [currentMonth, setCurrentMonth] = useState(new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1));
+
+  // Optimize lookup for patient appointments
+  const patientAppointmentSet = useMemo(() => {
+    return new Set(patientAppointmentDates || []);
+  }, [patientAppointmentDates]);
+
   const statusMap = useMemo(() => {
     const m = new Map<string, DateStatus>();
     for (const s of dateStatuses || []) m.set(s.date, s);

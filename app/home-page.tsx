@@ -230,12 +230,16 @@ export default function PatientScheduleHome() {
         if (appointmentsRes.ok) {
           const appointments: Appointment[] = await appointmentsRes.json();
           const map: Record<string, string> = {};
+          const datesSet = new Set<string>();
+
           appointments.forEach((apt) => {
-            if (apt.timeSlotId && apt.status === "PENDING") {
-              map[apt.timeSlotId] = apt.id;
+            if (apt.status === "PENDING") {
+              if (apt.timeSlotId) map[apt.timeSlotId] = apt.id;
+              if (apt.date) datesSet.add(apt.date);
             }
           });
           setMyAppointmentsBySlot(map);
+          setPatientAppointmentDates(Array.from(datesSet));
         }
       } catch (err) {
         // 静默失败：不影响主要页面数据加载
