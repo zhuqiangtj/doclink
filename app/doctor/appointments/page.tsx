@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { FaTimes, FaCheckCircle, FaBell, FaHistory } from 'react-icons/fa';
 import './mobile.css';
 import { getStatusText } from '../../../utils/statusText';
+import EnhancedDatePicker, { DateStatus } from '../../../components/EnhancedDatePicker';
 import AppointmentHistoryModal from '../../../components/AppointmentHistoryModal';
 import CancelAppointmentModal from '../../../components/CancelAppointmentModal';
 
@@ -76,7 +77,9 @@ export default function DoctorAppointmentsPage() {
   // --- Notification States ---
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadNotifications, setUnreadNotifications] = useState<Notification[]>([]);
+  const [totalUnreadCount, setTotalUnreadCount] = useState(0);
   const [showNotifications, setShowNotifications] = useState(false);
+  const [showDatePicker, setShowDatePicker] = useState(false);
 
   // --- Filter States ---
   const getCurrentDateInChina = () => {
@@ -105,6 +108,7 @@ export default function DoctorAppointmentsPage() {
   const [cancelLoading, setCancelLoading] = useState(false);
   const [overlayText, setOverlayText] = useState<string | null>(null);
   const snapshotRef = useRef<{ appointments: Map<string, string>; unread: number }>({ appointments: new Map(), unread: 0 });
+  const dateInputRef = useRef<HTMLInputElement>(null);
 
   const setCookie = (name: string, value: string, days = 180) => {
     if (typeof document === 'undefined') return;
@@ -136,12 +140,11 @@ export default function DoctorAppointmentsPage() {
   }, [status, session?.user?.role, router]);
 
   useEffect(() => {
-    const s = getCookie('doc_apt_status');
-    const r = getCookie('doc_apt_room');
-    const d = getCookie('doc_apt_date');
-    if (s) setSelectedStatus(s);
-    if (r) setSelectedRoomId(r);
-    if (d) setSelectedDate(d);
+    const hasCookie = (name: string) => document.cookie.split(';').some(c => c.trim().startsWith(name + '='));
+    
+    if (hasCookie('doc_apt_status')) setSelectedStatus(getCookie('doc_apt_status'));
+    if (hasCookie('doc_apt_room')) setSelectedRoomId(getCookie('doc_apt_room'));
+    if (hasCookie('doc_apt_date')) setSelectedDate(getCookie('doc_apt_date'));
   }, []);
 
   useEffect(() => { setCookie('doc_apt_status', selectedStatus || ''); }, [selectedStatus]);
@@ -164,9 +167,12 @@ export default function DoctorAppointmentsPage() {
       const allNotifications = data.notifications || [];
       setNotifications(allNotifications);
 
+      // 計算未讀總數
+      const allUnread = allNotifications.filter((n: Notification) => !n.isRead);
+      setTotalUnreadCount(typeof data.unreadCount === 'number' ? data.unreadCount : allUnread.length);
+
       // 只顯示最近的未讀通知（最多5條）
-      const unread = allNotifications.filter((n: Notification) => !n.isRead).slice(0, 5);
-      setUnreadNotifications(unread);
+      setUnreadNotifications(allUnread.slice(0, 5));
     } catch (err) {
       // 保留日誌但避免不必要的錯誤提示
       console.error('Failed to fetch notifications:', err);
@@ -329,11 +335,14 @@ export default function DoctorAppointmentsPage() {
         if (notifRes.ok) {
           const notifData = await notifRes.json();
           const all = notifData.notifications || [];
-          const unread = all.filter((n: Notification) => !n.isRead).length;
-          if (snapshotRef.current.unread !== unread) {
+          const allUnread = all.filter((n: Notification) => !n.isRead);
+          const unreadCount = typeof notifData.unreadCount === 'number' ? notifData.unreadCount : allUnread.length;
+          
+          if (snapshotRef.current.unread !== unreadCount) {
             setNotifications(all);
-            setUnreadNotifications(all.filter((n: Notification) => !n.isRead).slice(0, 5));
-            snapshotRef.current.unread = unread;
+            setTotalUnreadCount(unreadCount);
+            setUnreadNotifications(allUnread.slice(0, 5));
+            snapshotRef.current.unread = unreadCount;
             setOverlayText('已自动更新');
           }
         }
@@ -400,6 +409,32 @@ export default function DoctorAppointmentsPage() {
     return Array.from(dates).sort((a, b) => new Date(b).getTime() - new Date(a).getTime());
   }, [appointments]);
 
+  const dateStatuses = useMemo(() => {
+    const map = new Map<string, DateStatus>();
+    appointments.forEach(apt => {
+      const d = apt.date;
+      const today = new Date();
+      today.setHours(0,0,0,0);
+      const aptDate = new Date(d);
+      const isPast = aptDate < today;
+      
+      if (!map.has(d)) {
+        map.set(d, {
+          date: d,
+          hasSchedule: true,
+          hasAppointments: true,
+          bookedBeds: 0,
+          totalBeds: 0,
+          isPast
+        });
+      }
+      const s = map.get(d)!;
+      s.bookedBeds += 1;
+      s.totalBeds += 1;
+    });
+    return Array.from(map.values());
+  }, [appointments]);
+
   // --- Handlers ---
   // 標記通知為已讀
   const handleMarkAsRead = async (notificationId: string) => {
@@ -418,6 +453,7 @@ export default function DoctorAppointmentsPage() {
       setUnreadNotifications(prev => 
         prev.filter(n => n.id !== notificationId)
       );
+      setTotalUnreadCount(prev => Math.max(0, prev - 1));
       
       // 觸發底部導航欄的未讀計數更新
       window.dispatchEvent(new CustomEvent('notificationRead'));
@@ -444,6 +480,7 @@ export default function DoctorAppointmentsPage() {
         prev.map(n => unreadIds.includes(n.id) ? { ...n, isRead: true } : n)
       );
       setUnreadNotifications([]);
+      setTotalUnreadCount(prev => Math.max(0, prev - unreadIds.length));
       
       // 觸發底部導航欄的未讀計數更新
       window.dispatchEvent(new CustomEvent('notificationRead'));
@@ -630,7 +667,7 @@ export default function DoctorAppointmentsPage() {
           <div className="mobile-notifications-header">
             <div className="mobile-notifications-title">
               <FaBell className="mobile-notifications-icon" />
-              <span>新通知 ({unreadNotifications.length})</span>
+              <span>新通知 ({totalUnreadCount})</span>
             </div>
             <button 
               onClick={() => setShowNotifications(!showNotifications)}
@@ -731,36 +768,6 @@ export default function DoctorAppointmentsPage() {
           </div>
         </div>
 
-        {/* Date Filter */}
-        <div className="mb-4">
-          <label className="mobile-filter-label block mb-2">日期</label>
-          <div className="flex overflow-x-auto pb-2 -mx-1 px-1 gap-2 no-scrollbar" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
-            <button
-              onClick={() => { setSelectedDate(''); setCurrentPage(1); }}
-              className={`whitespace-nowrap px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 border ${
-                selectedDate === ''
-                  ? 'bg-blue-600 text-white border-blue-600 shadow-md transform scale-105'
-                  : 'bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100'
-              }`}
-            >
-              全部
-            </button>
-            {appointmentDates.map((date) => (
-              <button
-                key={date}
-                onClick={() => { setSelectedDate(date); setCurrentPage(1); }}
-                className={`whitespace-nowrap px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 border ${
-                  selectedDate === date
-                    ? 'bg-blue-600 text-white border-blue-600 shadow-md transform scale-105'
-                    : 'bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100'
-                }`}
-              >
-                {date}
-              </button>
-            ))}
-          </div>
-        </div>
-
         {/* Room Filter */}
         <div className="mb-4">
           <label className="mobile-filter-label block mb-2">诊室</label>
@@ -788,6 +795,33 @@ export default function DoctorAppointmentsPage() {
                 {room.name}
               </button>
             ))}
+          </div>
+        </div>
+
+        {/* Date Filter */}
+        <div className="mb-4">
+          <label className="mobile-filter-label block mb-2">日期</label>
+          <div className="flex overflow-x-auto pb-2 -mx-1 px-1 gap-2 no-scrollbar" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+            <button
+              onClick={() => { setSelectedDate(''); setCurrentPage(1); }}
+              className={`whitespace-nowrap px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 border ${
+                selectedDate === ''
+                  ? 'bg-blue-600 text-white border-blue-600 shadow-md transform scale-105'
+                  : 'bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100'
+              }`}
+            >
+              全部
+            </button>
+            <button
+              onClick={() => setShowDatePicker(true)}
+              className={`whitespace-nowrap px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 border ${
+                selectedDate !== ''
+                  ? 'bg-blue-600 text-white border-blue-600 shadow-md transform scale-105'
+                  : 'bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100'
+              }`}
+            >
+              {selectedDate || '选择日期'}
+            </button>
           </div>
         </div>
 
@@ -1018,9 +1052,36 @@ export default function DoctorAppointmentsPage() {
         />
       )}
 
+      {/* Date Picker Dialog */}
+      {showDatePicker && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+          <div className="bg-white rounded-lg p-4 w-full max-w-md mx-4 shadow-xl">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-bold">选择日期</h3>
+              <button onClick={() => setShowDatePicker(false)} className="text-gray-500 hover:text-gray-700">
+                <FaTimes />
+              </button>
+            </div>
+            <EnhancedDatePicker
+              selectedDate={selectedDate ? new Date(selectedDate) : new Date()}
+              onDateChange={(date) => {
+                const y = date.getFullYear();
+                const m = String(date.getMonth() + 1).padStart(2, '0');
+                const d = String(date.getDate()).padStart(2, '0');
+                setSelectedDate(`${y}-${m}-${d}`);
+                setCurrentPage(1);
+                setShowDatePicker(false);
+              }}
+              dateStatuses={dateStatuses}
+              isLoading={isLoading}
+            />
+          </div>
+        </div>
+      )}
+
       {/* 歷史記錄模態框 */}
       {showHistoryModal && selectedAppointmentId && (
-        <AppointmentHistoryModal
+      <AppointmentHistoryModal
           appointmentId={selectedAppointmentId}
           isOpen={showHistoryModal}
           onClose={closeHistoryModal}

@@ -48,6 +48,7 @@ export default function MyAppointmentsPage() {
   const [patientId, setPatientId] = useState<string | null>(null);
   const [overlayText, setOverlayText] = useState<string | null>(null);
   const snapshotRef = useRef<Map<string, string>>(new Map());
+  const dateInputRef = useRef<HTMLInputElement>(null);
 
   const setCookie = (name: string, value: string, days = 180) => {
     if (typeof document === 'undefined') return;
@@ -316,7 +317,8 @@ export default function MyAppointmentsPage() {
   const resetFilters = () => {
     setSelectedDate('');
     setSelectedRoomName('');
-    setSelectedStatus('PENDING');
+    setSelectedStatus('');
+    setCurrentPage(1);
   };
 
   if (isLoading || status === 'loading') {
@@ -334,58 +336,111 @@ export default function MyAppointmentsPage() {
       {error && <div className="mobile-alert mobile-alert-error">{error}</div>}
       {success && <div className="mobile-alert mobile-alert-success">{success}</div>}
 
-      {/* 過濾器 */}
-      <div className="mobile-filters-card">
-        <h2 className="mobile-filters-title">过滤器</h2>
-        <div className="mobile-filters-grid">
-          <div className="mobile-filter-group">
-            <label htmlFor="date-filter" className="mobile-filter-label">日期</label>
-            <input
-              id="date-filter"
-              type="date"
-              value={selectedDate}
-              onChange={(e) => setSelectedDate(e.target.value)}
-              className="mobile-filter-input"
-            />
+      {/* Filters */}
+      <div className="mb-6">
+        {/* Status Filter */}
+        <div className="mb-4">
+          <label className="block text-sm font-medium text-gray-700 mb-2">状态</label>
+          <div className="flex overflow-x-auto pb-2 -mx-1 px-1 gap-2 no-scrollbar" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+            {[
+              { value: '', label: '全部' },
+              { value: 'PENDING', label: '待就诊' },
+              { value: 'COMPLETED', label: '已完成' },
+              { value: 'CANCELLED', label: '已取消' },
+              { value: 'NO_SHOW', label: '未到诊' },
+            ].map((status) => (
+              <button
+                key={status.value}
+                onClick={() => { setSelectedStatus(status.value); setCurrentPage(1); }}
+                className={`whitespace-nowrap px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 border ${
+                  selectedStatus === status.value
+                    ? 'bg-blue-600 text-white border-blue-600 shadow-md transform scale-105'
+                    : 'bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100'
+                }`}
+              >
+                {status.label}
+              </button>
+            ))}
           </div>
-
-          <div className="mobile-filter-group">
-            <label htmlFor="room-filter" className="mobile-filter-label">诊室</label>
-            <select
-              id="room-filter"
-              value={selectedRoomName}
-              onChange={(e) => setSelectedRoomName(e.target.value)}
-              className="mobile-filter-select"
-            >
-              <option value="">所有诊室</option>
-              {uniqueRoomNames.map(name => (
-                <option key={name} value={name}>{name}</option>
-              ))}
-            </select>
-          </div>
-
-          <div className="mobile-filter-group">
-            <label htmlFor="status-filter" className="mobile-filter-label">状态</label>
-            <select
-              id="status-filter"
-              value={selectedStatus}
-              onChange={(e) => setSelectedStatus(e.target.value)}
-              className="mobile-filter-select"
-            >
-              <option value="">所有状态</option>
-              <option value="PENDING">待就诊</option>
-              <option value="COMPLETED">已完成</option>
-              <option value="CANCELLED">已取消</option>
-              <option value="NO_SHOW">未到诊</option>
-            </select>
-          </div>
-
-          {/* 排序選項已移除 */}
         </div>
 
-        <div className="mobile-filters-actions">
-          <button onClick={resetFilters} className="mobile-reset-filters-btn">重置过滤器</button>
-          <span className="mobile-results-count">共 {filteredAppointments.length} 条记录</span>
+        {/* Room Filter */}
+        <div className="mb-4">
+          <label className="block text-sm font-medium text-gray-700 mb-2">诊室</label>
+          <div className="flex overflow-x-auto pb-2 -mx-1 px-1 gap-2 no-scrollbar" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+            <button
+              onClick={() => { setSelectedRoomName(''); setCurrentPage(1); }}
+              className={`whitespace-nowrap px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 border ${
+                selectedRoomName === ''
+                  ? 'bg-blue-600 text-white border-blue-600 shadow-md transform scale-105'
+                  : 'bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100'
+              }`}
+            >
+              全部
+            </button>
+            {uniqueRoomNames.map((name) => (
+              <button
+                key={name}
+                onClick={() => { setSelectedRoomName(name); setCurrentPage(1); }}
+                className={`whitespace-nowrap px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 border ${
+                  selectedRoomName === name
+                    ? 'bg-blue-600 text-white border-blue-600 shadow-md transform scale-105'
+                    : 'bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100'
+                }`}
+              >
+                {name}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Date Filter */}
+        <div className="mb-4">
+          <label className="block text-sm font-medium text-gray-700 mb-2">日期</label>
+          <div className="flex overflow-x-auto pb-2 -mx-1 px-1 gap-2 no-scrollbar" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+            <button
+              onClick={() => { setSelectedDate(''); setCurrentPage(1); }}
+              className={`whitespace-nowrap px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 border ${
+                selectedDate === ''
+                  ? 'bg-blue-600 text-white border-blue-600 shadow-md transform scale-105'
+                  : 'bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100'
+              }`}
+            >
+              全部
+            </button>
+            <button
+              onClick={() => {
+                try {
+                  dateInputRef.current?.showPicker();
+                } catch {
+                  dateInputRef.current?.click();
+                }
+              }}
+              className={`whitespace-nowrap px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 border ${
+                selectedDate !== ''
+                  ? 'bg-blue-600 text-white border-blue-600 shadow-md transform scale-105'
+                  : 'bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100'
+              }`}
+            >
+              {selectedDate || '选择日期'}
+            </button>
+            <input
+              type="date"
+              ref={dateInputRef}
+              value={selectedDate}
+              onChange={(e) => {
+                setSelectedDate(e.target.value);
+                setCurrentPage(1);
+              }}
+              className="absolute opacity-0 w-0 h-0 pointer-events-none"
+              style={{ visibility: 'hidden' }}
+            />
+          </div>
+        </div>
+        
+        <div className="flex justify-between items-center mt-2">
+          <button onClick={resetFilters} className="text-sm text-blue-600 hover:text-blue-800 font-medium">重置过滤器</button>
+          <span className="text-xs text-gray-500">共 {filteredAppointments.length} 条记录</span>
         </div>
       </div>
 
