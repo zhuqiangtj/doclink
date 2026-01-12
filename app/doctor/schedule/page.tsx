@@ -166,6 +166,7 @@ export default function DoctorSchedulePage() {
   const { data: session, status } = useSession();
   const [doctorProfile, setDoctorProfile] = useState<DoctorProfile | null>(null);
   const [dateStatuses, setDateStatuses] = useState<DateStatus[]>([]);
+  const [highlightedDates, setHighlightedDates] = useState<Date[]>([]);
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [schedulesForSelectedDay, setSchedulesForSelectedDay] = useState<Schedule[]>([]);
   const [currentMonth, setCurrentMonth] = useState(new Date());
