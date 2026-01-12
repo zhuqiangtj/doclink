@@ -183,7 +183,21 @@ export default function PatientScheduleHome() {
     setError(null);
     try {
       const dateStr = toYYYYMMDD(date);
-      const detailsRes = await fetch(`/api/public/schedules?doctorId=${doctorId}&date=${dateStr}`);
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 15000); // 15s timeout
+
+      let detailsRes;
+      try {
+        detailsRes = await fetch(`/api/public/schedules?doctorId=${doctorId}&date=${dateStr}`, {
+          signal: controller.signal
+        });
+      } catch (e: any) {
+        if (e.name === 'AbortError') throw new Error("网络请求超时，请检查您的网络连接");
+        throw e;
+      } finally {
+        clearTimeout(timeoutId);
+      }
+
       if (!detailsRes.ok) throw new Error("获取当天排班详情失败。");
       const details: Schedule[] = await detailsRes.json();
       
@@ -866,10 +880,13 @@ export default function PatientScheduleHome() {
     const currentDocId = selectedDoctorId;
     if (!session || !patientId || !currentDocId) return;
     setError(null);
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 15000);
     try {
       const res = await fetch("/api/appointments", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        signal: controller.signal,
         body: JSON.stringify({
           userId: session.user.id,
           patientId,
@@ -877,7 +894,7 @@ export default function PatientScheduleHome() {
           timeSlotId: slot.id,
           roomId: schedule.room.id,
         }),
-      });
+      }).finally(() => clearTimeout(timeoutId));
       // 安全解析，避免空響應導致 JSON 解析錯誤
       let data: any = null;
       try { data = await res.json(); } catch {}
@@ -904,7 +921,9 @@ export default function PatientScheduleHome() {
       if (currentDocId !== selectedDoctorIdRef.current) return;
       const msg = err instanceof Error ? err.message : "";
       let friendly = msg || "发生未知错误";
-      if (msg.includes("fully booked") || msg.includes("已被抢完") || msg.includes("This time slot is fully booked")) {
+      if ((err as Error).name === 'AbortError') {
+        friendly = "网络请求超时，请检查您的网络连接";
+      } else if (msg.includes("fully booked") || msg.includes("已被抢完") || msg.includes("This time slot is fully booked")) {
         friendly = "该时段已被抢完，请选择其它时段";
       } else if (msg.includes("已经过期") || msg.includes("expired")) {
         friendly = "预约时间已过期";
@@ -962,7 +981,13 @@ export default function PatientScheduleHome() {
         : true;
       if (!ok) return;
 
-      const res = await fetch(`/api/appointments/${appointmentId}`, { method: "DELETE" });
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 15000);
+      const res = await fetch(`/api/appointments/${appointmentId}`, { 
+        method: "DELETE",
+        signal: controller.signal 
+      }).finally(() => clearTimeout(timeoutId));
+
       // 安全解析，避免空響應導致 JSON 解析錯誤
       let data: any = null;
       try { data = await res.json(); } catch {}
@@ -992,7 +1017,9 @@ export default function PatientScheduleHome() {
       if (currentDocId !== selectedDoctorIdRef.current) return;
       const msg = err instanceof Error ? err.message : "";
       let friendly = msg || "发生未知错误";
-      if (msg.includes("已到预约时间") || msg.includes("无法取消")) {
+      if ((err as Error).name === 'AbortError') {
+        friendly = "网络请求超时，请检查您的网络连接";
+      } else if (msg.includes("已到预约时间") || msg.includes("无法取消")) {
         friendly = "已到预约时间，无法取消";
       }
       setError(friendly);

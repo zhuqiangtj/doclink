@@ -522,7 +522,14 @@ export default function DoctorSchedulePage() {
       // 並行發起請求，但分離錯誤處理與等待邏輯
       const monthStr = toYYYYMMDD(date).substring(0, 7);
       
-      const detailsPromise = fetch(`/api/schedules/details?date=${toYYYYMMDD(date)}`, { cache: 'no-store' });
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 15000); // 15s timeout
+
+      const detailsPromise = fetch(`/api/schedules/details?date=${toYYYYMMDD(date)}`, { 
+        cache: 'no-store',
+        signal: controller.signal
+      }).finally(() => clearTimeout(timeoutId));
+
       // 月份高亮數據非關鍵路徑，失敗不應阻塞排班詳情顯示
       const highlightsPromise = fetch(`/api/schedules?month=${monthStr}`, { cache: 'no-store' })
         .catch(err => {
@@ -531,7 +538,15 @@ export default function DoctorSchedulePage() {
         });
 
       // 優先等待排班詳情（關鍵數據）
-      const detailsRes = await detailsPromise;
+      let detailsRes;
+      try {
+        detailsRes = await detailsPromise;
+      } catch (err: any) {
+        if (err.name === 'AbortError') {
+          throw new Error('网络请求超时，请检查您的网络连接');
+        }
+        throw err;
+      }
       if (currentRequestId !== fetchRequestIdRef.current) return;
 
       if (!detailsRes.ok) throw new Error('Failed to fetch schedule details.');
