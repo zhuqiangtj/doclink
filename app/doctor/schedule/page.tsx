@@ -165,7 +165,6 @@ const isTimeSlotPast = (date: Date, time: string): boolean => {
 export default function DoctorSchedulePage() {
   const { data: session, status } = useSession();
   const [doctorProfile, setDoctorProfile] = useState<DoctorProfile | null>(null);
-  const [highlightedDates, setHighlightedDates] = useState<Date[]>([]);
   const [dateStatuses, setDateStatuses] = useState<DateStatus[]>([]);
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [schedulesForSelectedDay, setSchedulesForSelectedDay] = useState<Schedule[]>([]);
@@ -216,16 +215,21 @@ export default function DoctorSchedulePage() {
   const fetchAllDataForDateRef = useRef<((date: Date) => Promise<void>) | undefined>(undefined);
   const refreshTimeSlotByIdRef = useRef<((id: string) => Promise<void>) | undefined>(undefined);
   const templateApplyGateRef = useRef<boolean>(false);
+  const fetchRequestIdRef = useRef<number>(0);
+  const monthFetchRequestIdRef = useRef<number>(0);
 
   const refreshMonthStatuses = useCallback(async () => {
     if (status === 'authenticated' && doctorProfile) {
+      const requestId = ++monthFetchRequestIdRef.current;
       try {
         const dateStatusData = await fetchDateStatusesForMonth(
           currentMonth.getFullYear(),
           currentMonth.getMonth(),
           doctorProfile.id
         );
-        setDateStatuses(dateStatusData);
+        if (requestId === monthFetchRequestIdRef.current) {
+          setDateStatuses(dateStatusData);
+        }
       } catch (error) {
         console.error('Error fetching date statuses:', error);
       }
@@ -302,7 +306,9 @@ export default function DoctorSchedulePage() {
       const updatedSchedule = Array.isArray(arr) ? arr[0] : null;
       if (!updatedSchedule || !updatedSchedule.timeSlots || updatedSchedule.timeSlots.length === 0) return;
       const updatedSlot = updatedSchedule.timeSlots[0];
-      const selectedDateStr = toYYYYMMDD(selectedDate);
+      
+      // 使用 Ref 獲取當前選中的日期，確保在異步操作後狀態判定準確
+      const currentSelectedDateStr = toYYYYMMDD(selectedDateRef.current);
 
       try {
         const dayRes = await fetch(`/api/schedules/details?date=${updatedSchedule.date}`, { cache: 'no-store' });
@@ -337,7 +343,8 @@ export default function DoctorSchedulePage() {
         }
       } catch {}
 
-      if (updatedSchedule.date !== selectedDateStr) {
+      // 如果更新的排班日期與當前選中日期不一致，則不更新排班列表
+      if (updatedSchedule.date !== currentSelectedDateStr) {
         return;
       }
 
@@ -490,12 +497,18 @@ export default function DoctorSchedulePage() {
   }, [status, mergeSchedulesGranular]);
 
   const fetchAllDataForDate = useCallback(async (date: Date) => {
+    // 增加請求計數ID，用於解決競態條件
+    const currentRequestId = ++fetchRequestIdRef.current;
     setIsLoading(true);
     setError(null);
     
     try {
       // 禁用缓存，确保 SSE 事件后立即获取最新数据
+      // 优化：如果已有 profile 且未过期，可考虑复用（此处保留每次获取以确保状态最新，但需注意性能）
       const profileRes = await fetch('/api/user', { cache: 'no-store' });
+      // 如果请求ID已过期，直接返回，不更新状态
+      if (currentRequestId !== fetchRequestIdRef.current) return;
+
       if (!profileRes.ok) throw new Error('Failed to fetch doctor profile.');
       const userData = await profileRes.json();
       if (!userData.doctorProfile) throw new Error('Doctor profile not found.');
@@ -505,20 +518,25 @@ export default function DoctorSchedulePage() {
         setSelectedRoomIdForTemplate(userData.doctorProfile.Room[0].id);
       }
 
-      // 並行拉取當日排班詳情與當月高亮日期，縮短等待時間
+      // 並行發起請求，但分離錯誤處理與等待邏輯
       const monthStr = toYYYYMMDD(date).substring(0, 7);
-      const [detailsRes, highlightsRes] = await Promise.all([
-        fetch(`/api/schedules/details?date=${toYYYYMMDD(date)}`, { cache: 'no-store' }),
-        fetch(`/api/schedules?month=${monthStr}`, { cache: 'no-store' })
-      ]);
+      
+      const detailsPromise = fetch(`/api/schedules/details?date=${toYYYYMMDD(date)}`, { cache: 'no-store' });
+      // 月份高亮數據非關鍵路徑，失敗不應阻塞排班詳情顯示
+      const highlightsPromise = fetch(`/api/schedules?month=${monthStr}`, { cache: 'no-store' })
+        .catch(err => {
+          console.warn('Failed to fetch highlights (non-critical):', err);
+          return null;
+        });
+
+      // 優先等待排班詳情（關鍵數據）
+      const detailsRes = await detailsPromise;
+      if (currentRequestId !== fetchRequestIdRef.current) return;
 
       if (!detailsRes.ok) throw new Error('Failed to fetch schedule details.');
-      if (!highlightsRes.ok) throw new Error('Failed to fetch highlighted dates.');
+      const detailsData = await detailsRes.json();
 
-      const [detailsData, highlightsData] = await Promise.all([
-        detailsRes.json(),
-        highlightsRes.json()
-      ]);
+      if (currentRequestId !== fetchRequestIdRef.current) return;
 
       setSchedulesForSelectedDay(dedupeSchedulesByRoom(detailsData));
 
@@ -531,14 +549,29 @@ export default function DoctorSchedulePage() {
       });
       setCollapsedSlots(initialCollapsedState);
 
-      if (detailsData.length > 0 && !activeRoomTab) {
-        setActiveRoomTab(detailsData[0].room.id);
+      if (detailsData.length > 0) {
+        // Check if the currently active room tab is valid for the new data
+        const availableRoomIds = new Set(detailsData.map((s: any) => s.room.id));
+        if (!activeRoomTab || !availableRoomIds.has(activeRoomTab)) {
+          setActiveRoomTab(detailsData[0].room.id);
+        }
       }
-      setHighlightedDates(highlightsData.scheduledDates.map((dateStr: string) => fromYYYYMMDD(dateStr)));
-      // 日期狀態的獲取由下方月份監聽 useEffect 觸發，避免阻塞初始渲染
+      
+      // 關鍵數據已加載，取消 Loading 狀態，讓用戶盡快看到排班
+      setIsLoading(false);
+
+      // 最後處理高亮日期（如果成功）
+      const highlightsRes = await highlightsPromise;
+      if (currentRequestId !== fetchRequestIdRef.current) return;
+
+      if (highlightsRes && highlightsRes.ok) {
+        const highlightsData = await highlightsRes.json();
+        setHighlightedDates(highlightsData.scheduledDates.map((dateStr: string) => fromYYYYMMDD(dateStr)));
+      }
+      
     } catch (err) {
+      if (currentRequestId !== fetchRequestIdRef.current) return;
       setError(err instanceof Error ? err.message : 'An error occurred while fetching data');
-    } finally {
       setIsLoading(false);
     }
   }, [selectedRoomIdForTemplate, activeRoomTab]);

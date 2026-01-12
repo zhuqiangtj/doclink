@@ -87,6 +87,8 @@ export default function PatientScheduleHome() {
   const [overlayText, setOverlayText] = useState<string | null>(null);
   const selectedDateRef = useRef<Date>(selectedDate);
   const selectedDoctorIdRef = useRef<string>(selectedDoctorId);
+  const dayFetchRequestIdRef = useRef<number>(0);
+  const monthFetchRequestIdRef = useRef<number>(0);
 
   useEffect(() => {
     if (status === "loading") return;
@@ -145,6 +147,7 @@ export default function PatientScheduleHome() {
 
   const refreshCalendarStatuses = async (date: Date, doctorId: string) => {
     if (!doctorId) return;
+    const requestId = ++monthFetchRequestIdRef.current;
     setIsCalendarLoading(true);
     try {
       const year = date.getFullYear();
@@ -156,7 +159,9 @@ export default function PatientScheduleHome() {
         }
       } catch {}
       const statuses = await fetchPublicDateStatusesForMonth(year, month, doctorId);
-      setDateStatuses(statuses);
+      if (requestId === monthFetchRequestIdRef.current) {
+        setDateStatuses(statuses);
+      }
       // 预取相邻月份，提升月份切换体验
       import('../utils/publicDateStatusUtils').then(({ prefetchPublicMonthStatuses }) => {
         prefetchPublicMonthStatuses(year, month === 0 ? 11 : month - 1, doctorId);
@@ -165,12 +170,15 @@ export default function PatientScheduleHome() {
     } catch (err) {
       console.error(err);
     } finally {
-      setIsCalendarLoading(false);
+      if (requestId === monthFetchRequestIdRef.current) {
+        setIsCalendarLoading(false);
+      }
     }
   };
 
   const refreshDayDetails = async (date: Date, doctorId: string) => {
     if (!doctorId) return;
+    const requestId = ++dayFetchRequestIdRef.current;
     setIsDayLoading(true);
     setError(null);
     try {
@@ -178,6 +186,9 @@ export default function PatientScheduleHome() {
       const detailsRes = await fetch(`/api/public/schedules?doctorId=${doctorId}&date=${dateStr}`);
       if (!detailsRes.ok) throw new Error("获取当天排班详情失败。");
       const details: Schedule[] = await detailsRes.json();
+      
+      if (requestId !== dayFetchRequestIdRef.current) return;
+
       const mergedDetails = dedupeSchedulesByRoom(details);
       setSchedulesForSelectedDay(mergedDetails);
 
@@ -200,6 +211,8 @@ export default function PatientScheduleHome() {
       // 同步“我的预约”映射：避免医生取消后本页仍显示“已预约”
       try {
         const appointmentsRes = await fetch("/api/appointments");
+        if (requestId !== dayFetchRequestIdRef.current) return;
+
         if (appointmentsRes.ok) {
           const appointments: Appointment[] = await appointmentsRes.json();
           const map: Record<string, string> = {};
@@ -215,11 +228,15 @@ export default function PatientScheduleHome() {
         console.warn("刷新当天详情时同步我的预约映射失败", err);
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "发生未知错误");
-      setRooms([]);
-      setSelectedRoomId("");
+      if (requestId === dayFetchRequestIdRef.current) {
+        setError(err instanceof Error ? err.message : "发生未知错误");
+        setRooms([]);
+        setSelectedRoomId("");
+      }
     } finally {
-      setIsDayLoading(false);
+      if (requestId === dayFetchRequestIdRef.current) {
+        setIsDayLoading(false);
+      }
     }
   };
 
@@ -754,12 +771,12 @@ export default function PatientScheduleHome() {
       const updatedSchedule: Schedule | null = Array.isArray(arr) ? arr[0] : null;
       if (!updatedSchedule || !updatedSchedule.timeSlots || updatedSchedule.timeSlots.length === 0) return;
       const updatedSlot = updatedSchedule.timeSlots[0];
-      const selectedDateStr = toYYYYMMDD(selectedDate);
+      const currentSelectedDateStr = toYYYYMMDD(selectedDateRef.current);
 
       await refreshSingleDateStatus(updatedSchedule.date, selectedDoctorId);
 
       setSchedulesForSelectedDay(prev => {
-        if (updatedSchedule.date !== selectedDateStr) {
+        if (updatedSchedule.date !== currentSelectedDateStr) {
           return prev;
         }
         let scheduleExists = prev.some(s => s.id === updatedSchedule.id);
@@ -775,7 +792,7 @@ export default function PatientScheduleHome() {
         });
         const finalNext = scheduleExists ? next : [...next, updatedSchedule];
         const deduped = dedupeSchedulesByRoom(finalNext);
-        const dateStr = selectedDateStr;
+        const dateStr = currentSelectedDateStr;
         const totals = deduped.reduce((acc: { bookedBeds: number; totalBeds: number }, sch) => {
           for (const ts of sch.timeSlots || []) {
             acc.totalBeds += Number(ts.bedCount || 0);
@@ -790,7 +807,7 @@ export default function PatientScheduleHome() {
           hasAppointments: totals.bookedBeds > 0,
           bookedBeds: totals.bookedBeds,
           totalBeds: totals.totalBeds,
-          isPast: isPastDate(selectedDate),
+          isPast: isPastDate(selectedDateRef.current),
         };
         setDateStatuses(prevStatuses => {
           const idx = prevStatuses.findIndex(st => st.date === dateStr);
