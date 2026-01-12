@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
-import { FaCalendarAlt, FaHospital, FaFilter, FaChevronLeft, FaChevronRight, FaTimes, FaCheckCircle, FaBell, FaHistory } from 'react-icons/fa';
+import { FaTimes, FaCheckCircle, FaBell, FaHistory } from 'react-icons/fa';
 import './mobile.css';
 import { getStatusText } from '../../../utils/statusText';
 import AppointmentHistoryModal from '../../../components/AppointmentHistoryModal';
@@ -395,6 +395,11 @@ export default function DoctorAppointmentsPage() {
 
   const totalPages = Math.ceil(sortedAppointments.length / itemsPerPage);
 
+  const appointmentDates = useMemo(() => {
+    const dates = new Set(appointments.map(a => a.date));
+    return Array.from(dates).sort((a, b) => new Date(b).getTime() - new Date(a).getTime());
+  }, [appointments]);
+
   // --- Handlers ---
   // 標記通知為已讀
   const handleMarkAsRead = async (notificationId: string) => {
@@ -488,7 +493,7 @@ export default function DoctorAppointmentsPage() {
   };
 
   const resetFilters = () => {
-    setSelectedDate(getCurrentDateInChina());
+    setSelectedDate('');
     setSelectedRoomId('');
     setSelectedStatus('');
     setCurrentPage(1);
@@ -726,51 +731,63 @@ export default function DoctorAppointmentsPage() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div className="mobile-filter-group">
-            <label htmlFor="date-filter" className="mobile-filter-label block mb-2">日期</label>
-            <div className="relative">
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
-                <FaCalendarAlt />
-              </div>
-              <input
-                id="date-filter"
-                type="date"
-                value={selectedDate}
-                onChange={(e) => {
-                  setSelectedDate(e.target.value);
-                  setCurrentPage(1);
-                }}
-                className="mobile-filter-input pl-10 w-full appearance-none"
-              />
-            </div>
-          </div>
-
-          <div className="mobile-filter-group">
-            <label htmlFor="room-filter" className="mobile-filter-label block mb-2">诊室</label>
-            <div className="relative">
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
-                <FaHospital />
-              </div>
-              <select
-                id="room-filter"
-                value={selectedRoomId}
-                onChange={(e) => {
-                  setSelectedRoomId(e.target.value);
-                  setCurrentPage(1);
-                }}
-                className="mobile-filter-select pl-10 w-full appearance-none bg-no-repeat"
-                style={{ backgroundImage: 'none' }} 
+        {/* Date Filter */}
+        <div className="mb-4">
+          <label className="mobile-filter-label block mb-2">日期</label>
+          <div className="flex overflow-x-auto pb-2 -mx-1 px-1 gap-2 no-scrollbar" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+            <button
+              onClick={() => { setSelectedDate(''); setCurrentPage(1); }}
+              className={`whitespace-nowrap px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 border ${
+                selectedDate === ''
+                  ? 'bg-blue-600 text-white border-blue-600 shadow-md transform scale-105'
+                  : 'bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100'
+              }`}
+            >
+              全部
+            </button>
+            {appointmentDates.map((date) => (
+              <button
+                key={date}
+                onClick={() => { setSelectedDate(date); setCurrentPage(1); }}
+                className={`whitespace-nowrap px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 border ${
+                  selectedDate === date
+                    ? 'bg-blue-600 text-white border-blue-600 shadow-md transform scale-105'
+                    : 'bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100'
+                }`}
               >
-                <option value="">所有诊室</option>
-                {doctorProfile?.Room.map(room => (
-                  <option key={room.id} value={room.id}>{room.name}</option>
-                ))}
-              </select>
-              <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none text-gray-400">
-                 <FaChevronRight className="transform rotate-90 text-xs" />
-              </div>
-            </div>
+                {date}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Room Filter */}
+        <div className="mb-4">
+          <label className="mobile-filter-label block mb-2">诊室</label>
+          <div className="flex overflow-x-auto pb-2 -mx-1 px-1 gap-2 no-scrollbar" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+            <button
+              onClick={() => { setSelectedRoomId(''); setCurrentPage(1); }}
+              className={`whitespace-nowrap px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 border ${
+                selectedRoomId === ''
+                  ? 'bg-blue-600 text-white border-blue-600 shadow-md transform scale-105'
+                  : 'bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100'
+              }`}
+            >
+              全部
+            </button>
+            {doctorProfile?.Room.map((room) => (
+              <button
+                key={room.id}
+                onClick={() => { setSelectedRoomId(room.id); setCurrentPage(1); }}
+                className={`whitespace-nowrap px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 border ${
+                  selectedRoomId === room.id
+                    ? 'bg-blue-600 text-white border-blue-600 shadow-md transform scale-105'
+                    : 'bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100'
+                }`}
+              >
+                {room.name}
+              </button>
+            ))}
           </div>
         </div>
 
