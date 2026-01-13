@@ -2495,6 +2495,31 @@ export default function DoctorSchedulePage() {
       )}
         </>
       )}
+      {/* 全屏加载/错误遮罩 - 屏蔽用户操作直到加载完成 */}
+      {(isLoading || isNetworkError) && (
+        <div className="mobile-global-loading-overlay">
+          {isLoading ? (
+            <>
+              <div className="mobile-loading-spinner"></div>
+              <p className="mobile-global-loading-text">正在加载排班数据...</p>
+            </>
+          ) : (
+            <>
+              <div className="text-red-500 mb-2 text-xl" style={{ fontSize: '3rem' }}>⚠️</div>
+              <p className="mobile-global-loading-text text-red-500 mb-4 font-bold">{error || '网络请求失败'}</p>
+              <p className="text-gray-500 text-sm mb-6">请检查网络连接后重试</p>
+              <button 
+                onClick={() => fetchAllDataForDate(selectedDate)}
+                className="mobile-btn mobile-btn-primary w-auto px-8"
+              >
+                重试
+              </button>
+            </>
+          )}
+        </div>
+      )}
+
+      {/* 底部功能區 - 用於調試或其他用途 */}
     </div>
   );
 }
