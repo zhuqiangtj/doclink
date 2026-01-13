@@ -577,7 +577,7 @@ body {
 
 /* Time Slot Row Styles - Restored & Enhanced for Apple Style */
 .mobile-time-slot-single-line {
-  background-color: white;
+  background-color: #eff6ff; /* Light blue background for active slots */
   border-radius: 16px; /* Larger border radius for card style */
   margin-bottom: var(--spacing-md); /* More spacing between cards */
   padding: 1rem; /* More padding */
@@ -587,9 +587,9 @@ body {
   flex-direction: column;
   gap: var(--spacing-sm);
   
-  /* Apple-style shadow and border */
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04), 0 1px 2px rgba(0, 0, 0, 0.02);
-  border: 1px solid rgba(0, 0, 0, 0.05);
+  /* Stronger border and shadow for depth */
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  border: 1px solid #60a5fa; /* Blue-400 - Distinct border */
 }
 
 .mobile-time-slot-single-line:active {
@@ -603,50 +603,54 @@ body {
 .mobile-time-slot-with-appointments {
   background: linear-gradient(to bottom right, #f0fdf4, #ffffff);
   border-left: 4px solid #10b981; /* Solid green indicator */
-  border-top: 1px solid rgba(16, 185, 129, 0.1);
-  border-right: 1px solid rgba(16, 185, 129, 0.1);
-  border-bottom: 1px solid rgba(16, 185, 129, 0.1);
+  border-top: 1px solid #86efac; /* Green-300 */
+  border-right: 1px solid #86efac;
+  border-bottom: 1px solid #86efac;
 }
 
-/* No Appointments: Clean White */
+/* No Appointments: Light Blue Base */
 .mobile-time-slot-no-appointments {
-  background-color: white;
-  border-left: 4px solid transparent; /* Align content with colored cards */
+  background-color: #eff6ff;
+  border-left: 4px solid #3b82f6; /* Blue indicator */
 }
 
-/* Past: Muted Gray */
+/* Past: Enhanced Visibility for Expired Items */
 .mobile-time-slot-past {
-  background-color: #f9fafb;
-  border-color: #e5e7eb;
-  opacity: 0.7;
-  box-shadow: none;
-  border-left: 4px solid #d1d5db;
+  background-color: #f3f4f6; /* Gray-100 */
+  border: 1px solid #6b7280; /* Gray-500 - Stronger border */
+  opacity: 1; /* Remove transparency */
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05); /* Slight shadow for depth */
+  border-left: 4px solid #4b5563; /* Gray-600 */
 }
 
 .mobile-time-slot-past .mobile-time-input-inline,
 .mobile-time-slot-past .mobile-total-input-inline {
-  background-color: #f3f4f6;
-  color: #9ca3af;
-  border-color: #e5e7eb;
+  background-color: #e5e7eb; /* Gray-200 */
+  color: #1f2937; /* Gray-800 - Darker text */
+  border: 1px solid #9ca3af; /* Gray-400 - Visible border */
+  font-weight: 500;
 }
 
 /* Modified: Amber Highlight */
 .mobile-time-slot-modified {
   border-left-color: #f59e0b; /* Override left border color */
   background: linear-gradient(to bottom right, #fffbeb, #ffffff);
+  border: 1px solid #fcd34d; /* Amber-300 */
 }
 
 /* Selected: Blue Focus Ring */
 .mobile-time-slot-selected {
   border-color: var(--primary-color);
-  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1), 0 4px 12px rgba(59, 130, 246, 0.1);
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2), 0 4px 12px rgba(59, 130, 246, 0.1);
   z-index: 10;
   position: relative;
 }
 
 /* Ensure inputs inside colored rows stand out */
 .mobile-time-slot-with-appointments input {
-  border-color: #a7f3d0; /* green-200 */
+  border-color: #10b981; /* Green-500 */
+  background-color: #f0fdf4;
+  color: #064e3b;
 }
 
 .mobile-time-slot-with-appointments input:focus {
@@ -658,9 +662,12 @@ body {
 .mobile-time-input-inline,
 .mobile-total-input-inline {
   padding: 0.5rem;
-  border: 1px solid var(--border-color);
+  border: 1px solid #93c5fd; /* Blue-300 */
+  background-color: white;
+  color: #1e3a8a; /* Blue-900 - Dark blue text */
   border-radius: var(--border-radius-sm);
   font-size: 0.9rem;
+  font-weight: 500; /* Bolder text */
   text-align: center;
   transition: border-color 0.2s;
   height: 40px; /* Match button height usually */
@@ -726,12 +733,13 @@ body {
   background-color: #dc2626;
 }
 
-/* Disabled State */
+/* Disabled State - Enhanced Visibility */
 .mobile-icon-btn-disabled-colored {
-  background-color: #e5e7eb;
-  color: #9ca3af;
+  background-color: #d1d5db; /* Gray-300 - Darker than before */
+  color: #6b7280; /* Gray-500 - Darker than before */
   cursor: not-allowed;
   pointer-events: none;
+  border: 1px solid #9ca3af; /* Add border for visibility */
 }
 
 /* Patient List Styles - Inline Version (Restored) */
