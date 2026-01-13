@@ -599,15 +599,15 @@ export default function DoctorSchedulePage() {
         }
       }
       
-      // 關鍵數據已加載，取消 Loading 狀態，讓用戶盡快看到排班
-      setIsLoading(false);
-
       // 處理高亮日期
       if (highlightsData && Array.isArray(highlightsData.scheduledDates)) {
         setHighlightedDates(highlightsData.scheduledDates.map((dateStr: string) => fromYYYYMMDD(dateStr)));
       } else {
         throw new Error('Invalid highlights data received');
       }
+      
+      // 關鍵數據已加載，取消 Loading 狀態，讓用戶盡快看到排班
+      setIsLoading(false);
       
     } catch (err) {
       if (currentRequestId !== fetchRequestIdRef.current) return;

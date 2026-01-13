@@ -846,7 +846,7 @@ export default function DoctorAppointmentsPage() {
       {/* Filters */}
       {activeTab === 'appointments' && (
         <>
-      <div className="mb-4">
+      <div className="mb-4 w-full">
         <button
           onClick={openFilterModal}
           className="w-full bg-white text-gray-700 font-medium py-3 px-4 rounded-xl shadow-sm border border-gray-200 flex items-center justify-center gap-2 active:bg-gray-50 transition-colors"
