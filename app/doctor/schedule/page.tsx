@@ -540,32 +540,38 @@ export default function DoctorSchedulePage() {
       const detailsPromise = fetch(`/api/schedules/details?date=${toYYYYMMDD(date)}`, { 
         cache: 'no-store',
         signal: controller.signal
-      }).finally(() => clearTimeout(timeoutId));
+      });
 
-      // 月份高亮數據非關鍵路徑，失敗不應阻塞排班詳情顯示
-      const highlightsPromise = fetch(`/api/schedules?month=${monthStr}`, { cache: 'no-store' })
-        .catch(err => {
-          console.warn('Failed to fetch highlights (non-critical):', err);
-          return null;
-        });
+      // 月份高亮數據也視為關鍵路徑，失敗應阻塞操作，避免誤導用戶
+      const highlightsPromise = fetch(`/api/schedules?month=${monthStr}`, { 
+        cache: 'no-store',
+        signal: controller.signal 
+      });
 
       // 優先等待排班詳情（關鍵數據）
-      let detailsRes;
+      let detailsRes, highlightsRes;
       try {
-        detailsRes = await detailsPromise;
+        [detailsRes, highlightsRes] = await Promise.all([detailsPromise, highlightsPromise]);
       } catch (err: any) {
+        clearTimeout(timeoutId);
         if (err.name === 'AbortError') {
           throw new Error('网络请求超时，请检查您的网络连接');
         }
         throw err;
       }
+      clearTimeout(timeoutId);
+
       if (currentRequestId !== fetchRequestIdRef.current) return;
 
       if (!detailsRes.ok) throw new Error('Failed to fetch schedule details.');
+      if (!highlightsRes.ok) throw new Error('Failed to fetch schedule highlights.');
+
       const detailsData = await detailsRes.json();
+      const highlightsData = await highlightsRes.json();
 
       if (currentRequestId !== fetchRequestIdRef.current) return;
 
+      // 處理排班詳情
       setSchedulesForSelectedDay(dedupeSchedulesByRoom(detailsData));
 
       const initialCollapsedState: Record<string, boolean> = {};
@@ -596,13 +602,11 @@ export default function DoctorSchedulePage() {
       // 關鍵數據已加載，取消 Loading 狀態，讓用戶盡快看到排班
       setIsLoading(false);
 
-      // 最後處理高亮日期（如果成功）
-      const highlightsRes = await highlightsPromise;
-      if (currentRequestId !== fetchRequestIdRef.current) return;
-
-      if (highlightsRes && highlightsRes.ok) {
-        const highlightsData = await highlightsRes.json();
+      // 處理高亮日期
+      if (highlightsData && Array.isArray(highlightsData.scheduledDates)) {
         setHighlightedDates(highlightsData.scheduledDates.map((dateStr: string) => fromYYYYMMDD(dateStr)));
+      } else {
+        throw new Error('Invalid highlights data received');
       }
       
     } catch (err) {
