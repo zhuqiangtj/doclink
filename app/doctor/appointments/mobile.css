@@ -212,65 +212,13 @@
   border-left: 4px solid #059669;
 }
 
-/* Filters card */
-.mobile-filters-card {
-  background: white;
-  border-radius: 0.75rem;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-  padding: 1rem;
-  margin-bottom: 1rem;
-  width: 100%;
-  box-sizing: border-box;
-}
-
-.mobile-filters-title {
-  font-size: 1.1rem;
-  font-weight: 600;
-  color: #1f2937;
-  margin-bottom: 1rem;
-}
-
-.mobile-filters-grid {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 1rem;
-  margin-bottom: 1rem;
-}
-
-@media (min-width: 640px) {
-  .mobile-filters-grid {
-    grid-template-columns: repeat(3, 1fr);
-  }
-}
-
-.mobile-filter-group {
-  display: flex;
-  flex-direction: column;
-}
+/* Filters card styles removed (moved to modal) */
 
 .mobile-filter-label {
   font-size: 0.9rem;
   font-weight: 500;
   color: #374151;
   margin-bottom: 0.5rem;
-}
-
-.mobile-filter-input,
-.mobile-filter-select {
-  width: 100%;
-  padding: 0.75rem;
-  border: 1px solid #d1d5db;
-  border-radius: 0.5rem;
-  font-size: 0.95rem;
-  background: white;
-  transition: border-color 0.2s;
-}
-
-.mobile-filter-input:focus,
-.mobile-filter-select:focus {
-  outline: none;
-  border-color: #3b82f6;
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
 }
 
 /* Hide scrollbar for Chrome, Safari and Opera */
@@ -283,16 +231,7 @@
   scrollbar-width: none;  /* Firefox */
 }
 
-/* Adjust padding for inputs with icons */
-.mobile-filter-input {
-  /* ... inherited properties */
-  padding: 0.75rem 0.75rem 0.75rem 2.8rem; /* Left padding for icon */
-}
-
-.mobile-filter-select {
-  /* ... inherited properties */
-  padding: 0.75rem 2.5rem 0.75rem 2.8rem; /* Right padding for chevron, Left for icon */
-}
+/* Adjust padding for inputs with icons - removed */
 
 .mobile-filters-actions {
   display: flex;
@@ -302,22 +241,7 @@
   gap: 0.5rem;
 }
 
-.mobile-reset-filters-btn {
-  padding: 0.5rem 1rem;
-  background: #f3f4f6;
-  color: #374151;
-  border: none;
-  border-radius: 0.5rem;
-  font-size: 0.9rem;
-  font-weight: 500;
-  cursor: pointer;
-  transition: background-color 0.2s;
-  touch-action: manipulation;
-}
-
-.mobile-reset-filters-btn:hover {
-  background: #e5e7eb;
-}
+/* mobile-reset-filters-btn removed */
 
 .mobile-results-count {
   font-size: 0.9rem;
@@ -661,11 +585,6 @@
     align-self: flex-start;
   }
   
-  .mobile-filters-actions {
-    flex-direction: column;
-    align-items: stretch;
-  }
-  
   .mobile-pagination {
     flex-direction: row;
     gap: 0.75rem;
@@ -882,6 +801,30 @@
   cursor: not-allowed;
 }
 
+.mobile-dialog-primary-btn {
+  flex: 1;
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  color: white;
+  border: none;
+  border-radius: 0.5rem;
+  padding: 0.75rem 1rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 4px rgba(59, 130, 246, 0.2);
+}
+
+.mobile-dialog-primary-btn:hover:not(:disabled) {
+  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+  box-shadow: 0 4px 8px rgba(59, 130, 246, 0.3);
+}
+
+.mobile-dialog-primary-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 .mobile-dialog-close:disabled {
   opacity: 0.5;
   cursor: not-allowed;
@@ -891,7 +834,6 @@
 @media (hover: none) and (pointer: coarse) {
   .mobile-cancel-appointment-btn,
   .mobile-no-show-btn,
-  .mobile-reset-filters-btn,
   .mobile-pagination-btn,
   .mobile-dialog-cancel-btn,
   .mobile-dialog-confirm-btn {

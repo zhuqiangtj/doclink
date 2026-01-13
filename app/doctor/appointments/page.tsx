@@ -153,21 +153,39 @@ export default function DoctorAppointmentsPage() {
   const [patientPage, setPatientPage] = useState(1);
   const [selectedPatient, setSelectedPatient] = useState<PatientListItem | null>(null);
   const [showPatientModal, setShowPatientModal] = useState(false);
+  
+  // --- Filter Modal States ---
+  const [showFilterModal, setShowFilterModal] = useState(false);
+  const [tempStatus, setTempStatus] = useState(selectedStatus);
+  const [tempRoomId, setTempRoomId] = useState(selectedRoomId);
+  const [tempDate, setTempDate] = useState(selectedDate);
 
   // --- Effects ---
   useEffect(() => {
     if (status === 'unauthenticated') router.push('/auth/signin');
     if (status === 'authenticated' && session?.user?.role !== 'DOCTOR') {
-  setError('访问被拒绝');
+      setError('访问被拒绝');
     }
   }, [status, session?.user?.role, router]);
 
   useEffect(() => {
     const hasCookie = (name: string) => document.cookie.split(';').some(c => c.trim().startsWith(name + '='));
     
-    if (hasCookie('doc_apt_status')) setSelectedStatus(getCookie('doc_apt_status'));
-    if (hasCookie('doc_apt_room')) setSelectedRoomId(getCookie('doc_apt_room'));
-    if (hasCookie('doc_apt_date')) setSelectedDate(getCookie('doc_apt_date'));
+    if (hasCookie('doc_apt_status')) {
+      const s = getCookie('doc_apt_status');
+      setSelectedStatus(s);
+      setTempStatus(s);
+    }
+    if (hasCookie('doc_apt_room')) {
+      const r = getCookie('doc_apt_room');
+      setSelectedRoomId(r);
+      setTempRoomId(r);
+    }
+    if (hasCookie('doc_apt_date')) {
+      const d = getCookie('doc_apt_date');
+      setSelectedDate(d);
+      setTempDate(d);
+    }
   }, []);
 
   useEffect(() => { setCookie('doc_apt_status', selectedStatus || ''); }, [selectedStatus]);
@@ -581,6 +599,27 @@ export default function DoctorAppointmentsPage() {
     setCurrentPage(1);
   };
 
+  const openFilterModal = () => {
+    setTempStatus(selectedStatus);
+    setTempRoomId(selectedRoomId);
+    setTempDate(selectedDate);
+    setShowFilterModal(true);
+  };
+
+  const applyFilters = () => {
+    setSelectedStatus(tempStatus);
+    setSelectedRoomId(tempRoomId);
+    setSelectedDate(tempDate);
+    setCurrentPage(1);
+    setShowFilterModal(false);
+  };
+
+  const resetTempFilters = () => {
+    setTempStatus('');
+    setTempRoomId('');
+    setTempDate('');
+  };
+
   // 標記爽約
   const handleMarkNoShow = async (appointmentId: string) => {
     try {
@@ -807,107 +846,20 @@ export default function DoctorAppointmentsPage() {
       {/* Filters */}
       {activeTab === 'appointments' && (
         <>
-      <div className="mobile-filters-card">
-        <div className="flex justify-between items-center mb-4">
-          <h2 className="mobile-filters-title mb-0">筛选</h2>
-          <button onClick={resetFilters} className="text-sm text-blue-600 flex items-center gap-1 font-medium active:opacity-70">
-             重置
-          </button>
-        </div>
-        
-        {/* Status Pills */}
-        <div className="mb-4">
-          <label className="mobile-filter-label block mb-2">状态</label>
-          <div className="flex overflow-x-auto pb-2 -mx-1 px-1 gap-2 no-scrollbar" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
-            {[
-              { value: '', label: '全部' },
-              { value: 'PENDING', label: '待就诊' },
-              { value: 'COMPLETED', label: '已完成' },
-              { value: 'CANCELLED', label: '已取消' },
-              { value: 'NO_SHOW', label: '未到诊' }
-            ].map((statusOption) => (
-              <button
-                key={statusOption.value}
-                onClick={() => {
-                   const next = statusOption.value;
-                   setSelectedStatus(next);
-                   if (next) setSelectedDate('');
-                   setCurrentPage(1);
-                }}
-                className={`whitespace-nowrap px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 border ${
-                  selectedStatus === statusOption.value
-                    ? 'bg-blue-600 text-white border-blue-600 shadow-md transform scale-105'
-                    : 'bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100'
-                }`}
-              >
-                {statusOption.label}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Room Filter */}
-        <div className="mb-4">
-          <label className="mobile-filter-label block mb-2">诊室</label>
-          <div className="flex overflow-x-auto pb-2 -mx-1 px-1 gap-2 no-scrollbar" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
-            <button
-              onClick={() => { setSelectedRoomId(''); setCurrentPage(1); }}
-              className={`whitespace-nowrap px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 border ${
-                selectedRoomId === ''
-                  ? 'bg-blue-600 text-white border-blue-600 shadow-md transform scale-105'
-                  : 'bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100'
-              }`}
-            >
-              全部
-            </button>
-            {doctorProfile?.Room.map((room) => (
-              <button
-                key={room.id}
-                onClick={() => { setSelectedRoomId(room.id); setCurrentPage(1); }}
-                className={`whitespace-nowrap px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 border ${
-                  selectedRoomId === room.id
-                    ? 'bg-blue-600 text-white border-blue-600 shadow-md transform scale-105'
-                    : 'bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100'
-                }`}
-              >
-                {room.name}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Date Filter */}
-        <div className="mb-4">
-          <label className="mobile-filter-label block mb-2">日期</label>
-          <div className="flex overflow-x-auto pb-2 -mx-1 px-1 gap-2 no-scrollbar" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
-            <button
-              onClick={() => { setSelectedDate(''); setCurrentPage(1); }}
-              className={`whitespace-nowrap px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 border ${
-                selectedDate === ''
-                  ? 'bg-blue-600 text-white border-blue-600 shadow-md transform scale-105'
-                  : 'bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100'
-              }`}
-            >
-              全部
-            </button>
-            <button
-              onClick={() => setShowDatePicker(true)}
-              className={`whitespace-nowrap px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 border ${
-                selectedDate !== ''
-                  ? 'bg-blue-600 text-white border-blue-600 shadow-md transform scale-105'
-                  : 'bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100'
-              }`}
-            >
-              {selectedDate || '选择日期'}
-            </button>
-          </div>
-        </div>
-
-        <div className="mt-4 pt-3 border-t border-gray-100 flex justify-end">
-          <span className="mobile-results-count text-xs text-gray-400">
-            共 {sortedAppointments.length} 条记录
-          </span>
-        </div>
+      <div className="mb-4">
+        <button
+          onClick={openFilterModal}
+          className="w-full bg-white text-gray-700 font-medium py-3 px-4 rounded-xl shadow-sm border border-gray-200 flex items-center justify-center gap-2 active:bg-gray-50 transition-colors"
+        >
+          <span className="text-lg">🔍</span>
+          <span>筛选预约 ({[
+            selectedStatus ? '已选状态' : null, 
+            selectedRoomId ? '已选诊室' : null, 
+            selectedDate ? '已选日期' : null
+          ].filter(Boolean).length > 0 ? 
+            [selectedStatus && '状态', selectedRoomId && '诊室', selectedDate && '日期'].filter(Boolean).join(' · ') 
+            : '全部'})</span>
+        </button>
       </div>
 
       {/* 排序選項已移除 */}
@@ -1012,9 +964,21 @@ export default function DoctorAppointmentsPage() {
             </div>
           )) : (
             <div className="mobile-empty-state">
-              <p className="mobile-empty-text">
-                {appointments.length === 0 ? '暂无预约记录' : '没有符合条件的预约记录'}
-              </p>
+              {error ? (
+                <div className="text-center py-8">
+                  <p className="text-red-600 mb-4">{error}</p>
+                  <button 
+                    onClick={() => fetchAppointments()} 
+                    className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700"
+                  >
+                    重试加载
+                  </button>
+                </div>
+              ) : (
+                <p className="mobile-empty-text">
+                  {appointments.length === 0 ? '暂无预约记录' : '没有符合条件的预约记录'}
+                </p>
+              )}
             </div>
           )}
         </div>
@@ -1133,6 +1097,127 @@ export default function DoctorAppointmentsPage() {
         </div>
       )}
 
+      {/* 筛选模态框 */}
+      {showFilterModal && (
+        <div className="mobile-dialog-overlay">
+          <div className="mobile-dialog">
+            <div className="mobile-dialog-header">
+              <h3 className="mobile-dialog-title">筛选预约</h3>
+              <button 
+                onClick={resetTempFilters}
+                className="text-sm text-blue-600 font-medium"
+              >
+                重置
+              </button>
+            </div>
+            
+            <div className="mobile-dialog-content">
+              {/* Status Pills */}
+              <div className="mb-4">
+                <label className="mobile-filter-label block mb-2">状态</label>
+                <div className="flex flex-wrap gap-2">
+                  {[
+                    { value: '', label: '全部' },
+                    { value: 'PENDING', label: '待就诊' },
+                    { value: 'COMPLETED', label: '已完成' },
+                    { value: 'CANCELLED', label: '已取消' },
+                    { value: 'NO_SHOW', label: '未到诊' }
+                  ].map((statusOption) => (
+                    <button
+                      key={statusOption.value}
+                      onClick={() => {
+                         const next = statusOption.value;
+                         setTempStatus(next);
+                         if (next) setTempDate('');
+                      }}
+                      className={`whitespace-nowrap px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 border ${
+                        tempStatus === statusOption.value
+                          ? 'bg-blue-600 text-white border-blue-600 shadow-md transform scale-105'
+                          : 'bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100'
+                      }`}
+                    >
+                      {statusOption.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Room Filter */}
+              <div className="mb-4">
+                <label className="mobile-filter-label block mb-2">诊室</label>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    onClick={() => setTempRoomId('')}
+                    className={`whitespace-nowrap px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 border ${
+                      tempRoomId === ''
+                        ? 'bg-blue-600 text-white border-blue-600 shadow-md transform scale-105'
+                        : 'bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100'
+                    }`}
+                  >
+                    全部
+                  </button>
+                  {doctorProfile?.Room.map((room) => (
+                    <button
+                      key={room.id}
+                      onClick={() => setTempRoomId(room.id)}
+                      className={`whitespace-nowrap px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 border ${
+                        tempRoomId === room.id
+                          ? 'bg-blue-600 text-white border-blue-600 shadow-md transform scale-105'
+                          : 'bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100'
+                      }`}
+                    >
+                      {room.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Date Filter */}
+              <div className="mb-4">
+                <label className="mobile-filter-label block mb-2">日期</label>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    onClick={() => setTempDate('')}
+                    className={`whitespace-nowrap px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 border ${
+                      tempDate === ''
+                        ? 'bg-blue-600 text-white border-blue-600 shadow-md transform scale-105'
+                        : 'bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100'
+                    }`}
+                  >
+                    全部
+                  </button>
+                  <button
+                    onClick={() => setShowDatePicker(true)}
+                    className={`whitespace-nowrap px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 border ${
+                      tempDate !== ''
+                        ? 'bg-blue-600 text-white border-blue-600 shadow-md transform scale-105'
+                        : 'bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100'
+                    }`}
+                  >
+                    {tempDate || '选择日期'}
+                  </button>
+                </div>
+              </div>
+            </div>
+            
+            <div className="mobile-dialog-actions">
+              <button 
+                onClick={() => setShowFilterModal(false)}
+                className="mobile-dialog-cancel-btn"
+              >
+                取消
+              </button>
+              <button 
+                onClick={applyFilters}
+                className="mobile-dialog-primary-btn"
+              >
+                应用筛选
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* 爽约确认对话框 */}
       {showNoShowDialog && selectedAppointmentForNoShow && (
         <div className="mobile-dialog-overlay">
@@ -1228,7 +1313,7 @@ export default function DoctorAppointmentsPage() {
 
       {/* Date Picker Dialog */}
       {showDatePicker && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+        <div className="fixed inset-0 z-[1050] flex items-center justify-center bg-black bg-opacity-50">
           <div className="bg-white rounded-lg p-4 w-full max-w-md mx-4 shadow-xl">
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-lg font-bold">选择日期</h3>
@@ -1237,13 +1322,19 @@ export default function DoctorAppointmentsPage() {
               </button>
             </div>
             <EnhancedDatePicker
-              selectedDate={selectedDate ? new Date(selectedDate) : new Date()}
+              selectedDate={showFilterModal ? (tempDate ? new Date(tempDate) : new Date()) : (selectedDate ? new Date(selectedDate) : new Date())}
               onDateChange={(date) => {
                 const y = date.getFullYear();
                 const m = String(date.getMonth() + 1).padStart(2, '0');
                 const d = String(date.getDate()).padStart(2, '0');
-                setSelectedDate(`${y}-${m}-${d}`);
-                setCurrentPage(1);
+                const dateStr = `${y}-${m}-${d}`;
+                
+                if (showFilterModal) {
+                  setTempDate(dateStr);
+                } else {
+                  setSelectedDate(dateStr);
+                  setCurrentPage(1);
+                }
                 setShowDatePicker(false);
               }}
               dateStatuses={dateStatuses}
