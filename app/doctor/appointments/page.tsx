@@ -703,9 +703,6 @@ export default function DoctorAppointmentsPage() {
           <div className="bg-black/60 text-white text-sm px-4 py-2 rounded">{overlayText}</div>
         </div>
       )}
-      <h1 className="mobile-header">预约管理</h1>
-      <p className="mobile-description">管理您的所有病人预约信息</p>
-      
       {/* 通知區域 */}
       {unreadNotifications.length > 0 && (
         <div className="mobile-notifications-banner">
