@@ -47,13 +47,20 @@ body {
   align-items: center;
   justify-content: flex-start;
   min-height: 100vh;
-  padding: var(--spacing-md);
+  padding: var(--spacing-xs); /* 减少内边距以增加可用宽度 */
   background-color: var(--background-color);
   width: 100%;
   max-width: 1200px;
   margin: 0 auto;
   /* 為底部導航欄預留空間 */
   padding-bottom: 100px;
+}
+
+/* 强制覆盖可能被其他页面污染的样式 */
+.page-container {
+  padding: var(--spacing-xs) !important;
+  max-width: 100% !important;
+  width: 100% !important;
 }
 
 /* 頁面標題 */
@@ -134,7 +141,7 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: var(--spacing-md) var(--spacing-lg);
+  padding: var(--spacing-md) var(--spacing-md); /* 减少水平内边距以适应小屏 */
   border-radius: var(--border-radius-sm);
   font-weight: 600;
   font-size: 1rem;
@@ -146,6 +153,15 @@ body {
   gap: var(--spacing-xs);
   position: relative;
   overflow: hidden;
+}
+
+/* 小屏幕适配 */
+@media (max-width: 400px) {
+  .mobile-btn {
+    padding: var(--spacing-sm) var(--spacing-xs);
+    font-size: 0.9rem;
+    gap: 4px;
+  }
 }
 
 .mobile-btn:disabled {
