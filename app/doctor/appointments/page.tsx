@@ -662,11 +662,11 @@ export default function DoctorAppointmentsPage() {
     return 'credit-low';
   };
 
-  const getGenderInfo = (gender?: string): { text: string; className: 'gender-male' | 'gender-female' | 'gender-other' } => {
+  const getGenderInfo = (gender?: string | null): { text: string; className: 'gender-male' | 'gender-female' | 'gender-other' } => {
     const g = (gender || '').toUpperCase();
     if (g === 'MALE' || g === 'M') return { text: '男', className: 'gender-male' };
     if (g === 'FEMALE' || g === 'F') return { text: '女', className: 'gender-female' };
-    return { text: '其他', className: 'gender-other' };
+    return { text: '未知', className: 'gender-other' };
   };
 
   const calcAgeFromBirthDate = (birthDate?: string): number | null => {
@@ -1067,16 +1067,20 @@ export default function DoctorAppointmentsPage() {
                       <td className="p-4">
                         <div className="font-medium text-gray-900">{patient.name}</div>
                         <div className="text-xs text-gray-500 sm:hidden">
-                          {patient.gender === 'MALE' ? '男' : patient.gender === 'FEMALE' ? '女' : '未知'} · {patient.age ? `${patient.age}岁` : '未知'}
+                          {getGenderInfo(patient.gender).text} · {patient.age ? `${patient.age}岁` : '未知'}
                         </div>
                       </td>
                       <td className="p-4 hidden sm:table-cell">
-                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                          patient.gender === 'MALE' ? 'bg-blue-100 text-blue-800' : 
-                          patient.gender === 'FEMALE' ? 'bg-pink-100 text-pink-800' : 'bg-gray-100 text-gray-800'
-                        }`}>
-                          {patient.gender === 'MALE' ? '男' : patient.gender === 'FEMALE' ? '女' : '未知'}
-                        </span>
+                        {(() => {
+                          const g = getGenderInfo(patient.gender);
+                          const colorClass = g.className === 'gender-male' ? 'bg-blue-100 text-blue-800' : 
+                                             g.className === 'gender-female' ? 'bg-pink-100 text-pink-800' : 'bg-gray-100 text-gray-800';
+                          return (
+                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${colorClass}`}>
+                              {g.text}
+                            </span>
+                          );
+                        })()}
                       </td>
                       <td className="p-4 hidden sm:table-cell text-gray-600">
                         {patient.age ? `${patient.age}岁` : '-'}
