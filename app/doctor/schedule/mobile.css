@@ -569,61 +569,71 @@ body {
   cursor: pointer;
 }
 
-/* Time Slot Row Styles - Restored */
+/* Time Slot Row Styles - Restored & Enhanced for Apple Style */
 .mobile-time-slot-single-line {
   background-color: white;
-  border: 1px solid var(--border-color);
-  border-radius: var(--border-radius-sm);
-  margin-bottom: var(--spacing-sm);
-  padding: var(--spacing-sm);
-  transition: all 0.2s ease;
+  border-radius: 16px; /* Larger border radius for card style */
+  margin-bottom: var(--spacing-md); /* More spacing between cards */
+  padding: 1rem; /* More padding */
+  transition: all 0.2s cubic-bezier(0.2, 0.8, 0.2, 1);
   cursor: pointer;
-  /* Ensure it contains the grid correctly */
   display: flex;
   flex-direction: column;
-  gap: var(--spacing-xs);
+  gap: var(--spacing-sm);
+  
+  /* Apple-style shadow and border */
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04), 0 1px 2px rgba(0, 0, 0, 0.02);
+  border: 1px solid rgba(0, 0, 0, 0.05);
 }
 
 .mobile-time-slot-single-line:active {
-  transform: scale(0.995);
+  transform: scale(0.98);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.02);
 }
 
-/* Status variants */
+/* Status variants - Enhanced Color Differentiation */
+
+/* Has Appointments: Distinct Green Tone */
 .mobile-time-slot-with-appointments {
-  background-color: #ecfdf5; /* green-50 */
-  border-color: #6ee7b7; /* green-300 */
+  background: linear-gradient(to bottom right, #f0fdf4, #ffffff);
+  border-left: 4px solid #10b981; /* Solid green indicator */
+  border-top: 1px solid rgba(16, 185, 129, 0.1);
+  border-right: 1px solid rgba(16, 185, 129, 0.1);
+  border-bottom: 1px solid rgba(16, 185, 129, 0.1);
 }
 
-.mobile-time-slot-with-appointments .mobile-time-input-inline,
-.mobile-time-slot-with-appointments .mobile-total-input-inline {
-  background-color: white;
-}
-
+/* No Appointments: Clean White */
 .mobile-time-slot-no-appointments {
   background-color: white;
-  border-color: var(--border-color);
+  border-left: 4px solid transparent; /* Align content with colored cards */
 }
 
+/* Past: Muted Gray */
 .mobile-time-slot-past {
-  background-color: #f3f4f6; /* gray-100 */
+  background-color: #f9fafb;
   border-color: #e5e7eb;
-  opacity: 0.8;
+  opacity: 0.7;
+  box-shadow: none;
+  border-left: 4px solid #d1d5db;
 }
 
 .mobile-time-slot-past .mobile-time-input-inline,
 .mobile-time-slot-past .mobile-total-input-inline {
-  background-color: #e5e7eb;
-  color: #6b7280;
+  background-color: #f3f4f6;
+  color: #9ca3af;
+  border-color: #e5e7eb;
 }
 
+/* Modified: Amber Highlight */
 .mobile-time-slot-modified {
-  border-left: 4px solid #f59e0b; /* amber-500 */
-  padding-left: calc(var(--spacing-sm) - 4px); /* Adjust padding to maintain width */
+  border-left-color: #f59e0b; /* Override left border color */
+  background: linear-gradient(to bottom right, #fffbeb, #ffffff);
 }
 
+/* Selected: Blue Focus Ring */
 .mobile-time-slot-selected {
   border-color: var(--primary-color);
-  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1), 0 4px 12px rgba(59, 130, 246, 0.1);
   z-index: 10;
   position: relative;
 }
