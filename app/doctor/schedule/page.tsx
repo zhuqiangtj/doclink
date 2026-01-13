@@ -952,8 +952,49 @@ export default function DoctorSchedulePage() {
       setSuccess(skippedCount > 0 
         ? `模板已应用，已跳过 ${skippedCount} 個过期或重复时段`
         : '模板已应用');
-      // await fetchAllDataForDate(selectedDate); // 移除重新獲取，依賴本地樂觀更新，避免服務器延遲導致的列表消失
       
+      // 更新日历状态（乐观更新）
+      setDateStatuses(prevStatuses => {
+        const dateStr = toYYYYMMDD(selectedDate);
+        const existingStatusIndex = prevStatuses.findIndex(s => s.date === dateStr);
+        let addedBeds = 0;
+        
+        // 计算新增床位
+        for (const tpl of templateToAdd) {
+            const maxBedsForRoom = selectedRoom?.bedCount ?? tpl.bedCount;
+            addedBeds += Math.min(tpl.bedCount, maxBedsForRoom);
+        }
+
+        if (addedBeds === 0) return prevStatuses;
+
+        const newStatus: DateStatus = existingStatusIndex !== -1 
+          ? { ...prevStatuses[existingStatusIndex] } 
+          : { 
+              date: dateStr, 
+              hasSchedule: false, 
+              hasAppointments: false, 
+              bookedBeds: 0, 
+              totalBeds: 0, 
+              isPast: isPastDate(selectedDate) 
+            };
+        
+        newStatus.hasSchedule = true;
+        newStatus.totalBeds += addedBeds;
+        
+        // 如果是今天或未来，且添加了新时段，则肯定不是所有时段都已过去
+        if (!isPastDate(selectedDate)) {
+             newStatus.isPast = false;
+        }
+
+        if (existingStatusIndex !== -1) {
+          const newStatuses = [...prevStatuses];
+          newStatuses[existingStatusIndex] = newStatus;
+          return newStatuses;
+        } else {
+          return [...prevStatuses, newStatus];
+        }
+      });
+
       // 確保切換到對應的診室 Tab，否則如果當前 Tab 為空或不同，新排班不會顯示
       if (selectedRoomIdForTemplate) {
         setActiveRoomTab(selectedRoomIdForTemplate);
@@ -1066,6 +1107,9 @@ export default function DoctorSchedulePage() {
 
       setSuccess('時段已保存');
       setTimeout(() => setSuccess(null), 3000);
+      
+      // 刷新該日期的狀態，確保角標顯示最新的床位數
+      await refreshSingleDateStatus(selectedDate);
     } catch (err) {
       setError(`Error saving time slot: ${err instanceof Error ? err.message : 'Unknown error'}`);
     } finally {
