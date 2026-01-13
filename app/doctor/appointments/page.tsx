@@ -25,6 +25,7 @@ interface PatientListItem {
 }
 
 interface Patient {
+  id: string;
   user: { name: string; phone?: string; dateOfBirth?: string; gender?: string };
   credibilityScore?: number;
 }
@@ -1215,6 +1216,7 @@ export default function DoctorAppointmentsPage() {
         isOpen={showPatientModal}
         onClose={() => setShowPatientModal(false)}
         patient={selectedPatient}
+        appointments={appointments.filter(a => a.patient?.id === selectedPatient?.id)}
       />
 
       {/* Date Picker Dialog */}
