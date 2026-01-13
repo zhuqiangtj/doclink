@@ -306,13 +306,13 @@ body {
   max-width: 500px;
   border-radius: 12px;
   padding: var(--spacing-lg);
-  max-height: 90vh;
-  overflow-y: auto;
-  animation: scaleIn 0.2s ease-out;
+  height: auto; /* Ensure height adapts to content */
+  max-height: 85vh; /* Limit max height */
   display: flex;
   flex-direction: column;
   box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
   margin: auto; /* Ensure centering as fallback */
+  position: relative; /* Context for children */
 }
 
 /* Compact Modal alias - behaves same as standard modal now */
@@ -343,8 +343,15 @@ body {
   margin: 0;
 }
 
+/* Modal Content - Handle scrolling internally */
 .mobile-modal-content {
   margin-bottom: var(--spacing-lg);
+  overflow-y: auto; /* Scroll only content if needed */
+  flex: 1 1 auto; /* Allow shrinking/growing but prioritize content size */
+  min-height: 0; /* Critical for nested flex scrolling */
+  padding: 4px; /* Prevent shadow/ring clipping */
+  margin-left: -4px; /* Compensate padding */
+  margin-right: -4px; /* Compensate padding */
 }
 
 .mobile-modal-footer {
