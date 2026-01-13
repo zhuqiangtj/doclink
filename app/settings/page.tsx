@@ -201,7 +201,6 @@ export default function SettingsPage() {
           <div className="bg-black/60 text-white text-sm px-4 py-2 rounded">{overlayText}</div>
         </div>
       )}
-      <h1 className="mobile-header">设置</h1>
       
       {success && <div className="mobile-success">{success}</div>}
 

@@ -248,11 +248,6 @@ export default function DoctorRoomsPage() {
           <div className="bg-black/60 text-white text-sm px-4 py-2 rounded">{overlayText}</div>
         </div>
       )}
-      <div className="mobile-header">
-        <h1 className="text-2xl md:text-4xl font-bold text-foreground">
-          我的诊室
-        </h1>
-      </div>
       
       <div className="mobile-card space-y-4">
         <button
