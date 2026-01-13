@@ -733,3 +733,110 @@ body {
   cursor: not-allowed;
   pointer-events: none;
 }
+
+/* Patient List Styles - Inline Version (Restored) */
+.mobile-patient-list-inline {
+  margin-top: 0.5rem;
+  border-top: 1px solid #e5e7eb;
+  padding-top: 0.5rem;
+}
+
+.mobile-patient-item-inline {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.75rem 0.5rem;
+  border-bottom: 1px dashed #e5e7eb;
+}
+
+.mobile-patient-item-inline:last-child {
+  border-bottom: none;
+}
+
+.mobile-patient-info-inline {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  margin-right: 0.5rem;
+}
+
+.mobile-patient-name-inline {
+  font-weight: 500;
+  color: #1f2937;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.mobile-patient-details-inline {
+  font-size: 0.8rem;
+  color: #6b7280;
+  line-height: 1.4;
+}
+
+/* Badges */
+.credit-inline-badge,
+.gender-inline-badge,
+.age-inline-badge,
+.phone-inline-badge,
+.mobile-status-badge-inline {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.1rem 0.4rem;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  line-height: 1.2;
+}
+
+.credit-inline-badge { background-color: #f3f4f6; color: #4b5563; }
+.credit-good { background-color: #ecfdf5; color: #059669; }
+.credit-medium { background-color: #fffbeb; color: #d97706; }
+.credit-low { background-color: #fef2f2; color: #dc2626; }
+.credit-neutral { background-color: #f3f4f6; color: #4b5563; }
+
+.gender-inline-badge { background-color: #eff6ff; color: #3b82f6; }
+.gender-female { background-color: #fdf2f8; color: #db2777; }
+.gender-other { background-color: #f3f4f6; color: #6b7280; }
+
+.age-inline-badge { background-color: #f3f4f6; color: #4b5563; }
+.phone-inline-badge { background-color: #f0fdf4; color: #15803d; text-decoration: none; }
+
+.mobile-status-badge-inline { background-color: #f3f4f6; color: #4b5563; }
+.mobile-status-completed { background-color: #ecfdf5; color: #059669; }
+.mobile-status-cancelled { background-color: #fef2f2; color: #dc2626; text-decoration: line-through; }
+.mobile-status-no-show { background-color: #fef2f2; color: #dc2626; }
+
+/* The Button Style */
+.mobile-patient-delete-btn-inline {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px; /* Increased size for visibility */
+  height: 36px;
+  border-radius: 50%;
+  background-color: #fee2e2; /* Light red background */
+  color: #ef4444; /* Red icon */
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s;
+  flex-shrink: 0;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+}
+
+.mobile-patient-delete-btn-inline:active {
+  background-color: #fecaca;
+  transform: scale(0.95);
+}
+
+.mobile-patient-delete-btn-inline svg {
+  width: 18px !important; /* Force larger icon size */
+  height: 18px !important;
+}
+
+/* No Show Item State */
+.mobile-patient-item-inline.mobile-status-no-show {
+  opacity: 0.7;
+  background-color: #fff1f2; /* Very light red bg */
+}
