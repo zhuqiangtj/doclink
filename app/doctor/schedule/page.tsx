@@ -176,12 +176,22 @@ export default function DoctorSchedulePage() {
   const [success, setSuccess] = useState<string | null>(null);
   const [isTemplateModalOpen, setIsTemplateModalOpen] = useState(false);
   const [selectedRoomIdForTemplate, setSelectedRoomIdForTemplate] = useState<string>('');
+  const selectedRoomIdForTemplateRef = useRef(selectedRoomIdForTemplate);
   const [isTemplateApplying, setIsTemplateApplying] = useState(false);
   const [isAddingTimeSlot, setIsAddingTimeSlot] = useState(false);
   const [modifiedTimeSlots, setModifiedTimeSlots] = useState<Set<string>>(new Set());
   const [savingTimeSlots, setSavingTimeSlots] = useState<Set<string>>(new Set());
   const [activeRoomTab, setActiveRoomTab] = useState<string>('');
+  const activeRoomTabRef = useRef(activeRoomTab);
   const [expandedTimeSlots, setExpandedTimeSlots] = useState<Set<string>>(new Set());
+  useEffect(() => {
+    selectedRoomIdForTemplateRef.current = selectedRoomIdForTemplate;
+  }, [selectedRoomIdForTemplate]);
+
+  useEffect(() => {
+    activeRoomTabRef.current = activeRoomTab;
+  }, [activeRoomTab]);
+
   const [expandedActionRows, setExpandedActionRows] = useState<Set<string>>(new Set());
   const [isBookingModalOpen, setIsBookingModalOpen] = useState(false);
   const [isBookingSubmitting, setIsBookingSubmitting] = useState(false);
@@ -517,7 +527,7 @@ export default function DoctorSchedulePage() {
       if (!userData.doctorProfile) throw new Error('Doctor profile not found.');
       setDoctorProfile(userData.doctorProfile);
 
-      if (userData.doctorProfile.Room.length > 0 && !selectedRoomIdForTemplate) {
+      if (userData.doctorProfile.Room.length > 0 && !selectedRoomIdForTemplateRef.current) {
         setSelectedRoomIdForTemplate(userData.doctorProfile.Room[0].id);
       }
 
@@ -570,13 +580,15 @@ export default function DoctorSchedulePage() {
       if (detailsData.length > 0) {
         // Check if the currently active room tab is valid for the new data
         const availableRoomIds = new Set(detailsData.map((s: any) => s.room.id));
-        if (!activeRoomTab || !availableRoomIds.has(activeRoomTab)) {
+        const currentActiveRoom = activeRoomTabRef.current;
+        if (!currentActiveRoom || !availableRoomIds.has(currentActiveRoom)) {
           setActiveRoomTab(detailsData[0].room.id);
         }
       } else if (userData.doctorProfile?.Room?.length > 0) {
         // 如果當天沒有排班數據，但醫生有診室，確保選中一個診室（優先保持當前，若無效則選第一個）
         const allRoomIds = new Set(userData.doctorProfile.Room.map((r: any) => r.id));
-        if (!activeRoomTab || !allRoomIds.has(activeRoomTab)) {
+        const currentActiveRoom = activeRoomTabRef.current;
+        if (!currentActiveRoom || !allRoomIds.has(currentActiveRoom)) {
           setActiveRoomTab(userData.doctorProfile.Room[0].id);
         }
       }
@@ -599,7 +611,7 @@ export default function DoctorSchedulePage() {
       setIsNetworkError(true);
       setIsLoading(false);
     }
-  }, [selectedRoomIdForTemplate, activeRoomTab]);
+  }, []);
 
   useEffect(() => {
     if (status === 'authenticated') {
