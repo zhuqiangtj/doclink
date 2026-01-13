@@ -656,3 +656,64 @@ body {
   border-color: var(--primary-color);
   box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
 }
+
+/* Action Buttons Row */
+.mobile-slot-actions-row {
+  display: flex;
+  gap: var(--spacing-sm);
+  margin-top: var(--spacing-sm);
+  width: 100%;
+}
+
+/* Base colored icon button */
+.mobile-icon-btn-colored {
+  flex: 1; /* Equal width */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.75rem;
+  border-radius: var(--border-radius-sm);
+  border: none;
+  color: white;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  min-height: 44px; /* Ensure clickable area */
+}
+
+.mobile-icon-btn-colored svg {
+  width: 1.25rem;
+  height: 1.25rem;
+}
+
+/* Success/Add Button */
+.mobile-icon-btn-success {
+  background-color: var(--success-color); /* Green */
+}
+.mobile-icon-btn-success:active {
+  background-color: #059669;
+}
+
+/* Save Button */
+.mobile-icon-btn-save-colored {
+  background-color: var(--primary-color); /* Blue */
+}
+.mobile-icon-btn-save-colored:active {
+  background-color: var(--primary-hover);
+}
+
+/* Delete Button */
+.mobile-icon-btn-delete-colored {
+  background-color: var(--danger-color); /* Red */
+}
+.mobile-icon-btn-delete-colored:active {
+  background-color: #dc2626;
+}
+
+/* Disabled State */
+.mobile-icon-btn-disabled-colored {
+  background-color: #e5e7eb;
+  color: #9ca3af;
+  cursor: not-allowed;
+  pointer-events: none;
+}
