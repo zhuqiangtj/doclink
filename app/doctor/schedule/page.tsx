@@ -2499,22 +2499,22 @@ export default function DoctorSchedulePage() {
       {(isLoading || isNetworkError) && (
         <div className="mobile-global-loading-overlay">
           {isLoading ? (
-            <>
+            <div className="mobile-loading-content">
               <div className="mobile-loading-spinner"></div>
-              <p className="mobile-global-loading-text">正在加载排班数据...</p>
-            </>
+              <p className="mobile-global-loading-text">正在加载...</p>
+            </div>
           ) : (
-            <>
-              <div className="text-red-500 mb-2 text-xl" style={{ fontSize: '3rem' }}>⚠️</div>
+            <div className="mobile-loading-content bg-white p-6 rounded-xl shadow-lg flex flex-col items-center">
+              <div className="text-red-500 mb-2 text-3xl">⚠️</div>
               <p className="mobile-global-loading-text text-red-500 mb-4 font-bold">{error || '网络请求失败'}</p>
-              <p className="text-gray-500 text-sm mb-6">请检查网络连接后重试</p>
+              <p className="text-gray-500 text-sm mb-4 text-center">请检查网络连接后重试</p>
               <button 
                 onClick={() => fetchAllDataForDate(selectedDate)}
-                className="mobile-btn mobile-btn-primary w-auto px-8"
+                className="mobile-btn mobile-btn-primary w-auto px-6 py-2 text-sm"
               >
                 重试
               </button>
-            </>
+            </div>
           )}
         </div>
       )}
