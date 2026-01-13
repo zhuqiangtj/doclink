@@ -12,13 +12,19 @@ export default function SignInPage() {
   const [submitting, setSubmitting] = useState(false);
   const [progress, setProgress] = useState(0);
   const [stage, setStage] = useState<string | null>(null);
+  const [showTimeout, setShowTimeout] = useState(false);
+  const [targetPath, setTargetPath] = useState<string>('/');
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const navigationTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const router = useRouter();
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setError(null);
     setSubmitting(true);
+    setShowTimeout(false);
+    if (navigationTimeoutRef.current) clearTimeout(navigationTimeoutRef.current);
+
     setStage('正在验证身份…');
     setProgress(8);
     if (timerRef.current) clearInterval(timerRef.current);
@@ -49,13 +55,22 @@ export default function SignInPage() {
         setStage('正在跳转…');
         setProgress(95);
         if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null; }
+
+        let path = '/';
         if (session?.user?.role === 'ADMIN') {
-          router.push('/admin/dashboard');
+          path = '/admin/dashboard';
         } else if (session?.user?.role === 'DOCTOR') {
-          router.push('/doctor/schedule');
-        } else {
-          router.push('/'); // Default for PATIENT or other roles
+          path = '/doctor/schedule';
         }
+        setTargetPath(path);
+
+        // Start navigation timeout
+        if (navigationTimeoutRef.current) clearTimeout(navigationTimeoutRef.current);
+        navigationTimeoutRef.current = setTimeout(() => {
+          setShowTimeout(true);
+        }, 10000); // 10 seconds timeout
+
+        router.push(path);
       }
     } catch (_e) {
       setError('发生未知错误，请稍后重试。');
@@ -63,11 +78,15 @@ export default function SignInPage() {
       setStage(null);
       setProgress(0);
       if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null; }
+      if (navigationTimeoutRef.current) { clearTimeout(navigationTimeoutRef.current); navigationTimeoutRef.current = null; }
     }
   };
 
   useEffect(() => {
-    return () => { if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null; } };
+    return () => { 
+      if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null; }
+      if (navigationTimeoutRef.current) { clearTimeout(navigationTimeoutRef.current); navigationTimeoutRef.current = null; }
+    };
   }, []);
 
   return (
@@ -130,14 +149,49 @@ export default function SignInPage() {
         {submitting && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
             <div className="w-80 bg-white rounded-xl p-6 shadow-xl space-y-4">
-              <div className="flex items-center space-x-3">
-                <div className="h-5 w-5 rounded-full border-2 border-primary border-t-transparent animate-spin" />
-                <div className="text-sm text-foreground">{stage || '正在处理…'}</div>
-              </div>
-              <div className="w-full h-2 bg-gray-200 rounded">
-                <div className="h-2 bg-primary rounded transition-all" style={{ width: `${Math.min(100, Math.max(0, progress))}%` }} />
-              </div>
-              <div className="text-xs text-gray-500 text-right">{Math.min(100, Math.max(0, Math.floor(progress)))}%</div>
+              {showTimeout ? (
+                <div className="flex flex-col items-center text-center">
+                  <div className="text-red-400 text-4xl mb-3">⚠️</div>
+                  <h3 className="font-bold text-lg mb-2">网络连接超时</h3>
+                  <p className="text-sm text-gray-500 mb-6">
+                    登录已完成，但跳转页面时响应过慢。
+                  </p>
+                  <div className="flex space-x-3 w-full">
+                    <button 
+                      type="button"
+                      onClick={() => {
+                        setShowTimeout(false);
+                        setSubmitting(false);
+                        setProgress(0);
+                        setStage(null);
+                      }}
+                      className="flex-1 btn btn-outline text-sm py-2"
+                    >
+                      重新登录
+                    </button>
+                    <button 
+                      type="button"
+                      onClick={() => {
+                        window.location.href = targetPath;
+                      }}
+                      className="flex-1 btn btn-primary text-sm py-2"
+                    >
+                      强制跳转
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <div className="flex items-center space-x-3">
+                    <div className="h-5 w-5 rounded-full border-2 border-primary border-t-transparent animate-spin" />
+                    <div className="text-sm text-foreground">{stage || '正在处理…'}</div>
+                  </div>
+                  <div className="w-full h-2 bg-gray-200 rounded">
+                    <div className="h-2 bg-primary rounded transition-all" style={{ width: `${Math.min(100, Math.max(0, progress))}%` }} />
+                  </div>
+                  <div className="text-xs text-gray-500 text-right">{Math.min(100, Math.max(0, Math.floor(progress)))}%</div>
+                </>
+              )}
             </div>
           </div>
         )}

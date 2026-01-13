@@ -171,6 +171,7 @@ export default function DoctorSchedulePage() {
   const [schedulesForSelectedDay, setSchedulesForSelectedDay] = useState<Schedule[]>([]);
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [isLoading, setIsLoading] = useState(false);
+  const [isNetworkError, setIsNetworkError] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [isTemplateModalOpen, setIsTemplateModalOpen] = useState(false);
@@ -501,6 +502,7 @@ export default function DoctorSchedulePage() {
     // 增加請求計數ID，用於解決競態條件
     const currentRequestId = ++fetchRequestIdRef.current;
     setIsLoading(true);
+    setIsNetworkError(false);
     setError(null);
     
     try {
@@ -588,6 +590,7 @@ export default function DoctorSchedulePage() {
     } catch (err) {
       if (currentRequestId !== fetchRequestIdRef.current) return;
       setError(err instanceof Error ? err.message : 'An error occurred while fetching data');
+      setIsNetworkError(true);
       setIsLoading(false);
     }
   }, [selectedRoomIdForTemplate, activeRoomTab]);
@@ -1603,6 +1606,20 @@ export default function DoctorSchedulePage() {
           <div className="bg-black/60 text-white text-sm px-4 py-2 rounded">{overlayText}</div>
         </div>
       )}
+      {!isLoading && isNetworkError ? (
+        <div className="mobile-card flex flex-col items-center justify-center py-12 px-4 text-center" style={{ minHeight: '60vh' }}>
+          <div className="text-red-400 text-6xl mb-6">⚠️</div>
+          <h3 className="text-xl font-bold text-gray-800 mb-3">网络连接问题</h3>
+          <p className="text-gray-500 mb-8 text-base">无法加载排班数据，请检查您的网络设置</p>
+          <button 
+            onClick={() => fetchAllDataForDate(selectedDate)}
+            className="mobile-btn mobile-btn-primary w-40 py-3 text-base"
+          >
+            重试
+          </button>
+        </div>
+      ) : (
+        <>
       <div className="mobile-card">
         <div className="w-full flex justify-between items-center mb-2">
           {doctorProfile?.name ? (
@@ -2066,7 +2083,25 @@ export default function DoctorSchedulePage() {
               <h2>选择诊室套用模板</h2>
             </div>
             <div className="mobile-modal-content grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {doctorProfile?.Room && doctorProfile.Room.length > 0 ? (
+              {isLoading && !doctorProfile ? (
+                <div className="text-center py-4 col-span-full">
+                  <div className="mobile-loading-spinner mx-auto mb-2"></div>
+                  <p className="text-gray-500 text-sm">加载数据中...</p>
+                </div>
+              ) : !doctorProfile ? (
+                <div className="text-center py-4 col-span-full">
+                  <div className="text-red-400 text-lg mb-2">⚠️</div>
+                  <p className="text-gray-500 text-sm">无法获取诊室信息</p>
+                  <p className="text-gray-400 text-xs mt-1 mb-3">可能是网络问题导致</p>
+                  <button 
+                    onClick={() => fetchAllDataForDate(selectedDate)}
+                    className="mobile-btn mobile-btn-primary text-sm py-1 px-4 inline-block w-auto h-auto"
+                    type="button"
+                  >
+                    重试
+                  </button>
+                </div>
+              ) : doctorProfile.Room && doctorProfile.Room.length > 0 ? (
                 <div>
                   <label htmlFor="room-template" className="block text-sm font-medium mb-2">诊室</label>
                   <select
@@ -2081,7 +2116,7 @@ export default function DoctorSchedulePage() {
                   </select>
                 </div>
               ) : (
-                <div className="text-center py-4">
+                <div className="text-center py-4 col-span-full">
                   <div className="text-gray-400 text-lg mb-2">🏥</div>
                   <p className="text-gray-500 text-sm">医生名下没有诊室</p>
                   <p className="text-gray-400 text-xs mt-1">请联系管理员分配诊室</p>
@@ -2407,6 +2442,8 @@ export default function DoctorSchedulePage() {
             </div>
           </div>
         </div>
+      )}
+        </>
       )}
     </div>
   );
