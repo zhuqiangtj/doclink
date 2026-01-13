@@ -922,6 +922,12 @@ export default function DoctorSchedulePage() {
         ? `模板已应用，已跳过 ${skippedCount} 個过期或重复时段`
         : '模板已应用');
       // await fetchAllDataForDate(selectedDate); // 移除重新獲取，依賴本地樂觀更新，避免服務器延遲導致的列表消失
+      
+      // 確保切換到對應的診室 Tab，否則如果當前 Tab 為空或不同，新排班不會顯示
+      if (selectedRoomIdForTemplate) {
+        setActiveRoomTab(selectedRoomIdForTemplate);
+      }
+      
       setIsTemplateModalOpen(false);
     } catch (err) {
       setError('Error applying template.');
@@ -1185,6 +1191,12 @@ export default function DoctorSchedulePage() {
       
       setSuccess('時段新增成功');
       setTimeout(() => setSuccess(null), 3000);
+      
+      // 確保切換到對應的診室 Tab，否則如果當前 Tab 為空或不同，新排班不會顯示
+      if (selectedRoomIdForTemplate) {
+        setActiveRoomTab(selectedRoomIdForTemplate);
+      }
+
       await refreshSingleDateStatus(selectedDate);
       await refreshMonthStatuses();
     } catch (error) {
