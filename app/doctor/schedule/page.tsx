@@ -1631,10 +1631,36 @@ export default function DoctorSchedulePage() {
 
   // 在會話尚未就緒時顯示載入狀態，避免誤報「無法載入」
   if (status === 'loading') return (
-    <div className="mobile-loading">
+    <div className="mobile-loading" style={{ height: '100vh' }}>
       <div className="mobile-loading-spinner"></div>
     </div>
   );
+
+  // 全局加載與錯誤處理：使用全屏遮罩替代原有內容，確保用戶無法操作
+  if (isLoading || isNetworkError) {
+    return (
+      <div className="mobile-loading" style={{ height: '100vh', flexDirection: 'column', gap: '16px' }}>
+        {isLoading ? (
+          <>
+            <div className="mobile-loading-spinner"></div>
+            {/* 保持簡潔，復用類似頁面跳轉時的中央提示風格，不顯示額外文字或使用默認文字 */}
+          </>
+        ) : (
+          <div className="text-center px-4">
+             <div className="text-red-500 mb-4 text-4xl">⚠️</div>
+             <p className="text-gray-800 font-bold mb-2">{error || '网络请求失败'}</p>
+             <p className="text-gray-500 text-sm mb-6">请检查网络连接后重试</p>
+             <button 
+               onClick={() => fetchAllDataForDate(selectedDate)}
+               className="mobile-btn mobile-btn-primary w-auto px-8 py-2"
+             >
+               重试
+             </button>
+          </div>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div className="page-container space-y-2">
@@ -1643,20 +1669,7 @@ export default function DoctorSchedulePage() {
           <div className="bg-black/60 text-white text-sm px-4 py-2 rounded">{overlayText}</div>
         </div>
       )}
-      {!isLoading && isNetworkError ? (
-        <div className="mobile-card flex flex-col items-center justify-center py-12 px-4 text-center" style={{ minHeight: '60vh' }}>
-          <div className="text-red-400 text-6xl mb-6">⚠️</div>
-          <h3 className="text-xl font-bold text-gray-800 mb-3">网络连接问题</h3>
-          <p className="text-gray-500 mb-8 text-base">无法加载排班数据，请检查您的网络设置</p>
-          <button 
-            onClick={() => fetchAllDataForDate(selectedDate)}
-            className="mobile-btn mobile-btn-primary w-40 py-3 text-base"
-          >
-            重试
-          </button>
-        </div>
-      ) : (
-        <>
+      <>
       <div className="mobile-card">
         <div className="w-full flex justify-between items-center mb-2">
           {doctorProfile?.name ? (
@@ -1705,59 +1718,7 @@ export default function DoctorSchedulePage() {
         </div>
       </div>
 
-      {isLoading ? (
-        <div className="space-y-2 w-full flex flex-col items-center">
-          {/* 骨架：诊室选择（标签与下拉） */}
-          <div className="mobile-card w-full">
-            <div className="mobile-skeleton-line mobile-skeleton-w33 mobile-skeleton-mb8"></div>
-            <div className="mobile-skeleton-input mobile-skeleton-w100"></div>
-          </div>
-
-          {/* 骨架：排班卡片列表（更貼近時段表單佈局） */}
-          <div className="mobile-card w-full">
-            {/* 卡片標題 */}
-            <div className="mobile-skeleton-line mobile-skeleton-w50 mobile-skeleton-mb12"></div>
-            {/* 時段信息行（開始時間、結束時間、占用、床位數） */}
-            <div className="mobile-time-slot-info-row mobile-time-slot-info-row-grid mobile-skeleton-mb12">
-              <div className="mobile-skeleton-input" style={{ maxWidth: '110px', width: '100%' }}></div>
-              <div className="mobile-skeleton-input" style={{ maxWidth: '110px', width: '100%' }}></div>
-              <div className="mobile-skeleton-chip mobile-skeleton-w100"></div>
-              <div className="mobile-skeleton-input mobile-skeleton-w100"></div>
-            </div>
-            {/* 二行示例 */}
-            <div className="mobile-time-slot-info-row mobile-time-slot-info-row-grid mobile-skeleton-mb12">
-              <div className="mobile-skeleton-input" style={{ maxWidth: '110px', width: '100%' }}></div>
-              <div className="mobile-skeleton-input" style={{ maxWidth: '110px', width: '100%' }}></div>
-              <div className="mobile-skeleton-chip mobile-skeleton-w100"></div>
-              <div className="mobile-skeleton-input mobile-skeleton-w100"></div>
-            </div>
-            {/* 操作按鈕行（新增、保存、刪除、展開） */}
-            <div className="mobile-slot-actions-row mobile-slot-actions-row-grid">
-              <div className="mobile-skeleton-btn"></div>
-              <div className="mobile-skeleton-btn"></div>
-              <div className="mobile-skeleton-btn"></div>
-              <div className="mobile-skeleton-btn"></div>
-            </div>
-          </div>
-
-          {/* 第二張卡片骨架 */}
-          <div className="mobile-card w-full">
-            <div className="mobile-skeleton-line mobile-skeleton-w50 mobile-skeleton-mb12"></div>
-            <div className="mobile-time-slot-info-row mobile-time-slot-info-row-grid mobile-skeleton-mb12">
-              <div className="mobile-skeleton-input" style={{ maxWidth: '110px', width: '100%' }}></div>
-              <div className="mobile-skeleton-input" style={{ maxWidth: '110px', width: '100%' }}></div>
-              <div className="mobile-skeleton-chip mobile-skeleton-w100"></div>
-              <div className="mobile-skeleton-input mobile-skeleton-w100"></div>
-            </div>
-            <div className="mobile-slot-actions-row mobile-slot-actions-row-grid">
-              <div className="mobile-skeleton-btn"></div>
-              <div className="mobile-skeleton-btn"></div>
-              <div className="mobile-skeleton-btn"></div>
-              <div className="mobile-skeleton-btn"></div>
-            </div>
-          </div>
-        </div>
-      ) : schedulesForSelectedDay.length === 0 ? (
+      {schedulesForSelectedDay.length === 0 ? (
         <div className="mobile-empty-state">
           <h3>今日无排程</h3>
           <p>请选择其他日期或新增排程</p>
@@ -2494,31 +2455,6 @@ export default function DoctorSchedulePage() {
         </div>
       )}
         </>
-      )}
-      {/* 全屏加载/错误遮罩 - 屏蔽用户操作直到加载完成 */}
-      {(isLoading || isNetworkError) && (
-        <div className="mobile-global-loading-overlay">
-          {isLoading ? (
-            <div className="mobile-loading-content">
-              <div className="mobile-loading-spinner"></div>
-              <p className="mobile-global-loading-text">正在加载...</p>
-            </div>
-          ) : (
-            <div className="mobile-loading-content bg-white p-6 rounded-xl shadow-lg flex flex-col items-center">
-              <div className="text-red-500 mb-2 text-3xl">⚠️</div>
-              <p className="mobile-global-loading-text text-red-500 mb-4 font-bold">{error || '网络请求失败'}</p>
-              <p className="text-gray-500 text-sm mb-4 text-center">请检查网络连接后重试</p>
-              <button 
-                onClick={() => fetchAllDataForDate(selectedDate)}
-                className="mobile-btn mobile-btn-primary w-auto px-6 py-2 text-sm"
-              >
-                重试
-              </button>
-            </div>
-          )}
-        </div>
-      )}
-
       {/* 底部功能區 - 用於調試或其他用途 */}
     </div>
   );
