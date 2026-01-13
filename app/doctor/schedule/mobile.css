@@ -555,3 +555,91 @@ body {
   font-weight: 600;
   cursor: pointer;
 }
+
+/* Time Slot Row Styles - Restored */
+.mobile-time-slot-single-line {
+  background-color: white;
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius-sm);
+  margin-bottom: var(--spacing-sm);
+  padding: var(--spacing-sm);
+  transition: all 0.2s ease;
+  cursor: pointer;
+  /* Ensure it contains the grid correctly */
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+}
+
+.mobile-time-slot-single-line:active {
+  transform: scale(0.995);
+}
+
+/* Status variants */
+.mobile-time-slot-with-appointments {
+  background-color: #ecfdf5; /* green-50 */
+  border-color: #6ee7b7; /* green-300 */
+}
+
+.mobile-time-slot-with-appointments .mobile-time-input-inline,
+.mobile-time-slot-with-appointments .mobile-total-input-inline {
+  background-color: white;
+}
+
+.mobile-time-slot-no-appointments {
+  background-color: white;
+  border-color: var(--border-color);
+}
+
+.mobile-time-slot-past {
+  background-color: #f3f4f6; /* gray-100 */
+  border-color: #e5e7eb;
+  opacity: 0.8;
+}
+
+.mobile-time-slot-past .mobile-time-input-inline,
+.mobile-time-slot-past .mobile-total-input-inline {
+  background-color: #e5e7eb;
+  color: #6b7280;
+}
+
+.mobile-time-slot-modified {
+  border-left: 4px solid #f59e0b; /* amber-500 */
+  padding-left: calc(var(--spacing-sm) - 4px); /* Adjust padding to maintain width */
+}
+
+.mobile-time-slot-selected {
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
+  z-index: 10;
+  position: relative;
+}
+
+/* Ensure inputs inside colored rows stand out */
+.mobile-time-slot-with-appointments input {
+  border-color: #a7f3d0; /* green-200 */
+}
+
+.mobile-time-slot-with-appointments input:focus {
+  border-color: var(--success-color);
+  box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.2);
+}
+
+/* Inline Inputs */
+.mobile-time-input-inline,
+.mobile-total-input-inline {
+  padding: 0.5rem;
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius-sm);
+  font-size: 0.9rem;
+  text-align: center;
+  transition: border-color 0.2s;
+  height: 40px; /* Match button height usually */
+}
+
+.mobile-time-input-inline:focus,
+.mobile-total-input-inline:focus {
+  outline: none;
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
+}
