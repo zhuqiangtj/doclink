@@ -79,7 +79,8 @@ const DEFAULT_TEMPLATE = [
 ];
 
 // --- Timezone-Safe Helper Functions ---
-const toYYYYMMDD = (date: Date): string => {
+const toYYYYMMDD = (date: Date | null): string => {
+  if (!date) return '';
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, '0');
   const day = String(date.getDate()).padStart(2, '0');
@@ -224,7 +225,7 @@ export default function DoctorSchedulePage() {
   const [showErrorDialog, setShowErrorDialog] = useState(false);
   const [errorDialogText, setErrorDialogText] = useState<string | null>(null);
   const selectedDateRef = useRef<Date | null>(selectedDate);
-  const fetchAllDataForDateRef = useRef<((date: Date) => Promise<void>) | undefined>(undefined);
+  const fetchAllDataForDateRef = useRef<((date: Date | null) => Promise<void>) | undefined>(undefined);
   const refreshTimeSlotByIdRef = useRef<((id: string) => Promise<void>) | undefined>(undefined);
   const templateApplyGateRef = useRef<boolean>(false);
   const fetchRequestIdRef = useRef<number>(0);
@@ -248,8 +249,8 @@ export default function DoctorSchedulePage() {
     }
   }, [status, doctorProfile, currentMonth]);
 
-  const refreshSingleDateStatus = useCallback(async (dateVal: Date) => {
-    if (status !== 'authenticated' || !doctorProfile?.id) return;
+  const refreshSingleDateStatus = useCallback(async (dateVal: Date | null) => {
+    if (status !== 'authenticated' || !doctorProfile?.id || !dateVal) return;
     const dateStr = toYYYYMMDD(dateVal);
     try {
       const detailsRes = await fetch(`/api/schedules/details?date=${dateStr}`, { cache: 'no-store' });
@@ -337,7 +338,8 @@ export default function DoctorSchedulePage() {
       const updatedSlot = updatedSchedule.timeSlots[0];
       
       // 使用 Ref 獲取當前選中的日期，確保在異步操作後狀態判定準確
-      const currentSelectedDateStr = selectedDateRef.current ? toYYYYMMDD(selectedDateRef.current) : null;
+      if (!selectedDateRef.current) return;
+      const currentSelectedDateStr = toYYYYMMDD(selectedDateRef.current);
 
       try {
         const dayRes = await fetch(`/api/schedules/details?date=${updatedSchedule.date}`, { cache: 'no-store' });
@@ -425,7 +427,8 @@ export default function DoctorSchedulePage() {
     } catch {}
   }, [selectedDate]);
 
-  const mergeSchedulesGranular = useCallback((prev: Schedule[], next: Schedule[], dateVal: Date) => {
+  const mergeSchedulesGranular = useCallback((prev: Schedule[], next: Schedule[], dateVal: Date | null) => {
+    if (!dateVal) return { merged: prev, changed: false };
     const selectedDateStr = toYYYYMMDD(dateVal);
     const nextById = new Map<string, Schedule>();
     for (const s of next) nextById.set(s.id, s);
@@ -526,7 +529,8 @@ export default function DoctorSchedulePage() {
     return () => { if (timer) clearInterval(timer); };
   }, [status, mergeSchedulesGranular]);
 
-  const fetchAllDataForDate = useCallback(async (date: Date) => {
+  const fetchAllDataForDate = useCallback(async (date: Date | null) => {
+    if (!date) return;
     // 增加請求計數ID，用於解決競態條件
     const currentRequestId = ++fetchRequestIdRef.current;
     setIsLoading(true);
@@ -693,6 +697,7 @@ export default function DoctorSchedulePage() {
           switch (type) {
             case 'APPOINTMENT_CREATED': {
               if (timeSlotId) {
+                if (!selectedDateRef.current) break;
                 const selectedDateStr = toYYYYMMDD(selectedDateRef.current);
                 setSchedulesForSelectedDay(prev => {
                   const next = prev.map(s => {
@@ -722,7 +727,7 @@ export default function DoctorSchedulePage() {
                     hasAppointments: totals.bookedBeds > 0,
                     bookedBeds: totals.bookedBeds,
                     totalBeds: totals.totalBeds,
-                    isPast: isPastDate(selectedDateRef.current),
+                    isPast: isPastDate(selectedDateRef.current!),
                   };
                   setDateStatuses(prevStatuses => {
                     const idx = prevStatuses.findIndex(st => st.date === selectedDateStr);
@@ -751,6 +756,7 @@ export default function DoctorSchedulePage() {
             }
             case 'APPOINTMENT_CANCELLED': {
               const appointmentId = payload?.appointmentId as string | undefined;
+              if (!selectedDateRef.current) break;
               const selectedDateStr = toYYYYMMDD(selectedDateRef.current);
               if (appointmentId) {
                 setSchedulesForSelectedDay(prev => {
@@ -779,7 +785,7 @@ export default function DoctorSchedulePage() {
                     hasAppointments: totals.bookedBeds > 0,
                     bookedBeds: totals.bookedBeds,
                     totalBeds: totals.totalBeds,
-                    isPast: isPastDate(selectedDateRef.current),
+                    isPast: isPastDate(selectedDateRef.current!),
                   };
                   setDateStatuses(prevStatuses => {
                     const idx = prevStatuses.findIndex(st => st.date === selectedDateStr);
@@ -1620,6 +1626,11 @@ export default function DoctorSchedulePage() {
 
   const handleDeleteTimeSlot = async (scheduleId: string, timeSlotId: string) => {
     if (!confirm('Are you sure you want to delete this time slot?')) {
+      return;
+    }
+
+    if (!selectedDate) {
+      setError('Internal Error: No date selected');
       return;
     }
 

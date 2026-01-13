@@ -39,7 +39,7 @@ const EnhancedDatePicker: React.FC<EnhancedDatePickerProps> = ({
   onMonthChange,
   patientAppointmentDates = []
 }) => {
-  const [currentMonth, setCurrentMonth] = useState(new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1));
+  const [currentMonth, setCurrentMonth] = useState(selectedDate ? new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1) : new Date());
 
   // Optimize lookup for patient appointments
   const patientAppointmentSet = useMemo(() => {
