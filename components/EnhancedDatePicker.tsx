@@ -272,12 +272,7 @@ const EnhancedDatePicker: React.FC<EnhancedDatePickerProps> = ({
 
       {/* Calendar Grid */}
       <div className="calendar-container">
-        {isLoading && (
-          <div className="loading-overlay">
-            <div className="loading-spinner"></div>
-            <span>載入中...</span>
-          </div>
-        )}
+        {/* Remove internal loading overlay to avoid duplication with global loading overlay */}
         
         {/* Weekday Headers */}
         <div className="weekday-header">

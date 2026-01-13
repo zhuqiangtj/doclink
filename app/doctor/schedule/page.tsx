@@ -2091,7 +2091,6 @@ export default function DoctorSchedulePage() {
             <div className="mobile-modal-content grid grid-cols-1 sm:grid-cols-2 gap-3">
               {isLoading && !doctorProfile ? (
                 <div className="text-center py-4 col-span-full">
-                  <div className="mobile-loading-spinner mx-auto mb-2"></div>
                   <p className="text-gray-500 text-sm">加载数据中...</p>
                 </div>
               ) : !doctorProfile ? (
