@@ -167,7 +167,7 @@ export default function DoctorSchedulePage() {
   const [doctorProfile, setDoctorProfile] = useState<DoctorProfile | null>(null);
   const [dateStatuses, setDateStatuses] = useState<DateStatus[]>([]);
   const [highlightedDates, setHighlightedDates] = useState<Date[]>([]);
-  const [selectedDate, setSelectedDate] = useState(new Date());
+  const [selectedDate, setSelectedDate] = useState<Date | null>(new Date());
   const [schedulesForSelectedDay, setSchedulesForSelectedDay] = useState<Schedule[]>([]);
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [isLoading, setIsLoading] = useState(false);
@@ -223,7 +223,7 @@ export default function DoctorSchedulePage() {
   const [overlayText, setOverlayText] = useState<string | null>(null);
   const [showErrorDialog, setShowErrorDialog] = useState(false);
   const [errorDialogText, setErrorDialogText] = useState<string | null>(null);
-  const selectedDateRef = useRef<Date>(selectedDate);
+  const selectedDateRef = useRef<Date | null>(selectedDate);
   const fetchAllDataForDateRef = useRef<((date: Date) => Promise<void>) | undefined>(undefined);
   const refreshTimeSlotByIdRef = useRef<((id: string) => Promise<void>) | undefined>(undefined);
   const templateApplyGateRef = useRef<boolean>(false);
@@ -286,9 +286,17 @@ export default function DoctorSchedulePage() {
   const handleCalendarMonthChange = useCallback(async (year: number, month: number) => {
     if (status !== 'authenticated' || !doctorProfile?.id) return;
     
+    // Invalidate any ongoing data fetches for selected date to prevent stale data display
+    fetchRequestIdRef.current += 1;
+
     setIsLoading(true);
     setIsNetworkError(false);
     setError(null);
+
+    // 切換月份時，清空當前選中的日期和排班列表
+    setSelectedDate(null);
+    setSchedulesForSelectedDay([]);
+    selectedDateRef.current = null;
 
     try {
       setCurrentMonth(new Date(year, month, 1));
@@ -329,7 +337,7 @@ export default function DoctorSchedulePage() {
       const updatedSlot = updatedSchedule.timeSlots[0];
       
       // 使用 Ref 獲取當前選中的日期，確保在異步操作後狀態判定準確
-      const currentSelectedDateStr = toYYYYMMDD(selectedDateRef.current);
+      const currentSelectedDateStr = selectedDateRef.current ? toYYYYMMDD(selectedDateRef.current) : null;
 
       try {
         const dayRes = await fetch(`/api/schedules/details?date=${updatedSchedule.date}`, { cache: 'no-store' });
@@ -501,6 +509,7 @@ export default function DoctorSchedulePage() {
     let timer: ReturnType<typeof setInterval> | null = null;
     const run = async () => {
       try {
+        if (!selectedDateRef.current) return;
         const dateStr = toYYYYMMDD(selectedDateRef.current);
         const res = await fetch(`/api/schedules/details?date=${dateStr}`, { cache: 'no-store' });
         if (!res.ok) return;
@@ -571,6 +580,9 @@ export default function DoctorSchedulePage() {
       clearTimeout(timeoutId);
 
       if (currentRequestId !== fetchRequestIdRef.current) return;
+      
+      // Double check if selectedDate is still valid (it might have been cleared by month change)
+      if (!selectedDateRef.current) return;
 
       if (!detailsRes.ok) throw new Error('Failed to fetch schedule details.');
       if (!highlightsRes.ok) throw new Error('Failed to fetch schedule highlights.');
@@ -633,8 +645,11 @@ export default function DoctorSchedulePage() {
       setModifiedTimeSlots(new Set());
       setSavingTimeSlots(new Set());
       selectedDateRef.current = selectedDate;
-      setCurrentMonth(new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1));
-      fetchAllDataForDate(selectedDate);
+      
+      if (selectedDate) {
+        setCurrentMonth(new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1));
+        fetchAllDataForDate(selectedDate);
+      }
     }
   }, [selectedDate, status, fetchAllDataForDate]);
 
@@ -845,6 +860,10 @@ export default function DoctorSchedulePage() {
 
   const handleApplyTemplate = async () => {
     if (!selectedRoomIdForTemplate) return;
+    if (!selectedDate) {
+      setError('请先选择一个日期');
+      return;
+    }
     // 前端互斥門：阻止在 setState 生效前的極速連點造成的二次進入
     if (templateApplyGateRef.current) return;
     templateApplyGateRef.current = true;
@@ -1150,6 +1169,10 @@ export default function DoctorSchedulePage() {
   const handleAddTimeSlot = async () => {
     if (!selectedRoomIdForTemplate || !newTimeSlotData.startTime || !newTimeSlotData.endTime || !newTimeSlotData.bedCount) {
       setError('請填寫所有必需字段');
+      return;
+    }
+    if (!selectedDate) {
+      setError('请先选择一个日期');
       return;
     }
 

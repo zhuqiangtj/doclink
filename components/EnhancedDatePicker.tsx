@@ -14,7 +14,7 @@ export interface DateStatus {
 }
 
 interface EnhancedDatePickerProps {
-  selectedDate: Date;
+  selectedDate: Date | null;
   onDateChange: (date: Date) => void;
   dateStatuses: DateStatus[];
   isLoading?: boolean;
@@ -127,7 +127,7 @@ const EnhancedDatePicker: React.FC<EnhancedDatePickerProps> = ({
 
   // Check if date is selected
   const isSelected = (date: Date): boolean => {
-    return date.toDateString() === selectedDate.toDateString();
+    return !!selectedDate && date.toDateString() === selectedDate.toDateString();
   };
 
   // Check if date is in current month
