@@ -1796,10 +1796,6 @@ export default function DoctorSchedulePage() {
 
           {activeSchedules.map(schedule => (
             <div key={schedule.id} className="mobile-card space-y-2">
-              <div className="mobile-section-header">
-                <h3 className="text-lg font-semibold">诊室: {schedule.room.name}</h3>
-              </div>
-              
               {schedule.timeSlots && Array.isArray(schedule.timeSlots) ? schedule.timeSlots.map((slot, index) => {
                 const key = `${schedule.id}-${index}`;
                 const isModified = modifiedTimeSlots.has(key);
