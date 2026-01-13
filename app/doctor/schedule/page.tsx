@@ -1636,34 +1636,29 @@ export default function DoctorSchedulePage() {
     </div>
   );
 
-  // 全局加載與錯誤處理：使用全屏遮罩替代原有內容，確保用戶無法操作
-  if (isLoading || isNetworkError) {
-    return (
-      <div className="mobile-loading" style={{ height: '100vh', flexDirection: 'column', gap: '16px' }}>
-        {isLoading ? (
-          <>
-            <div className="mobile-loading-spinner"></div>
-            {/* 保持簡潔，復用類似頁面跳轉時的中央提示風格，不顯示額外文字或使用默認文字 */}
-          </>
-        ) : (
-          <div className="text-center px-4">
-             <div className="text-red-500 mb-4 text-4xl">⚠️</div>
-             <p className="text-gray-800 font-bold mb-2">{error || '网络请求失败'}</p>
-             <p className="text-gray-500 text-sm mb-6">请检查网络连接后重试</p>
-             <button 
-               onClick={() => fetchAllDataForDate(selectedDate)}
-               className="mobile-btn mobile-btn-primary w-auto px-8 py-2"
-             >
-               重试
-             </button>
-          </div>
-        )}
-      </div>
-    );
-  }
-
   return (
     <div className="page-container space-y-2">
+      {/* 全局加載與錯誤處理懸浮層 */}
+      {(isLoading || isNetworkError) && (
+        <div className="mobile-global-loading-overlay">
+          {isLoading ? (
+            <div className="mobile-loading-spinner"></div>
+          ) : (
+            <div className="bg-white p-6 rounded-xl shadow-lg flex flex-col items-center max-w-[80%] mx-auto animate-in fade-in zoom-in duration-200">
+               <div className="text-red-500 mb-3 text-4xl">⚠️</div>
+               <p className="text-gray-800 font-bold mb-2 text-center">{error || '网络请求失败'}</p>
+               <p className="text-gray-500 text-sm mb-5 text-center">请检查网络连接后重试</p>
+               <button 
+                 onClick={() => fetchAllDataForDate(selectedDate)}
+                 className="mobile-btn mobile-btn-primary w-full"
+               >
+                 重试
+               </button>
+            </div>
+          )}
+        </div>
+      )}
+
       {overlayText && (
         <div className="fixed inset-0 flex items-center justify-center pointer-events-none z-[2000]">
           <div className="bg-black/60 text-white text-sm px-4 py-2 rounded">{overlayText}</div>
