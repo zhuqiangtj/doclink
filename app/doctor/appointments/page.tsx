@@ -773,26 +773,36 @@ export default function DoctorAppointmentsPage() {
       {success && <div className="mobile-success">{success}</div>}
 
       {/* Tabs */}
-      <div className="flex w-full space-x-1 bg-gray-100 p-1 rounded-lg mb-6">
+      <div className="flex w-full mb-6 bg-white rounded-xl shadow-sm overflow-hidden border border-gray-100">
         <button
           onClick={() => setActiveTab('appointments')}
-          className={`flex-1 py-2 text-center text-sm font-medium rounded-md transition-all duration-200 ${
-            activeTab === 'appointments'
-              ? 'bg-white text-blue-600 shadow-sm'
-              : 'text-gray-500 hover:text-gray-700'
-          }`}
+          className={`flex-1 py-3 text-sm font-medium transition-colors relative
+            ${activeTab === 'appointments'
+              ? 'bg-blue-50 text-blue-600 font-semibold'
+              : 'bg-white text-gray-500 hover:bg-gray-50'
+            }`}
         >
-          预约列表
+          <div className="flex items-center justify-center gap-1">
+            <span>预约列表</span>
+          </div>
+          {activeTab === 'appointments' && (
+            <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-500"></div>
+          )}
         </button>
         <button
           onClick={() => setActiveTab('patients')}
-          className={`flex-1 py-2 text-center text-sm font-medium rounded-md transition-all duration-200 ${
-            activeTab === 'patients'
-              ? 'bg-white text-blue-600 shadow-sm'
-              : 'text-gray-500 hover:text-gray-700'
-          }`}
+          className={`flex-1 py-3 text-sm font-medium transition-colors relative
+            ${activeTab === 'patients'
+              ? 'bg-blue-50 text-blue-600 font-semibold'
+              : 'bg-white text-gray-500 hover:bg-gray-50'
+            }`}
         >
-          病人列表
+          <div className="flex items-center justify-center gap-1">
+            <span>病人列表</span>
+          </div>
+          {activeTab === 'patients' && (
+            <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-500"></div>
+          )}
         </button>
       </div>
 
