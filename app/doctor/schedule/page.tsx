@@ -285,12 +285,21 @@ export default function DoctorSchedulePage() {
 
   const handleCalendarMonthChange = useCallback(async (year: number, month: number) => {
     if (status !== 'authenticated' || !doctorProfile?.id) return;
+    
+    setIsLoading(true);
+    setIsNetworkError(false);
+    setError(null);
+
     try {
       setCurrentMonth(new Date(year, month, 1));
       const dateStatusData = await fetchDateStatusesForMonth(year, month, doctorProfile.id);
       setDateStatuses(dateStatusData);
     } catch (error) {
       console.error('Month change refresh failed:', error);
+      setIsNetworkError(true);
+      setError('无法加载排班数据，请检查网络连接');
+    } finally {
+      setIsLoading(false);
     }
   }, [status, doctorProfile?.id]);
 
@@ -1774,7 +1783,7 @@ export default function DoctorSchedulePage() {
                     key={index}
                     className={`mobile-time-slot-single-line ${
                       isPast
-                        ? 'mobile-time-slot-past'
+                        ? (hasAppointments ? 'mobile-time-slot-past-with-appointments' : 'mobile-time-slot-past')
                         : (hasAppointments ? 'mobile-time-slot-with-appointments' : 'mobile-time-slot-no-appointments')
                     } ${!isPast && isModified ? 'mobile-time-slot-modified' : ''} ${expandedActionRows.has(key) ? 'mobile-time-slot-selected' : ''}`}
                     onClick={(e) => {

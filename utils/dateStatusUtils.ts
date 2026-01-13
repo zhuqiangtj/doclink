@@ -137,7 +137,7 @@ export async function fetchDateStatusesForMonth(
     return convertToDateStatuses(highlightedDates, detailedSchedulesData);
   } catch (error) {
     console.error('Error fetching date statuses:', error);
-    return [];
+    throw error;
   }
 }
 

@@ -614,20 +614,37 @@ body {
   border-left: 4px solid #3b82f6; /* Blue indicator */
 }
 
-/* Past: Enhanced Visibility for Expired Items */
+/* Past: Enhanced Visibility for Expired Items - Blue Grey Theme */
 .mobile-time-slot-past {
-  background-color: #f3f4f6; /* Gray-100 */
-  border: 1px solid #6b7280; /* Gray-500 - Stronger border */
-  opacity: 1; /* Remove transparency */
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05); /* Slight shadow for depth */
-  border-left: 4px solid #4b5563; /* Gray-600 */
+  background-color: #f1f5f9; /* Slate-100 */
+  border: 1px solid #94a3b8; /* Slate-400 - Blue Grey Border */
+  opacity: 1;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  border-left: 4px solid #64748b; /* Slate-500 - Stronger Blue Grey Indicator */
 }
 
 .mobile-time-slot-past .mobile-time-input-inline,
 .mobile-time-slot-past .mobile-total-input-inline {
-  background-color: #e5e7eb; /* Gray-200 */
-  color: #1f2937; /* Gray-800 - Darker text */
-  border: 1px solid #9ca3af; /* Gray-400 - Visible border */
+  background-color: #e2e8f0; /* Slate-200 */
+  color: #475569; /* Slate-600 - Blue Grey Text */
+  border: 1px solid #cbd5e1; /* Slate-300 - Blue Grey Border */
+  font-weight: 500;
+}
+
+/* Past with Appointments: Dark Green Theme */
+.mobile-time-slot-past-with-appointments {
+  background-color: #ecfdf5; /* Emerald-50 */
+  border: 1px solid #059669; /* Emerald-600 - Dark Green Border */
+  opacity: 1;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  border-left: 4px solid #047857; /* Emerald-700 - Dark Green Indicator */
+}
+
+.mobile-time-slot-past-with-appointments .mobile-time-input-inline,
+.mobile-time-slot-past-with-appointments .mobile-total-input-inline {
+  background-color: #d1fae5; /* Emerald-100 */
+  color: #064e3b; /* Emerald-900 - Dark Green Text */
+  border: 1px solid #34d399; /* Emerald-400 - Green Border */
   font-weight: 500;
 }
 
