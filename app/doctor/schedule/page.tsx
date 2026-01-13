@@ -573,6 +573,12 @@ export default function DoctorSchedulePage() {
         if (!activeRoomTab || !availableRoomIds.has(activeRoomTab)) {
           setActiveRoomTab(detailsData[0].room.id);
         }
+      } else if (userData.doctorProfile?.Room?.length > 0) {
+        // 如果當天沒有排班數據，但醫生有診室，確保選中一個診室（優先保持當前，若無效則選第一個）
+        const allRoomIds = new Set(userData.doctorProfile.Room.map((r: any) => r.id));
+        if (!activeRoomTab || !allRoomIds.has(activeRoomTab)) {
+          setActiveRoomTab(userData.doctorProfile.Room[0].id);
+        }
       }
       
       // 關鍵數據已加載，取消 Loading 狀態，讓用戶盡快看到排班
@@ -1591,6 +1597,9 @@ export default function DoctorSchedulePage() {
   };
 
   const uniqueRooms = useMemo(() => {
+    if (doctorProfile?.Room && doctorProfile.Room.length > 0) {
+      return doctorProfile.Room;
+    }
     const roomMap = new Map();
     schedulesForSelectedDay.forEach(schedule => {
       if (!roomMap.has(schedule.room.id)) {
@@ -1598,7 +1607,7 @@ export default function DoctorSchedulePage() {
       }
     });
     return Array.from(roomMap.values());
-  }, [schedulesForSelectedDay]);
+  }, [doctorProfile, schedulesForSelectedDay]);
 
   const activeSchedules = useMemo(() => {
     return schedulesForSelectedDay.filter(schedule => schedule.room.id === activeRoomTab);
@@ -1739,22 +1748,39 @@ export default function DoctorSchedulePage() {
         </div>
       ) : (
         <div className="space-y-2 w-full flex flex-col items-center">
-          {/* 手機端診室選擇 - 使用下拉選單而非標籤頁 */}
-          <div className="mobile-card">
-            <label className="block text-sm font-medium text-gray-700 mb-2">选择诊室</label>
-            <select
-              value={activeRoomTab}
-              onChange={(e) => setActiveRoomTab(e.target.value)}
-              className="mobile-input w-full"
-              disabled={isLoading}
-            >
-              {uniqueRooms.map(room => (
-                <option key={room.id} value={room.id}>
-                  {room.name}
-                </option>
-              ))}
-            </select>
-          </div>
+          {/* 手機端診室選擇 - 多標籤頁顯示 */}
+          {uniqueRooms.length > 0 && (
+            <div className="flex w-full mb-3 bg-white rounded-xl shadow-sm overflow-hidden border border-gray-100">
+              {uniqueRooms.map(room => {
+                const isActive = activeRoomTab === room.id;
+                const hasSchedule = schedulesForSelectedDay.some(s => s.room.id === room.id);
+                
+                return (
+                  <button
+                    key={room.id}
+                    onClick={() => setActiveRoomTab(room.id)}
+                    disabled={isLoading}
+                    className={`flex-1 py-3 text-sm font-medium transition-colors relative
+                      ${isActive 
+                        ? 'bg-blue-50 text-blue-600 font-semibold' 
+                        : 'bg-white text-gray-500 hover:bg-gray-50'
+                      }
+                    `}
+                  >
+                    <div className="flex items-center justify-center gap-1">
+                      <span className="truncate max-w-[100px]">{room.name}</span>
+                      {hasSchedule && (
+                        <span className={`w-1.5 h-1.5 rounded-full ${isActive ? 'bg-blue-500' : 'bg-blue-300'}`}></span>
+                      )}
+                    </div>
+                    {isActive && (
+                      <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-500"></div>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          )}
 
           {activeSchedules.map(schedule => (
             <div key={schedule.id} className="mobile-card space-y-2">
