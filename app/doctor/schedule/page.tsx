@@ -1720,8 +1720,8 @@ export default function DoctorSchedulePage() {
 
       {schedulesForSelectedDay.length === 0 ? (
         <div className="mobile-empty-state">
-          <h3>今日无排程</h3>
-          <p>请选择其他日期或新增排程</p>
+          <h3>今日无排班</h3>
+          <p>请选择其他日期或新增排班</p>
         </div>
       ) : (
         <div className="space-y-2 w-full flex flex-col items-center">
