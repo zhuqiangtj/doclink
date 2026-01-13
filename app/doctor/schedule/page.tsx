@@ -919,9 +919,9 @@ export default function DoctorSchedulePage() {
       }
       
       setSuccess(skippedCount > 0 
-        ? `模板已應用，已跳過 ${skippedCount} 個過期或重複時段`
-        : '模板已應用');
-      await fetchAllDataForDate(selectedDate);
+        ? `模板已应用，已跳过 ${skippedCount} 個过期或重复时段`
+        : '模板已应用');
+      // await fetchAllDataForDate(selectedDate); // 移除重新獲取，依賴本地樂觀更新，避免服務器延遲導致的列表消失
       setIsTemplateModalOpen(false);
     } catch (err) {
       setError('Error applying template.');
