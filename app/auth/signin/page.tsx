@@ -35,12 +35,25 @@ export default function SignInPage() {
       });
     }, 200);
 
+    // Timeout helper
+    const withTimeout = <T,>(promise: Promise<T>, ms: number, msg: string): Promise<T> => {
+      return Promise.race([
+        promise,
+        new Promise<T>((_, reject) => setTimeout(() => reject(new Error(msg)), ms))
+      ]);
+    };
+
     try {
-      const result = await signIn('credentials', {
-        redirect: false, // We handle redirect manually
-        username,
-        password,
-      });
+      // 1. SignIn with timeout (20s)
+      const result = await withTimeout(
+        signIn('credentials', {
+          redirect: false, 
+          username,
+          password,
+        }),
+        20000,
+        '登录请求超时，请检查网络'
+      );
 
       if (result?.error) {
         setError('用户名或密码无效，请重试。');
@@ -50,10 +63,18 @@ export default function SignInPage() {
         if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null; }
       } else if (result?.ok) {
         setStage('正在建立会话…');
-        setProgress(70);
-        const session = await getSession(); // Get the updated session
+        setProgress(92); // Jump to 92 directly to avoid backward jump if auto-progress reached 90
+        
+        // 2. GetSession with timeout (10s)
+        // Note: getSession might return null if something is wrong, but usually returns session
+        const session = await withTimeout(
+          getSession(),
+          10000,
+          '获取会话超时，请刷新页面重试'
+        );
+
         setStage('正在跳转…');
-        setProgress(95);
+        setProgress(100);
         if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null; }
 
         let path = '/';
@@ -68,12 +89,13 @@ export default function SignInPage() {
         if (navigationTimeoutRef.current) clearTimeout(navigationTimeoutRef.current);
         navigationTimeoutRef.current = setTimeout(() => {
           setShowTimeout(true);
-        }, 10000); // 10 seconds timeout
+        }, 8000); // Reduce navigation timeout to 8s
 
         router.push(path);
       }
-    } catch (_e) {
-      setError('发生未知错误，请稍后重试。');
+    } catch (e) {
+      const errMsg = e instanceof Error ? e.message : '发生未知错误，请稍后重试。';
+      setError(errMsg);
       setSubmitting(false);
       setStage(null);
       setProgress(0);
