@@ -380,8 +380,17 @@ export default function PatientScheduleHome() {
           if (appointmentsRes.ok) {
             const appointments: Appointment[] = await appointmentsRes.json();
             const map: Record<string, string> = {};
-            appointments.forEach((apt) => { if (apt.timeSlotId && apt.status === 'PENDING') { map[apt.timeSlotId] = apt.id; } });
+            const datesSet = new Set<string>();
+            appointments.forEach((apt) => { 
+              if (apt.status !== "CANCELLED") {
+                if (apt.date) datesSet.add(apt.date);
+                if (apt.timeSlotId && apt.status === 'PENDING') { 
+                  map[apt.timeSlotId] = apt.id; 
+                } 
+              }
+            });
             setMyAppointmentsBySlot(map);
+            setPatientAppointmentDates(Array.from(datesSet));
           }
         } catch {}
       } catch {}
