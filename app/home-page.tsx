@@ -236,9 +236,11 @@ export default function PatientScheduleHome() {
           const datesSet = new Set<string>();
 
           appointments.forEach((apt) => {
-            if (apt.status === "PENDING") {
-              if (apt.timeSlotId) map[apt.timeSlotId] = apt.id;
+            if (apt.status !== "CANCELLED") {
               if (apt.date) datesSet.add(apt.date);
+              if (apt.status === "PENDING" && apt.timeSlotId) {
+                map[apt.timeSlotId] = apt.id;
+              }
             }
           });
           setMyAppointmentsBySlot(map);
