@@ -76,11 +76,7 @@
   box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
 }
 
-.mobile-loading-text {
-  color: #6b7280;
-  text-align: center;
-  padding: 1rem;
-}
+
 
 .mobile-error-text {
   color: #dc2626;

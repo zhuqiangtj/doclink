@@ -1121,7 +1121,6 @@ export default function PatientScheduleHome() {
         )}
         {selectedDoctorId && (
           <>
-            {isDayLoading && <p className="mobile-loading-text">正在加载当天排班...</p>}
             {!isWithinThreeDaysFromToday(toYYYYMMDD(selectedDate)) && (
               <p className="text-xs text-gray-600" style={{ marginBottom: '6px' }}>仅可预约未来三天内的时段</p>
             )}
