@@ -5,6 +5,7 @@ import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { FaCheckCircle } from 'react-icons/fa';
 import './mobile.css';
+import { fetchWithTimeout } from '../../utils/network';
 
 interface PatientNotification {
   id: string;
@@ -62,7 +63,7 @@ export default function PatientNotificationsPage() {
   const fetchNotifications = async () => {
     setIsLoading(true);
     try {
-      const res = await fetch('/api/patient-notifications');
+      const res = await fetchWithTimeout('/api/patient-notifications');
       if (!res.ok) throw new Error('Failed to fetch notifications.');
       const data = await res.json();
       setNotifications(data);
@@ -84,7 +85,7 @@ export default function PatientNotificationsPage() {
     if (status !== 'authenticated') return;
     (async () => {
       try {
-        const res = await fetch('/api/user');
+        const res = await fetchWithTimeout('/api/user');
         if (!res.ok) return;
         const data = await res.json();
         if (data?.patientProfile?.id) {
@@ -120,7 +121,7 @@ export default function PatientNotificationsPage() {
           switch (type) {
             case 'APPOINTMENT_CREATED': {
               if (actorRole === 'DOCTOR' && appointmentId) {
-                const res = await fetch(`/api/patient-notifications?appointmentId=${appointmentId}`);
+                const res = await fetchWithTimeout(`/api/patient-notifications?appointmentId=${appointmentId}`);
                 if (res.ok) {
                   const item: PatientNotification = await res.json();
                   upsert(item);
@@ -131,7 +132,7 @@ export default function PatientNotificationsPage() {
             }
             case 'APPOINTMENT_CANCELLED': {
               if (actorRole === 'DOCTOR' && appointmentId) {
-                const res = await fetch(`/api/patient-notifications?appointmentId=${appointmentId}`);
+                const res = await fetchWithTimeout(`/api/patient-notifications?appointmentId=${appointmentId}`);
                 if (res.ok) {
                   const item: PatientNotification = await res.json();
                   upsert(item);
@@ -142,7 +143,7 @@ export default function PatientNotificationsPage() {
             }
             case 'APPOINTMENT_RESCHEDULED': {
               if (appointmentId) {
-                const res = await fetch(`/api/patient-notifications?appointmentId=${appointmentId}`);
+                const res = await fetchWithTimeout(`/api/patient-notifications?appointmentId=${appointmentId}`);
                 if (res.ok) {
                   const item: PatientNotification = await res.json();
                   upsert(item);
@@ -154,7 +155,7 @@ export default function PatientNotificationsPage() {
             case 'DOCTOR_SCHEDULE_UPDATED': {
               const id = timeSlotId || appointmentId;
               if (id) {
-                const res = await fetch(`/api/patient-notifications?appointmentId=${id}`);
+                const res = await fetchWithTimeout(`/api/patient-notifications?appointmentId=${id}`);
                 if (res.ok) {
                   const item: PatientNotification = await res.json();
                   upsert(item);
@@ -194,7 +195,7 @@ export default function PatientNotificationsPage() {
     let timer: ReturnType<typeof setInterval> | null = null;
     const run = async () => {
       try {
-        const res = await fetch('/api/patient-notifications', { cache: 'no-store' });
+        const res = await fetchWithTimeout('/api/patient-notifications', { cache: 'no-store' });
         if (!res.ok) return;
         const data: PatientNotification[] = await res.json();
         const snap = new Map<string, string>();
@@ -215,7 +216,7 @@ export default function PatientNotificationsPage() {
 
   const handleMarkAsRead = async (notificationId: string) => {
     try {
-      const res = await fetch('/api/patient-notifications', {
+      const res = await fetchWithTimeout('/api/patient-notifications', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ notificationIds: [notificationId] }),

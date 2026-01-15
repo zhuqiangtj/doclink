@@ -8,6 +8,7 @@ import zhCN from 'date-fns/locale/zh-CN';
 import { CheckCircle2, XCircle, Loader2 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import pinyin from 'pinyin';
+import { fetchWithTimeout, withTimeout } from '../../../utils/network';
 
 export default function RegisterPage() {
   registerLocale('zh-CN', zhCN);
@@ -90,7 +91,7 @@ export default function RegisterPage() {
     const checkUsername = async () => {
       setUsernameAvailability({ status: 'checking', message: '' });
       try {
-        const res = await fetch(`/api/users/availability?username=${debouncedUsername}`);
+        const res = await fetchWithTimeout(`/api/users/availability?username=${debouncedUsername}`);
         const data = await res.json();
         if (data.available) {
           setUsernameAvailability({ status: 'available', message: data.message });
@@ -168,11 +169,15 @@ export default function RegisterPage() {
     }
 
     try {
-      const response = await fetch('/api/register', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, phone, gender, dateOfBirth, username, password }),
-      });
+      const response = await fetchWithTimeout(
+        '/api/register',
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name, phone, gender, dateOfBirth, username, password }),
+        },
+        20000
+      );
 
       const data = await response.json();
 
@@ -184,33 +189,59 @@ export default function RegisterPage() {
       setStage('注册成功，正在登录…');
       setProgress(92);
       if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null; }
-      const loginResult = await signIn('credentials', {
-        redirect: false,
-        username,
-        password,
-      });
-      if (loginResult?.error) {
+
+      try {
+        const loginResult = await withTimeout(
+          signIn('credentials', {
+            redirect: false,
+            username,
+            password,
+          }),
+          15000,
+          '自动登录超时'
+        );
+        
+        if (loginResult?.error) {
+          throw new Error('自动登录失败');
+        }
+
+        setStage('正在建立会话…');
+        setProgress(96);
+        
+        const session = await withTimeout(
+          getSession(),
+          10000,
+          '获取会话超时'
+        );
+        
+        setStage('正在跳转…');
+        setProgress(100);
+        
+        if (session?.user?.role === 'ADMIN') {
+          router.push('/admin/dashboard');
+        } else if (session?.user?.role === 'DOCTOR') {
+          router.push('/doctor/schedule');
+        } else {
+          router.push('/');
+        }
+      } catch (loginErr) {
+        // Registration succeeded, but login failed/timed out
+        console.warn('Auto-login failed:', loginErr);
         setSuccess(null);
-        setError('账户已创建，但自动登录失败，请手动登录');
+        setError('账户已创建，但自动登录失败或超时，请前往登录页面手动登录。');
         setSubmitting(false);
         setStage(null);
         setProgress(0);
-        return;
-      }
-      setStage('正在建立会话…');
-      setProgress(96);
-      const session = await getSession();
-      setStage('正在跳转…');
-      setProgress(100);
-      if (session?.user?.role === 'ADMIN') {
-        router.push('/admin/dashboard');
-      } else if (session?.user?.role === 'DOCTOR') {
-        router.push('/doctor/schedule');
-      } else {
-        router.push('/');
+        // Do not return here, let the user see the error and maybe click a link to login
+        // But since we are in a modal/form, showing error is enough.
+        // Actually, we should probably redirect to signin page after a delay or show a link.
+        // For now, just showing the error and stopping the spinner is fine. 
+        // The user can click "Have an account? Login" link at the bottom (if it exists) or we can route them.
+        setTimeout(() => router.push('/auth/signin'), 2000);
       }
 
     } catch (error) {
+      // If we are here, it means registration failed (or first fetch timed out)
       setError(error instanceof Error ? error.message : '发生未知错误');
       setSubmitting(false);
       setStage(null);

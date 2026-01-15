@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 import { pinyin } from 'pinyin-pro';
+import { fetchWithTimeout } from '../../../utils/network';
 import './mobile.css';
 
 // --- Interfaces ---
@@ -84,7 +85,7 @@ export default function AdminUsersPage() {
     const fetchUsersAndRooms = async () => {
       setIsLoading(true);
       try {
-        const usersRes = await fetch('/api/users');
+        const usersRes = await fetchWithTimeout('/api/users');
 
         if (!usersRes.ok) throw new Error('获取用户列表失败。');
 
@@ -170,9 +171,9 @@ export default function AdminUsersPage() {
     } else if (modalMode === 'reset_password') {
       Object.assign(body, { password: '123456' }); // Default password for reset
     }
-
+    
     try {
-      const response = await fetch(url, {
+      const response = await fetchWithTimeout(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
@@ -203,7 +204,7 @@ export default function AdminUsersPage() {
   const handleDelete = async (userId: string) => {
     if (window.confirm('您确定要删除此用户吗？这将删除所有关联的个人资料和数据。')) {
       try {
-        const response = await fetch(`/api/users?userId=${userId}`, { method: 'DELETE' });
+        const response = await fetchWithTimeout(`/api/users?userId=${userId}`, { method: 'DELETE' });
         if (!response.ok) throw new Error('删除用户失败。');
         setUsers(prev => prev.filter(u => u.id !== userId));
         setSuccess('用户删除成功。');

@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { getStatusText, getActionText } from '../utils/statusText';
 import { IoClose, IoTime, IoPerson, IoDocument, IoList } from 'react-icons/io5';
+import { fetchWithTimeout } from '../utils/network';
 
 interface AppointmentHistoryRecord {
   id: string;
@@ -79,7 +80,7 @@ const AppointmentHistoryModal: React.FC<AppointmentHistoryModalProps> = ({
     setError(null);
     
     try {
-      const response = await fetch(`/api/appointments/${appointmentId}/history`);
+      const response = await fetchWithTimeout(`/api/appointments/${appointmentId}/history`);
       
       if (!response.ok) {
         throw new Error('Failed to fetch appointment history');

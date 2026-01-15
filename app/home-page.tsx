@@ -8,6 +8,7 @@ import "../components/EnhancedDatePicker.css";
 import "./mobile.css";
 import { fetchPublicDateStatusesForMonth } from "../utils/publicDateStatusUtils";
 import { isPastDate } from "../utils/dateStatusUtils";
+import { fetchWithTimeout } from "../utils/network";
 
 interface Doctor { id: string; name: string }
 interface Appointment {
@@ -105,9 +106,9 @@ export default function PatientScheduleHome() {
     const init = async () => {
       try {
         const [doctorsRes, userRes, appointmentsRes] = await Promise.all([
-          fetch("/api/public/doctors"),
-          fetch(`/api/user/${session.user.id}`),
-          fetch("/api/appointments"),
+          fetchWithTimeout("/api/public/doctors"),
+          fetchWithTimeout(`/api/user/${session.user.id}`),
+          fetchWithTimeout("/api/appointments"),
         ]);
 
         if (!doctorsRes.ok) throw new Error("获取医生列表失败。");
@@ -188,19 +189,14 @@ export default function PatientScheduleHome() {
     setError(null);
     try {
       const dateStr = toYYYYMMDD(date);
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 15000); // 15s timeout
+      // Removed custom AbortController logic in favor of fetchWithTimeout
 
       let detailsRes;
       try {
-        detailsRes = await fetch(`/api/public/schedules?doctorId=${doctorId}&date=${dateStr}`, {
-          signal: controller.signal
-        });
+        detailsRes = await fetchWithTimeout(`/api/public/schedules?doctorId=${doctorId}&date=${dateStr}`);
       } catch (e: any) {
-        if (e.name === 'AbortError') throw new Error("网络请求超时，请检查您的网络连接");
+        if (e.message === 'Request timed out') throw new Error("网络请求超时，请检查您的网络连接");
         throw e;
-      } finally {
-        clearTimeout(timeoutId);
       }
 
       if (!detailsRes.ok) throw new Error("获取当天排班详情失败。");
@@ -229,7 +225,7 @@ export default function PatientScheduleHome() {
 
       // 同步“我的预约”映射：避免医生取消后本页仍显示“已预约”
       try {
-        const appointmentsRes = await fetch("/api/appointments");
+        const appointmentsRes = await fetchWithTimeout("/api/appointments");
         if (requestId !== dayFetchRequestIdRef.current) return;
 
         if (appointmentsRes.ok) {
@@ -366,7 +362,7 @@ export default function PatientScheduleHome() {
         const doctorId = selectedDoctorIdRef.current;
         if (!doctorId) return;
         const dateStr = toYYYYMMDD(selectedDateRef.current);
-        const res = await fetch(`/api/public/schedules?doctorId=${doctorId}&date=${dateStr}`, { cache: 'no-store' });
+        const res = await fetchWithTimeout(`/api/public/schedules?doctorId=${doctorId}&date=${dateStr}`, { cache: 'no-store' });
         if (!res.ok) return;
         const nextDetails: Schedule[] = await res.json();
         setSchedulesForSelectedDay((prev) => {
@@ -376,7 +372,7 @@ export default function PatientScheduleHome() {
         });
         await refreshCalendarStatuses(selectedDateRef.current, doctorId);
         try {
-          const appointmentsRes = await fetch('/api/appointments');
+          const appointmentsRes = await fetchWithTimeout('/api/appointments');
           if (appointmentsRes.ok) {
             const appointments: Appointment[] = await appointmentsRes.json();
             const map: Record<string, string> = {};
@@ -744,7 +740,7 @@ export default function PatientScheduleHome() {
   const refreshSingleDateStatus = async (dateStr: string, doctorId: string) => {
     if (doctorId !== selectedDoctorIdRef.current) return;
     try {
-      const res = await fetch(`/api/public/schedules?doctorId=${doctorId}&date=${dateStr}`, { cache: 'no-store' });
+      const res = await fetchWithTimeout(`/api/public/schedules?doctorId=${doctorId}&date=${dateStr}`, { cache: 'no-store' });
       if (doctorId !== selectedDoctorIdRef.current) return;
       if (!res.ok) return;
       const details: Schedule[] = await res.json();
@@ -791,7 +787,7 @@ export default function PatientScheduleHome() {
     const doctorId = selectedDoctorId;
     if (!doctorId) return;
     try {
-      const res = await fetch(`/api/public/schedules?doctorId=${doctorId}&timeSlotId=${id}`, { cache: 'no-store' });
+      const res = await fetchWithTimeout(`/api/public/schedules?doctorId=${doctorId}&timeSlotId=${id}`, { cache: 'no-store' });
       if (doctorId !== selectedDoctorIdRef.current) return;
       if (!res.ok) return;
       const arr = await res.json();
@@ -889,13 +885,10 @@ export default function PatientScheduleHome() {
     const currentDocId = selectedDoctorId;
     if (!session || !patientId || !currentDocId) return;
     setError(null);
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 15000);
     try {
-      const res = await fetch("/api/appointments", {
+      const res = await fetchWithTimeout("/api/appointments", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        signal: controller.signal,
         body: JSON.stringify({
           userId: session.user.id,
           patientId,
@@ -903,7 +896,7 @@ export default function PatientScheduleHome() {
           timeSlotId: slot.id,
           roomId: schedule.room.id,
         }),
-      }).finally(() => clearTimeout(timeoutId));
+      });
       // 安全解析，避免空響應導致 JSON 解析錯誤
       let data: any = null;
       try { data = await res.json(); } catch {}
@@ -911,7 +904,7 @@ export default function PatientScheduleHome() {
 
       if (!res.ok) throw new Error(data?.error || "预约失败");
       // 刷新我的预约映射
-      const appointmentsRes = await fetch("/api/appointments");
+      const appointmentsRes = await fetchWithTimeout("/api/appointments");
       if (currentDocId !== selectedDoctorIdRef.current) return;
       
       let appointments: Appointment[] = [];
@@ -990,12 +983,9 @@ export default function PatientScheduleHome() {
         : true;
       if (!ok) return;
 
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 15000);
-      const res = await fetch(`/api/appointments/${appointmentId}`, { 
+      const res = await fetchWithTimeout(`/api/appointments/${appointmentId}`, { 
         method: "DELETE",
-        signal: controller.signal 
-      }).finally(() => clearTimeout(timeoutId));
+      });
 
       // 安全解析，避免空響應導致 JSON 解析錯誤
       let data: any = null;
@@ -1005,7 +995,7 @@ export default function PatientScheduleHome() {
 
       if (!res.ok) throw new Error(data?.error || "取消预约失败");
       // 刷新我的预约映射
-      const appointmentsRes = await fetch("/api/appointments");
+      const appointmentsRes = await fetchWithTimeout("/api/appointments");
       if (currentDocId !== selectedDoctorIdRef.current) return;
 
       let appointments: Appointment[] = [];
@@ -1033,7 +1023,7 @@ export default function PatientScheduleHome() {
       }
       setError(friendly);
       try {
-        const appointmentsRes = await fetch("/api/appointments");
+        const appointmentsRes = await fetchWithTimeout("/api/appointments");
         if (appointmentsRes.ok) {
           const data = await appointmentsRes.json();
           const map: Record<string, string> = {};

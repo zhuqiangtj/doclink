@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { FaTimes, FaCheckCircle, FaBell, FaHistory } from 'react-icons/fa';
 import './mobile.css';
 import { getStatusText } from '../../../utils/statusText';
+import { fetchWithTimeout } from '../../../utils/network';
 import EnhancedDatePicker, { DateStatus } from '../../../components/EnhancedDatePicker';
 import AppointmentHistoryModal from '../../../components/AppointmentHistoryModal';
 import CancelAppointmentModal from '../../../components/CancelAppointmentModal';
@@ -196,7 +197,7 @@ export default function DoctorAppointmentsPage() {
   // 提取為獨立函數，供初始化與 SSE 事件刷新使用
   const fetchNotifications = async () => {
     try {
-      const res = await fetch('/api/notifications');
+      const res = await fetchWithTimeout('/api/notifications');
       if (res.status === 404 || res.status === 401) {
         // 無醫生資料或未授權：前端不報錯，以空通知呈現
         setNotifications([]);
@@ -229,7 +230,7 @@ export default function DoctorAppointmentsPage() {
   // 獨立的獲取預約函數
   const fetchAppointments = async () => {
     try {
-      const appointmentsRes = await fetch('/api/appointments');
+      const appointmentsRes = await fetchWithTimeout('/api/appointments');
       if (!appointmentsRes.ok) throw new Error('獲取預約失敗');
       const appointmentsData = await appointmentsRes.json();
       setAppointments(appointmentsData);
@@ -245,7 +246,7 @@ export default function DoctorAppointmentsPage() {
       setIsLoading(true);
       try {
         // Fetch doctor profile
-        const profileRes = await fetch('/api/user');
+        const profileRes = await fetchWithTimeout('/api/user');
         if (!profileRes.ok) throw new Error('獲取醫生資料失敗');
         const userData = await profileRes.json();
         if (!userData.doctorProfile) throw new Error('未找到醫生資料');
@@ -283,7 +284,7 @@ export default function DoctorAppointmentsPage() {
             case 'APPOINTMENT_CREATED': {
               if (appointmentId) {
                 try {
-                  const res = await fetch(`/api/appointments/${appointmentId}`);
+                  const res = await fetchWithTimeout(`/api/appointments/${appointmentId}`);
                   if (res.ok) {
                     const item: Appointment = await res.json();
                     setAppointments(prev => {
@@ -300,7 +301,7 @@ export default function DoctorAppointmentsPage() {
             case 'APPOINTMENT_CANCELLED': {
               if (appointmentId) {
                 try {
-                  const res = await fetch(`/api/appointments/${appointmentId}`);
+                  const res = await fetchWithTimeout(`/api/appointments/${appointmentId}`);
                   if (res.ok) {
                     const item: Appointment = await res.json();
                     setAppointments(prev => prev.map(a => (a.id === item.id ? item : a)));
@@ -317,7 +318,7 @@ export default function DoctorAppointmentsPage() {
             case 'APPOINTMENT_STATUS_UPDATED': {
               if (appointmentId && newStatus) {
                 try {
-                  const res = await fetch(`/api/appointments/${appointmentId}`);
+                  const res = await fetchWithTimeout(`/api/appointments/${appointmentId}`);
                   if (res.ok) {
                     const item: Appointment = await res.json();
                     setAppointments(prev => prev.map(a => (a.id === item.id ? item : a)));
@@ -358,7 +359,7 @@ export default function DoctorAppointmentsPage() {
     let timer: ReturnType<typeof setInterval> | null = null;
     const run = async () => {
       try {
-        const aptRes = await fetch('/api/appointments', { cache: 'no-store' });
+        const aptRes = await fetchWithTimeout('/api/appointments', { cache: 'no-store' });
         if (aptRes.ok) {
           const data: Appointment[] = await aptRes.json();
           const snapApt = new Map<string, string>();
@@ -372,7 +373,7 @@ export default function DoctorAppointmentsPage() {
           snapshotRef.current.appointments = snapApt;
           if (changed) { setAppointments(data); setOverlayText('已自动更新'); }
         }
-        const notifRes = await fetch('/api/notifications', { cache: 'no-store' });
+        const notifRes = await fetchWithTimeout('/api/notifications', { cache: 'no-store' });
         if (notifRes.ok) {
           const notifData = await notifRes.json();
           const all = notifData.notifications || [];
@@ -480,7 +481,7 @@ export default function DoctorAppointmentsPage() {
   // 標記通知為已讀
   const handleMarkAsRead = async (notificationId: string) => {
     try {
-      const res = await fetch('/api/notifications', {
+      const res = await fetchWithTimeout('/api/notifications', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ notificationIds: [notificationId] }),
@@ -509,7 +510,7 @@ export default function DoctorAppointmentsPage() {
     
     try {
       const unreadIds = unreadNotifications.map(n => n.id);
-      const res = await fetch('/api/notifications', {
+      const res = await fetchWithTimeout('/api/notifications', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ notificationIds: unreadIds }),
@@ -533,7 +534,7 @@ export default function DoctorAppointmentsPage() {
   const fetchPatients = async (page = 1) => {
     setPatientLoading(true);
     try {
-      const res = await fetch(`/api/doctor/patients?page=${page}&limit=10`);
+      const res = await fetchWithTimeout(`/api/doctor/patients?page=${page}&limit=10`);
       if (!res.ok) throw new Error('Failed to fetch patients');
       const data = await res.json();
       setPatients(data.patients);
@@ -569,7 +570,7 @@ export default function DoctorAppointmentsPage() {
     if (!selectedAppointmentForCancel) return;
     try {
       setCancelLoading(true);
-      const response = await fetch(`/api/appointments/${selectedAppointmentForCancel.id}`, {
+      const response = await fetchWithTimeout(`/api/appointments/${selectedAppointmentForCancel.id}`, {
         method: 'DELETE'
       });
 
@@ -624,7 +625,7 @@ export default function DoctorAppointmentsPage() {
   const handleMarkNoShow = async (appointmentId: string) => {
     try {
       setNoShowLoading(true);
-      const res = await fetch('/api/appointments/status', {
+      const res = await fetchWithTimeout('/api/appointments/status', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ appointmentId, status: 'NO_SHOW' }),

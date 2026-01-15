@@ -8,6 +8,7 @@ import { FaHome, FaBell, FaCalendarCheck, FaCog, FaTachometerAlt, FaHospital, Fa
 import { useState, useEffect, useRef } from 'react';
 import type { MouseEvent } from 'react';
 import styles from './BottomNav.module.css';
+import { fetchWithTimeout } from '../utils/network';
 
 interface Notification {
   isRead: boolean;
@@ -70,7 +71,7 @@ export default function BottomNav() {
     if (session?.user?.role === 'DOCTOR') {
       const fetchUnreadCount = async () => {
         try {
-          const res = await fetch('/api/notifications');
+          const res = await fetchWithTimeout('/api/notifications');
           if (!res.ok) {
             setUnreadCount(0);
             return;
@@ -100,7 +101,7 @@ export default function BottomNav() {
       let timer: any = null;
       (async () => {
         try {
-          const userRes = await fetch(`/api/user/${session.user.id}`);
+          const userRes = await fetchWithTimeout(`/api/user/${session.user.id}`);
           if (!userRes.ok) return;
           const userData = await userRes.json();
           const doctorId = userData?.doctorProfile?.id as string | undefined;
@@ -137,7 +138,7 @@ export default function BottomNav() {
     } else if (session?.user?.role === 'PATIENT') {
       const fetchUnreadCount = async () => {
         try {
-          const res = await fetch('/api/patient-notifications');
+          const res = await fetchWithTimeout('/api/patient-notifications');
           if (!res.ok) {
             setUnreadCount(0);
             return;
@@ -166,7 +167,7 @@ export default function BottomNav() {
       let timer: any = null;
       (async () => {
         try {
-          const userRes = await fetch(`/api/user/${session.user.id}`);
+          const userRes = await fetchWithTimeout(`/api/user/${session.user.id}`);
           if (!userRes.ok) return;
           const userData = await userRes.json();
           const patientId = userData?.patientProfile?.id as string | undefined;

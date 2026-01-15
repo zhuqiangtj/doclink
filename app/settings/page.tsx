@@ -2,6 +2,7 @@
 
 import { useState, useEffect, FormEvent, useRef } from 'react';
 import { useSession, signOut } from 'next-auth/react';
+import { fetchWithTimeout } from '../../utils/network';
 import './mobile.css';
 
 export default function SettingsPage() {
@@ -50,7 +51,7 @@ export default function SettingsPage() {
       const run = async () => {
         setScoreLoading(true);
         try {
-          const res = await fetch('/api/user');
+          const res = await fetchWithTimeout('/api/user');
           if (res.ok) {
             const data = await res.json();
             const s = data?.patientProfile?.credibilityScore;
@@ -75,7 +76,7 @@ export default function SettingsPage() {
     let timer: number | null = null;
     const sync = async () => {
       try {
-        const res = await fetch('/api/user', { cache: 'no-store' });
+        const res = await fetchWithTimeout('/api/user', { cache: 'no-store' });
         if (!res.ok) return;
         const data = await res.json();
         const dobVal = data?.dateOfBirth ? (() => { const d = new Date(data.dateOfBirth); const y = d.getFullYear(); const m = String(d.getMonth() + 1).padStart(2, '0'); const day = String(d.getDate()).padStart(2, '0'); return `${y}-${m}-${day}`; })() : '';
@@ -142,7 +143,7 @@ export default function SettingsPage() {
     }
 
     try {
-      const response = await fetch('/api/account/profile', {
+      const response = await fetchWithTimeout('/api/account/profile', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username, name, phone, dateOfBirth, gender }),
@@ -171,7 +172,7 @@ export default function SettingsPage() {
     }
     
     try {
-      const response = await fetch('/api/account/change-password', {
+      const response = await fetchWithTimeout('/api/account/change-password', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ currentPassword, newPassword }),

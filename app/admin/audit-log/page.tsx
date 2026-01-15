@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import './mobile.css';
+import { fetchWithTimeout } from '../../../utils/network';
 
 // --- Interfaces ---
 interface AuditLog {
@@ -137,7 +138,7 @@ export default function AdminAuditLogPage() {
     const fetchLogs = async () => {
       setIsLoading(true);
       try {
-        const res = await fetch(`/api/audit-log?page=${page}&pageSize=${pageSize}`);
+        const res = await fetchWithTimeout(`/api/audit-log?page=${page}&pageSize=${pageSize}`);
         if (!res.ok) throw new Error('获取审计日志失败。');
         const data = await res.json();
         setLogs(data.items || []);

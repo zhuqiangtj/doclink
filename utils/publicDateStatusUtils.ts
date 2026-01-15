@@ -1,5 +1,6 @@
 import { DateStatus } from '../components/EnhancedDatePicker';
 import { convertToDateStatuses } from './dateStatusUtils';
+import { fetchWithTimeout } from './network';
 
 // 月度緩存：doctorId + YYYY-MM -> DateStatus[]
 const monthCache = new Map<string, DateStatus[]>();
@@ -33,7 +34,7 @@ export async function fetchPublicDateStatusesForMonth(
     const monthStr = `${year}-${String(month + 1).padStart(2, '0')}`;
 
     // 單次請求獲取整月詳細時段（aggregate=1），前端自行分組
-    const aggregateRes = await fetch(`/api/public/schedules?doctorId=${doctorId}&month=${monthStr}&aggregate=1`, { cache: 'no-store' });
+    const aggregateRes = await fetchWithTimeout(`/api/public/schedules?doctorId=${doctorId}&month=${monthStr}&aggregate=1`, { cache: 'no-store' });
     if (!aggregateRes.ok) throw new Error('Failed to fetch public monthly aggregated details');
     const aggregateData: { scheduledDates: string[]; schedules: Schedule[] } = await aggregateRes.json();
     const scheduledDates: string[] = aggregateData.scheduledDates || [];

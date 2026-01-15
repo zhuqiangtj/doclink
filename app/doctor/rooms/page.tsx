@@ -3,6 +3,7 @@
 import { useState, useEffect, FormEvent, useRef } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
+import { fetchWithTimeout } from '../../../utils/network';
 import './mobile.css';
 
 // --- Interfaces ---
@@ -54,7 +55,7 @@ export default function DoctorRoomsPage() {
       const fetchDoctorData = async () => {
         setIsLoading(true);
         try {
-          const userRes = await fetch(`/api/user/${session.user.id}`);
+          const userRes = await fetchWithTimeout(`/api/user/${session.user.id}`);
           if (!userRes.ok) throw new Error('获取医生资料失败。');
           const userData = await userRes.json();
           if (!userData.doctorProfile) throw new Error('未找到该用户的医生资料。');
@@ -84,7 +85,7 @@ export default function DoctorRoomsPage() {
             case 'ROOM_DELETED':
             case 'DOCTOR_SCHEDULE_UPDATED':
               {
-                const res = await fetch('/api/rooms', { cache: 'no-store' });
+                const res = await fetchWithTimeout('/api/rooms', { cache: 'no-store' });
                 if (res.ok) {
                   const nextRooms: Room[] = await res.json();
                   setDoctorProfile((prev) => prev ? { ...prev, Room: nextRooms } : prev);
@@ -116,7 +117,7 @@ export default function DoctorRoomsPage() {
     let timer: ReturnType<typeof setInterval> | null = null;
     const run = async () => {
       try {
-        const res = await fetch('/api/rooms', { cache: 'no-store' });
+        const res = await fetchWithTimeout('/api/rooms', { cache: 'no-store' });
         if (!res.ok) return;
         const rooms: Room[] = await res.json();
         const snap = new Map<string, string>();
@@ -173,7 +174,7 @@ export default function DoctorRoomsPage() {
 
     try {
       if (modalMode === 'add') {
-        const response = await fetch('/api/rooms', {
+        const response = await fetchWithTimeout('/api/rooms', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -188,7 +189,7 @@ export default function DoctorRoomsPage() {
         setDoctorProfile(prev => prev ? { ...prev, Room: [...prev.Room, newRoom] } : null);
         setSuccess('诊室添加成功！');
       } else if (modalMode === 'edit' && selectedRoom) {
-        const response = await fetch(`/api/rooms?roomId=${selectedRoom.id}`, {
+        const response = await fetchWithTimeout(`/api/rooms?roomId=${selectedRoom.id}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -220,7 +221,7 @@ export default function DoctorRoomsPage() {
 
     if (window.confirm('您确定要删除此诊室吗？此操作无法撤销。')) {
       try {
-        const response = await fetch(`/api/rooms?roomId=${roomId}`, { method: 'DELETE' });
+        const response = await fetchWithTimeout(`/api/rooms?roomId=${roomId}`, { method: 'DELETE' });
         if (!response.ok) throw new Error('删除诊室失败。');
         
         setDoctorProfile(prev => prev ? { ...prev, Room: prev.Room.filter(r => r.id !== roomId) } : null);

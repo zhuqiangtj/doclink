@@ -4,6 +4,7 @@ import { useState, useEffect, FormEvent } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import './mobile.css';
+import { fetchWithTimeout } from '../../../utils/network';
 
 // --- Interfaces ---
 interface Room {
@@ -69,8 +70,8 @@ export default function AdminRoomsPage() {
       setIsLoading(true);
       try {
         const [roomsRes, usersRes] = await Promise.all([
-          fetch('/api/rooms'), // Admin gets all rooms
-          fetch('/api/users?role=DOCTOR'), // Admin gets all doctors
+          fetchWithTimeout('/api/rooms'), // Admin gets all rooms
+          fetchWithTimeout('/api/users?role=DOCTOR'), // Admin gets all doctors
         ]);
 
         if (!roomsRes.ok) throw new Error('获取诊室列表失败。');
@@ -136,7 +137,7 @@ export default function AdminRoomsPage() {
     const body = { name, bedCount, doctorId: selectedDoctorId }; // Send single doctorId
 
     try {
-      const response = await fetch(url, {
+      const response = await fetchWithTimeout(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
@@ -148,7 +149,7 @@ export default function AdminRoomsPage() {
       }
 
       // Refresh room list after operation
-      const roomsRes = await fetch('/api/rooms');
+      const roomsRes = await fetchWithTimeout('/api/rooms');
       setRooms(await roomsRes.json());
       
       setSuccess(`诊室 ${modalMode === 'add' ? '添加' : '更新'} 成功！`);
@@ -163,7 +164,7 @@ export default function AdminRoomsPage() {
   const handleDelete = async (roomId: string) => {
     if (window.confirm('您确定要删除此诊室吗？此操作无法撤销。')) {
       try {
-        const response = await fetch(`/api/rooms?roomId=${roomId}`, { method: 'DELETE' });
+        const response = await fetchWithTimeout(`/api/rooms?roomId=${roomId}`, { method: 'DELETE' });
         if (!response.ok) throw new Error('删除诊室失败。');
         setRooms(prev => prev.filter(r => r.id !== roomId));
         setSuccess('诊室删除成功！');

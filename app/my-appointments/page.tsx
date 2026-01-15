@@ -7,6 +7,7 @@ import { FaHistory } from 'react-icons/fa';
 import './mobile.css';
 import AppointmentHistoryModal from '../../components/AppointmentHistoryModal';
 import { getStatusText } from '../../utils/statusText';
+import { fetchWithTimeout } from '../../utils/network';
 
 // --- Interfaces ---
 interface Appointment {
@@ -71,7 +72,7 @@ export default function MyAppointmentsPage() {
   const fetchAppointments = async () => {
     setIsLoading(true);
     try {
-      const res = await fetch('/api/appointments');
+      const res = await fetchWithTimeout('/api/appointments');
       if (!res.ok) throw new Error('获取预约失败。');
       const data = await res.json();
       setAppointments(data);
@@ -101,7 +102,7 @@ export default function MyAppointmentsPage() {
     if (status !== 'authenticated') return;
     (async () => {
       try {
-        const res = await fetch('/api/user');
+        const res = await fetchWithTimeout('/api/user');
         if (!res.ok) return;
         const data = await res.json();
         if (data?.patientProfile?.id) {
@@ -130,7 +131,7 @@ export default function MyAppointmentsPage() {
               const appointmentId = typeof payload['appointmentId'] === 'string' ? (payload['appointmentId'] as string) : undefined;
               if (appointmentId) {
                 try {
-                  const res = await fetch(`/api/appointments/${appointmentId}`);
+                  const res = await fetchWithTimeout(`/api/appointments/${appointmentId}`);
                   if (res.ok) {
                     const item = await res.json();
                     setAppointments(prev => {
@@ -158,7 +159,7 @@ export default function MyAppointmentsPage() {
               const reason = typeof payload['reason'] === 'string' ? (payload['reason'] as string) : undefined;
               if (appointmentId && newStatus) {
                 try {
-                  const res = await fetch(`/api/appointments/${appointmentId}`);
+                  const res = await fetchWithTimeout(`/api/appointments/${appointmentId}`);
                   if (res.ok) {
                     const item = await res.json();
                     setAppointments(prev => prev.map(a => (a.id === item.id ? item : a)));
@@ -196,9 +197,9 @@ export default function MyAppointmentsPage() {
     let timer: ReturnType<typeof setInterval> | null = null;
     const run = async () => {
       try {
-        const res = await fetch('/api/appointments', { cache: 'no-store' });
+        const res = await fetchWithTimeout('/api/appointments', { cache: 'no-store' });
         if (!res.ok) return;
-        const data: Appointment[] = await res.json();
+        const data = await res.json();
         const snap = new Map<string, string>();
         data.forEach(a => { snap.set(a.id, `${a.status}|${a.date}|${a.time}|${a.room?.name || ''}`); });
         let changed = false;
@@ -222,7 +223,7 @@ export default function MyAppointmentsPage() {
 
   const handleCancel = async (appointmentId: string) => {
     try {
-      const res = await fetch(`/api/appointments/${appointmentId}`, {
+      const res = await fetchWithTimeout(`/api/appointments/${appointmentId}`, {
         method: 'DELETE',
       });
       if (!res.ok) {
@@ -242,7 +243,7 @@ export default function MyAppointmentsPage() {
       }
       
       // 重新获取预约列表
-      const appointmentsRes = await fetch('/api/appointments');
+      const appointmentsRes = await fetchWithTimeout('/api/appointments');
       if (appointmentsRes.ok) {
         const data = await appointmentsRes.json();
         setAppointments(data);
@@ -250,7 +251,7 @@ export default function MyAppointmentsPage() {
     } catch {
       setError('取消预约失败，请稍后再试');
       try {
-        const appointmentsRes = await fetch('/api/appointments');
+        const appointmentsRes = await fetchWithTimeout('/api/appointments');
         if (appointmentsRes.ok) {
           const data = await appointmentsRes.json();
           setAppointments(data);

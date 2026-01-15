@@ -3,6 +3,7 @@
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
+import { fetchWithTimeout } from '../../../utils/network';
 
 interface DashboardStats {
   totalUsers: number;
@@ -26,7 +27,7 @@ export default function AdminDashboardPage() {
         // Fetch stats for admin
         const fetchStats = async () => {
           try {
-            const res = await fetch('/api/admin/dashboard');
+            const res = await fetchWithTimeout('/api/admin/dashboard');
             if (!res.ok) throw new Error('Failed to fetch dashboard stats.');
             const data = await res.json();
             setStats(data);

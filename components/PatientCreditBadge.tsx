@@ -3,6 +3,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useSession } from 'next-auth/react';
 import { usePathname } from 'next/navigation';
+import { fetchWithTimeout } from '../utils/network';
 
 interface UserResponse {
   id: string;
@@ -26,7 +27,7 @@ export default function PatientCreditBadge() {
       if (!isPatient) return;
       setLoading(true);
       try {
-        const res = await fetch('/api/user');
+        const res = await fetchWithTimeout('/api/user');
         if (!res.ok) throw new Error('Failed to fetch user');
         const data: UserResponse = await res.json();
         const s = data?.patientProfile?.credibilityScore;

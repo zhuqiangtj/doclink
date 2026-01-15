@@ -4,6 +4,7 @@ import { useState, FormEvent, useEffect, useRef } from 'react';
 import { signIn, getSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { withTimeout } from '../../../utils/network';
 
 export default function SignInPage() {
   const [username, setUsername] = useState('');
@@ -34,14 +35,6 @@ export default function SignInPage() {
         return next >= 90 ? 90 : next;
       });
     }, 200);
-
-    // Timeout helper
-    const withTimeout = <T,>(promise: Promise<T>, ms: number, msg: string): Promise<T> => {
-      return Promise.race([
-        promise,
-        new Promise<T>((_, reject) => setTimeout(() => reject(new Error(msg)), ms))
-      ]);
-    };
 
     try {
       // 1. SignIn with timeout (20s)

@@ -5,6 +5,7 @@ import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import './mobile.css';
 import '../appointments/mobile.css';
+import { fetchWithTimeout } from '../../../utils/network';
 
 // --- Interfaces ---
 interface Patient {
@@ -127,12 +128,12 @@ export default function BookAppointmentPage() {
     const fetchData = async () => {
         setIsLoading(true);
         try {
-          const userRes = await fetch(`/api/user/${session.user.id}`);
+          const userRes = await fetchWithTimeout(`/api/user/${session.user.id}`);
           const userData = await userRes.json();
           if (!userData.doctorProfile) throw new Error('Doctor profile not found.');
           setDoctorProfile(userData.doctorProfile);
 
-          const schedulesRes = await fetch(`/api/schedules`); // Fetches own schedules
+          const schedulesRes = await fetchWithTimeout(`/api/schedules`); // Fetches own schedules
           const schedulesData: ScheduleApiResponse[] = await schedulesRes.json();
           const formattedSchedules = schedulesData.map(s => ({ ...s, roomName: s.room.name }));
           setSchedules(dedupeSchedulesByRoomId(formattedSchedules));
@@ -196,7 +197,7 @@ export default function BookAppointmentPage() {
             case 'APPOINTMENT_CANCELLED':
             case 'APPOINTMENT_STATUS_UPDATED':
               {
-                const res = await fetch(`/api/schedules`, { cache: 'no-store' });
+                const res = await fetchWithTimeout(`/api/schedules`, { cache: 'no-store' });
                 if (res.ok) {
                   const nextData: ScheduleApiResponse[] = await res.json();
                   const formatted = nextData.map(s => ({ ...s, roomName: s.room.name }));
@@ -228,7 +229,7 @@ export default function BookAppointmentPage() {
     let timer: ReturnType<typeof setInterval> | null = null;
     const run = async () => {
       try {
-        const res = await fetch(`/api/schedules`, { cache: 'no-store' });
+        const res = await fetchWithTimeout(`/api/schedules`, { cache: 'no-store' });
         if (!res.ok) return;
         const nextData: ScheduleApiResponse[] = await res.json();
         const formatted = nextData.map(s => ({ ...s, roomName: s.room.name }));
@@ -247,7 +248,7 @@ export default function BookAppointmentPage() {
   const handlePatientSearch = async () => {
     if (!patientSearch) return;
     try {
-      const res = await fetch(`/api/patients?search=${patientSearch}`);
+      const res = await fetchWithTimeout(`/api/patients?search=${patientSearch}`);
       const data: Patient[] = await res.json();
       setSearchedPatients(data);
     } catch (_err) {
@@ -269,7 +270,7 @@ export default function BookAppointmentPage() {
     if (!schedule) return;
 
     try {
-      const response = await fetch('/api/appointments', {
+      const response = await fetchWithTimeout('/api/appointments', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -320,7 +321,7 @@ export default function BookAppointmentPage() {
         }
         setError(friendly);
         try {
-          const schedulesRes = await fetch(`/api/schedules`, { cache: 'no-store' });
+          const schedulesRes = await fetchWithTimeout(`/api/schedules`, { cache: 'no-store' });
           const schedulesData: ScheduleApiResponse[] = await schedulesRes.json();
           const formattedSchedules = schedulesData.map(s => ({ ...s, roomName: s.room.name }));
           setSchedules(formattedSchedules);

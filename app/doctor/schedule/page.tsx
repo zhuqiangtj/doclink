@@ -12,6 +12,7 @@ import { getStatusText } from '../../../utils/statusText';
 import { FaTrash, FaSave, FaUserPlus, FaPlusCircle } from 'react-icons/fa';
 import EnhancedDatePicker, { DateStatus } from '../../../components/EnhancedDatePicker';
 import { fetchDateStatusesForMonth, isPastDate } from '../../../utils/dateStatusUtils';
+import { fetchWithTimeout } from '../../../utils/network';
 
 // --- Interfaces ---
 interface Room { id: string; name: string; bedCount: number; }
@@ -253,7 +254,7 @@ export default function DoctorSchedulePage() {
     if (status !== 'authenticated' || !doctorProfile?.id || !dateVal) return;
     const dateStr = toYYYYMMDD(dateVal);
     try {
-      const detailsRes = await fetch(`/api/schedules/details?date=${dateStr}`, { cache: 'no-store' });
+      const detailsRes = await fetchWithTimeout(`/api/schedules/details?date=${dateStr}`, { cache: 'no-store' });
       if (!detailsRes.ok) return;
       const details: Schedule[] = await detailsRes.json();
       const totals = details.reduce((acc: { bookedBeds: number; totalBeds: number }, sch) => {
@@ -330,7 +331,7 @@ export default function DoctorSchedulePage() {
 
   const refreshTimeSlotById = useCallback(async (id: string) => {
     try {
-      const res = await fetch(`/api/schedules/details?timeSlotId=${id}`, { cache: 'no-store' });
+      const res = await fetchWithTimeout(`/api/schedules/details?timeSlotId=${id}`, { cache: 'no-store' });
       if (!res.ok) return;
       const arr = await res.json();
       const updatedSchedule = Array.isArray(arr) ? arr[0] : null;
@@ -342,7 +343,7 @@ export default function DoctorSchedulePage() {
       const currentSelectedDateStr = toYYYYMMDD(selectedDateRef.current);
 
       try {
-        const dayRes = await fetch(`/api/schedules/details?date=${updatedSchedule.date}`, { cache: 'no-store' });
+        const dayRes = await fetchWithTimeout(`/api/schedules/details?date=${updatedSchedule.date}`, { cache: 'no-store' });
         if (dayRes.ok) {
           const detailsData: Schedule[] = await dayRes.json();
           const totals = detailsData.reduce((acc: { bookedBeds: number; totalBeds: number }, sch) => {
@@ -514,7 +515,7 @@ export default function DoctorSchedulePage() {
       try {
         if (!selectedDateRef.current) return;
         const dateStr = toYYYYMMDD(selectedDateRef.current);
-        const res = await fetch(`/api/schedules/details?date=${dateStr}`, { cache: 'no-store' });
+        const res = await fetchWithTimeout(`/api/schedules/details?date=${dateStr}`, { cache: 'no-store' });
         if (!res.ok) return;
         const nextDetails: Schedule[] = await res.json();
         setSchedulesForSelectedDay((prev) => {
@@ -540,7 +541,7 @@ export default function DoctorSchedulePage() {
     try {
       // 禁用缓存，确保 SSE 事件后立即获取最新数据
       // 优化：如果已有 profile 且未过期，可考虑复用（此处保留每次获取以确保状态最新，但需注意性能）
-      const profileRes = await fetch('/api/user', { cache: 'no-store' });
+      const profileRes = await fetchWithTimeout('/api/user', { cache: 'no-store' });
       // 如果请求ID已过期，直接返回，不更新状态
       if (currentRequestId !== fetchRequestIdRef.current) return;
 
@@ -553,21 +554,16 @@ export default function DoctorSchedulePage() {
         setSelectedRoomIdForTemplate(userData.doctorProfile.Room[0].id);
       }
 
-      // 並行發起請求，但分離錯誤處理與等待邏輯
+      // 並行發起請求，使用 centralized fetchWithTimeout
       const monthStr = toYYYYMMDD(date).substring(0, 7);
       
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 15000); // 15s timeout
-
-      const detailsPromise = fetch(`/api/schedules/details?date=${toYYYYMMDD(date)}`, { 
-        cache: 'no-store',
-        signal: controller.signal
+      const detailsPromise = fetchWithTimeout(`/api/schedules/details?date=${toYYYYMMDD(date)}`, { 
+        cache: 'no-store'
       });
 
       // 月份高亮數據也視為關鍵路徑，失敗應阻塞操作，避免誤導用戶
-      const highlightsPromise = fetch(`/api/schedules?month=${monthStr}`, { 
-        cache: 'no-store',
-        signal: controller.signal 
+      const highlightsPromise = fetchWithTimeout(`/api/schedules?month=${monthStr}`, { 
+        cache: 'no-store'
       });
 
       // 優先等待排班詳情（關鍵數據）
@@ -575,13 +571,8 @@ export default function DoctorSchedulePage() {
       try {
         [detailsRes, highlightsRes] = await Promise.all([detailsPromise, highlightsPromise]);
       } catch (err: any) {
-        clearTimeout(timeoutId);
-        if (err.name === 'AbortError') {
-          throw new Error('网络请求超时，请检查您的网络连接');
-        }
         throw err;
       }
-      clearTimeout(timeoutId);
 
       if (currentRequestId !== fetchRequestIdRef.current) return;
       
@@ -901,7 +892,7 @@ export default function DoctorSchedulePage() {
         // 避免模板床位數超過診室容量
         const maxBedsForRoom = selectedRoom?.bedCount ?? tpl.bedCount;
         const tplBedCount = Math.min(tpl.bedCount, maxBedsForRoom);
-        const response = await fetch('/api/schedules', {
+        const response = await fetchWithTimeout('/api/schedules', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -1080,7 +1071,7 @@ export default function DoctorSchedulePage() {
     try {
       // 直接更新現有的時間段（使用新的 TimeSlot 模型字段）
       const url = `/api/schedules?timeSlotId=${currentSlot.id}`;
-      const response = await fetch(url, {
+      const response = await fetchWithTimeout(url, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -1162,7 +1153,7 @@ export default function DoctorSchedulePage() {
       return;
     }
     try {
-      const response = await fetch(`/api/patients/search?q=${encodeURIComponent(query)}`);
+      const response = await fetchWithTimeout(`/api/patients/search?q=${encodeURIComponent(query)}`);
       if (response.ok) {
         const patients = await response.json();
         setSearchedPatients(patients);
@@ -1210,7 +1201,7 @@ export default function DoctorSchedulePage() {
       // 自動推斷時段類型：12:00 之前為上午，之後為下午
       const inferredType: 'MORNING' | 'AFTERNOON' = (newTimeSlotData.startTime < '12:00') ? 'MORNING' : 'AFTERNOON';
 
-      const response = await fetch('/api/schedules', {
+      const response = await fetchWithTimeout('/api/schedules', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -1343,7 +1334,7 @@ export default function DoctorSchedulePage() {
       setIsBookingSubmitting(true);
       const selectedTimeSlot = selectedScheduleForBooking.timeSlots[selectedSlotIndexForBooking];
       
-      const response = await fetch('/api/appointments', {
+      const response = await fetchWithTimeout('/api/appointments', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -1440,7 +1431,7 @@ export default function DoctorSchedulePage() {
       setError(friendly);
     }
       try {
-        const res = await fetch('/api/schedules', { cache: 'no-store' });
+        const res = await fetchWithTimeout('/api/schedules', { cache: 'no-store' });
         if (res.ok) {
           const nextData: ScheduleApiResponse[] = await res.json();
           const formatted = nextData.map(s => ({ ...s, roomName: s.room.name }));
@@ -1485,7 +1476,7 @@ export default function DoctorSchedulePage() {
     if (!selectedAppointmentForCancel) return;
     setCancelLoading(true);
     try {
-      const response = await fetch(`/api/appointments/${selectedAppointmentForCancel.appointmentId}`, {
+      const response = await fetchWithTimeout(`/api/appointments/${selectedAppointmentForCancel.appointmentId}`, {
         method: 'DELETE'
       });
 
@@ -1565,7 +1556,7 @@ export default function DoctorSchedulePage() {
       const slotBefore = schedulesForSelectedDay.find(s => s.id === scheduleId)?.timeSlots[slotIndex];
       const apptBefore = slotBefore?.appointments.find(a => a.id === appointmentId);
       const wasCompletedBefore = apptBefore?.status === 'COMPLETED';
-      const response = await fetch('/api/appointments/status', {
+      const response = await fetchWithTimeout('/api/appointments/status', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ appointmentId, status: 'NO_SHOW' })
@@ -1640,7 +1631,7 @@ export default function DoctorSchedulePage() {
 
     try {
       const deleteUrl = `/api/schedules?timeSlotId=${timeSlotId}`;
-      const response = await fetch(deleteUrl, {
+      const response = await fetchWithTimeout(deleteUrl, {
         method: 'DELETE'
       });
 
