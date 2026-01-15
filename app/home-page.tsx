@@ -1210,6 +1210,19 @@ export default function PatientScheduleHome() {
           </div>
         </div>
       )}
+      {isDayLoading && typeof document !== 'undefined' && createPortal(
+        (
+          <div className={navStyles.navOverlay} role="alert" aria-live="polite">
+            <div className={navStyles.navOverlayBox}>
+              <span className={navStyles.navSpinner} aria-hidden="true" />
+              <div className={navStyles.navStages}>
+                <div className={navStyles.navStageCurrent}>正在加载当天排班...</div>
+              </div>
+            </div>
+          </div>
+        ),
+        document.body
+      )}
     </main>
   );
 }
