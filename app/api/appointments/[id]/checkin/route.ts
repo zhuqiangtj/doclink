@@ -5,7 +5,7 @@ import { createAuditLog } from '../../../../../lib/audit'; // Adjust path as nee
 import { prisma } from '../../../../../lib/prisma';
 import { createAppointmentHistory } from '../../../../../lib/appointment-history';
 
-export async function POST(request: NextRequest, context: { params: { id: string } }) {
+export async function POST(request: NextRequest, context: { params: Promise<{ id: string }> }) {
   const { params } = context;
   const session = await getServerSession(authOptions);
   if (!session || session.user.role !== 'PATIENT') {

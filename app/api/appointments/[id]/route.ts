@@ -8,14 +8,14 @@ import { publishDoctorEvent, publishPatientEvent } from '@/lib/realtime';
 
 export async function GET(
   request: Request,
-  context: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   const session = await getServerSession(authOptions);
   if (!session) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
   }
 
-  const appointmentId = context.params?.id;
+  const { id: appointmentId } = await context.params;
   if (!appointmentId) {
     return NextResponse.json({ error: 'Appointment ID is required' }, { status: 400 });
   }
@@ -62,14 +62,14 @@ export async function GET(
 // DELETE /api/appointments/[id] — 取消预约（RESTful 动态路由）
 export async function DELETE(
   request: Request,
-  context: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   const session = await getServerSession(authOptions);
   if (!session) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
   }
 
-  const appointmentId = context.params?.id;
+  const { id: appointmentId } = await context.params;
   if (!appointmentId) {
     return NextResponse.json({ error: 'Appointment ID is required' }, { status: 400 });
   }

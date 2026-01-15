@@ -4,7 +4,7 @@ import { authOptions } from '../../../auth/[...nextauth]/route';
 import { getAppointmentHistory } from '../../../../../lib/appointment-history';
 import { prisma } from '../../../../../lib/prisma';
 
-export async function GET(request: Request, { params }: { params: { id: string } }) {
+export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await getServerSession(authOptions);
   if (!session) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
