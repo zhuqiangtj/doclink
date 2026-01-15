@@ -1755,6 +1755,7 @@ export default function DoctorSchedulePage() {
             onDateChange={setSelectedDate}
             dateStatuses={dateStatuses}
             isLoading={isLoading}
+            suppressSpinner={true}
             onMonthChange={handleCalendarMonthChange}
           />
         </div>

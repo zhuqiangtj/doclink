@@ -18,7 +18,7 @@ interface EnhancedDatePickerProps {
   onDateChange: (date: Date) => void;
   dateStatuses: DateStatus[];
   isLoading?: boolean;
-  suppressSpinner?: boolean;
+  suppressSpinner?: boolean; // If true, shows overlay but hides the spinner (useful when global spinner is active)
   className?: string;
   onMonthChange?: (year: number, month: number) => void; // 新增：月份切換回調
   patientAppointmentDates?: string[];
@@ -36,7 +36,7 @@ const EnhancedDatePicker: React.FC<EnhancedDatePickerProps> = ({
   onDateChange,
   dateStatuses,
   isLoading = false,
-  suppressSpinner = false, // Deprecated prop, kept for compatibility but ignored
+  suppressSpinner = false,
   className = '',
   onMonthChange,
   patientAppointmentDates = []
@@ -96,7 +96,8 @@ const EnhancedDatePicker: React.FC<EnhancedDatePickerProps> = ({
     }
     
     // Add next month's leading days to fill the grid
-    const remainingSlots = 42 - days.length; // 6 rows × 7 days
+    // Only fill the current week, do not force 6 rows (42 days)
+    const remainingSlots = (7 - (days.length % 7)) % 7;
     for (let day = 1; day <= remainingSlots; day++) {
       days.push(new Date(year, month + 1, day));
     }
@@ -274,6 +275,11 @@ const EnhancedDatePicker: React.FC<EnhancedDatePickerProps> = ({
 
       {/* Calendar Grid */}
       <div className={`calendar-container ${isLoading ? 'pointer-events-none' : ''}`}>
+        {isLoading && (
+          <div className="calendar-loading-overlay">
+            {!suppressSpinner && <div className="calendar-spinner" />}
+          </div>
+        )}
         
         {/* Weekday Headers */}
         <div className="weekday-header">
