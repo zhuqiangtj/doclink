@@ -1,11 +1,13 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState, useCallback } from "react";
+import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import EnhancedDatePicker, { DateStatus } from "../components/EnhancedDatePicker";
 import "../components/EnhancedDatePicker.css";
 import "./mobile.css";
+import navStyles from "../components/BottomNav.module.css";
 import { fetchPublicDateStatusesForMonth } from "../utils/publicDateStatusUtils";
 import { isPastDate } from "../utils/dateStatusUtils";
 import { fetchWithTimeout } from "../utils/network";
