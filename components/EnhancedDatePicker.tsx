@@ -18,6 +18,7 @@ interface EnhancedDatePickerProps {
   onDateChange: (date: Date) => void;
   dateStatuses: DateStatus[];
   isLoading?: boolean;
+  suppressSpinner?: boolean;
   className?: string;
   onMonthChange?: (year: number, month: number) => void; // 新增：月份切換回調
   patientAppointmentDates?: string[];
@@ -35,6 +36,7 @@ const EnhancedDatePicker: React.FC<EnhancedDatePickerProps> = ({
   onDateChange,
   dateStatuses,
   isLoading = false,
+  suppressSpinner = false, // Deprecated prop, kept for compatibility but ignored
   className = '',
   onMonthChange,
   patientAppointmentDates = []
@@ -271,8 +273,7 @@ const EnhancedDatePicker: React.FC<EnhancedDatePickerProps> = ({
       </div>
 
       {/* Calendar Grid */}
-      <div className="calendar-container">
-        {/* Remove internal loading overlay to avoid duplication with global loading overlay */}
+      <div className={`calendar-container ${isLoading ? 'pointer-events-none' : ''}`}>
         
         {/* Weekday Headers */}
         <div className="weekday-header">

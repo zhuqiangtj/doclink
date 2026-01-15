@@ -118,6 +118,13 @@
   border-radius: 16px;
   padding: 12px;
   color: #374151;
+  min-height: 300px; /* Ensure minimum height for layout stability */
+}
+
+/* Prevent interaction when loading */
+.pointer-events-none {
+  pointer-events: none;
+  opacity: 0.8; /* Subtle visual cue without full overlay */
 }
 
 /* Weekday Header */
@@ -301,9 +308,9 @@
 }
 
 .appointment-count.available {
-  color: #0b3b75;
-  background: #bfdbfe; /* blue-200 */
-  border: 1px solid #3b82f6; /* blue-500 */
+  color: #1e40af;
+  background: #dbeafe;
+  border: 1px solid #93c5fd;
 }
 
 /* Responsive Design */

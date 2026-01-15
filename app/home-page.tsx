@@ -1111,6 +1111,7 @@ export default function PatientScheduleHome() {
           onDateChange={handleDateChange}
           dateStatuses={dateStatuses}
           isLoading={isCalendarLoading}
+          suppressSpinner={isDayLoading}
           patientAppointmentDates={patientAppointmentDates}
           onMonthChange={(year, month) => {
             if (selectedDoctorId) {
@@ -1223,13 +1224,15 @@ export default function PatientScheduleHome() {
           </div>
         </div>
       )}
-      {isDayLoading && typeof document !== 'undefined' && createPortal(
+      {(isDayLoading || isCalendarLoading) && typeof document !== 'undefined' && createPortal(
         (
           <div className={navStyles.navOverlay} role="alert" aria-live="polite">
             <div className={navStyles.navOverlayBox}>
               <span className={navStyles.navSpinner} aria-hidden="true" />
               <div className={navStyles.navStages}>
-                <div className={navStyles.navStageCurrent}>正在加载当天排班...</div>
+                <div className={navStyles.navStageCurrent}>
+                  {isCalendarLoading ? '正在加载排班信息...' : '正在加载当天排班...'}
+                </div>
               </div>
             </div>
           </div>
