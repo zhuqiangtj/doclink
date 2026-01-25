@@ -166,7 +166,7 @@ export default function PatientDetailModal({ isOpen, onClose, patient, appointme
                       type="number" 
                       value={tempScore}
                       onChange={(e) => setTempScore(Math.max(0, parseInt(e.target.value) || 0))}
-                      className={`w-14 text-center font-bold text-lg bg-transparent border-b border-gray-300 focus:border-blue-500 focus:outline-none ${tempScore < 60 ? 'text-red-600' : 'text-green-600'}`}
+                      className={`w-12 text-center font-semibold text-sm bg-transparent border-b border-gray-300 focus:border-blue-500 focus:outline-none ${tempScore < 60 ? 'text-red-600' : 'text-green-600'}`}
                       disabled={isSaving}
                     />
                     <button 
