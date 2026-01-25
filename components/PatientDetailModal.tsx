@@ -154,10 +154,10 @@ export default function PatientDetailModal({ isOpen, onClose, patient, appointme
                   <span>积分</span>
                 </div>
                 {onSave ? (
-                  <div className="flex items-center justify-center gap-1">
+                  <div className="flex items-center justify-center gap-2">
                     <button 
                       onClick={() => setTempScore(s => Math.max(0, s - 1))}
-                      className="w-6 h-6 flex items-center justify-center bg-white border border-gray-200 rounded text-gray-500 hover:text-blue-500 hover:border-blue-500 disabled:opacity-50 transition-colors"
+                      className="w-8 h-8 flex items-center justify-center bg-white border border-gray-200 rounded text-gray-500 hover:text-blue-500 hover:border-blue-500 disabled:opacity-50 transition-colors text-lg font-bold"
                       disabled={isSaving}
                     >
                       -
@@ -166,12 +166,12 @@ export default function PatientDetailModal({ isOpen, onClose, patient, appointme
                       type="number" 
                       value={tempScore}
                       onChange={(e) => setTempScore(Math.max(0, parseInt(e.target.value) || 0))}
-                      className={`w-12 text-center font-semibold text-sm bg-transparent border-b border-gray-300 focus:border-blue-500 focus:outline-none ${tempScore < 60 ? 'text-red-600' : 'text-green-600'}`}
+                      className={`w-14 text-center font-bold text-lg bg-transparent border-b border-gray-300 focus:border-blue-500 focus:outline-none ${tempScore < 60 ? 'text-red-600' : 'text-green-600'}`}
                       disabled={isSaving}
                     />
                     <button 
                       onClick={() => setTempScore(s => s + 1)}
-                      className="w-6 h-6 flex items-center justify-center bg-white border border-gray-200 rounded text-gray-500 hover:text-blue-500 hover:border-blue-500 disabled:opacity-50 transition-colors"
+                      className="w-8 h-8 flex items-center justify-center bg-white border border-gray-200 rounded text-gray-500 hover:text-blue-500 hover:border-blue-500 disabled:opacity-50 transition-colors text-lg font-bold"
                       disabled={isSaving}
                     >
                       +
