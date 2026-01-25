@@ -722,6 +722,46 @@ export default function DoctorAppointmentsPage() {
     } catch { return null; }
   };
 
+  const handleSaveScore = async (patientId: string, newScore: number) => {
+    try {
+      const res = await fetchWithTimeout(`/api/patients/${patientId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ credibilityScore: newScore }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || '更新积分失败');
+      }
+
+      // Update patients list state
+      setPatients(prev => prev.map(p => 
+        p.id === patientId ? { ...p, credibilityScore: newScore } : p
+      ));
+      
+      // Update appointments state (as it also displays score)
+      setAppointments(prev => prev.map(apt => 
+        apt.patient.id === patientId 
+          ? { ...apt, patient: { ...apt.patient, credibilityScore: newScore } } 
+          : apt
+      ));
+
+      // Update selected patient state if it's the same patient
+      if (selectedPatient && selectedPatient.id === patientId) {
+          setSelectedPatient(prev => prev ? { ...prev, credibilityScore: newScore } : null);
+      }
+
+      setSuccess('病人积分已更新');
+      setTimeout(() => setSuccess(null), 3000);
+    } catch (err) {
+      console.error(err);
+      setError(err instanceof Error ? err.message : '更新积分失败');
+      setTimeout(() => setError(null), 3000);
+      throw err;
+    }
+  };
+
   // --- Render Logic ---
   if (status === 'loading' || isLoading) {
     return <div className="mobile-loading">正在加載...</div>;
@@ -1310,6 +1350,7 @@ export default function DoctorAppointmentsPage() {
         onClose={() => setShowPatientModal(false)}
         patient={selectedPatient}
         appointments={appointments.filter(a => a.patient?.id === selectedPatient?.id)}
+        onSave={handleSaveScore}
       />
 
       {/* Date Picker Dialog */}

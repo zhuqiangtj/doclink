@@ -26,17 +26,34 @@ interface PatientDetailModalProps {
   onClose: () => void;
   patient: PatientData | null;
   appointments?: Appointment[];
+  onSave?: (patientId: string, newScore: number) => Promise<void>;
 }
 
-export default function PatientDetailModal({ isOpen, onClose, patient, appointments = [] }: PatientDetailModalProps) {
+export default function PatientDetailModal({ isOpen, onClose, patient, appointments = [], onSave }: PatientDetailModalProps) {
   const [historyPage, setHistoryPage] = useState(1);
+  const [tempScore, setTempScore] = useState(0);
+  const [isSaving, setIsSaving] = useState(false);
   const itemsPerPage = 5;
 
   useEffect(() => {
-    if (isOpen) {
+    if (isOpen && patient) {
       setHistoryPage(1);
+      setTempScore(patient.credibilityScore);
     }
   }, [isOpen, patient]);
+
+  const handleSave = async () => {
+    if (!onSave || !patient) return;
+    setIsSaving(true);
+    try {
+      await onSave(patient.id, tempScore);
+      onClose();
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   if (!isOpen || !patient) return null;
 
@@ -115,9 +132,35 @@ export default function PatientDetailModal({ isOpen, onClose, patient, appointme
                 <FaStar className="text-yellow-400" />
                 <span>积分</span>
               </div>
-              <div className={`font-semibold text-sm ${patient.credibilityScore < 60 ? 'text-red-600' : 'text-green-600'}`}>
-                {patient.credibilityScore}
-              </div>
+              {onSave ? (
+                <div className="flex items-center justify-center gap-1">
+                  <button 
+                    onClick={() => setTempScore(s => Math.max(0, s - 1))}
+                    className="w-6 h-6 flex items-center justify-center bg-white border border-gray-200 rounded text-gray-500 hover:text-blue-500 hover:border-blue-500 disabled:opacity-50 transition-colors"
+                    disabled={isSaving}
+                  >
+                    -
+                  </button>
+                  <input 
+                    type="number" 
+                    value={tempScore}
+                    onChange={(e) => setTempScore(Math.max(0, parseInt(e.target.value) || 0))}
+                    className={`w-12 text-center font-semibold text-sm bg-transparent border-b border-gray-300 focus:border-blue-500 focus:outline-none ${tempScore < 60 ? 'text-red-600' : 'text-green-600'}`}
+                    disabled={isSaving}
+                  />
+                  <button 
+                    onClick={() => setTempScore(s => s + 1)}
+                    className="w-6 h-6 flex items-center justify-center bg-white border border-gray-200 rounded text-gray-500 hover:text-blue-500 hover:border-blue-500 disabled:opacity-50 transition-colors"
+                    disabled={isSaving}
+                  >
+                    +
+                  </button>
+                </div>
+              ) : (
+                <div className={`font-semibold text-sm ${patient.credibilityScore < 60 ? 'text-red-600' : 'text-green-600'}`}>
+                  {patient.credibilityScore}
+                </div>
+              )}
             </div>
 
             <div className="bg-gray-50 p-2 rounded-lg text-center">
@@ -198,13 +241,23 @@ export default function PatientDetailModal({ isOpen, onClose, patient, appointme
           </div>
         </div>
 
-        <div className="p-4 border-t border-gray-100 flex justify-end shrink-0">
+        <div className="p-4 border-t border-gray-100 flex justify-end shrink-0 gap-3">
           <button
             onClick={onClose}
             className="px-4 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 transition-colors font-medium text-sm"
+            disabled={isSaving}
           >
-            关闭
+            取消
           </button>
+          {onSave && (
+            <button
+              onClick={handleSave}
+              disabled={isSaving || tempScore === patient.credibilityScore}
+              className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors font-medium text-sm disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
+            >
+              {isSaving ? '保存中...' : '保存'}
+            </button>
+          )}
         </div>
       </div>
     </div>
