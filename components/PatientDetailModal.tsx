@@ -157,7 +157,7 @@ export default function PatientDetailModal({ isOpen, onClose, patient, appointme
                   <div className="flex items-center justify-center gap-2">
                     <button 
                       onClick={() => setTempScore(s => Math.max(0, s - 1))}
-                      className="w-8 h-8 flex items-center justify-center bg-white border border-gray-200 rounded text-gray-500 hover:text-blue-500 hover:border-blue-500 disabled:opacity-50 transition-colors text-lg font-bold"
+                      className="w-10 h-10 flex items-center justify-center bg-white border border-gray-200 rounded text-gray-500 hover:text-blue-500 hover:border-blue-500 disabled:opacity-50 transition-colors text-xl font-bold"
                       disabled={isSaving}
                     >
                       -
@@ -171,7 +171,7 @@ export default function PatientDetailModal({ isOpen, onClose, patient, appointme
                     />
                     <button 
                       onClick={() => setTempScore(s => s + 1)}
-                      className="w-8 h-8 flex items-center justify-center bg-white border border-gray-200 rounded text-gray-500 hover:text-blue-500 hover:border-blue-500 disabled:opacity-50 transition-colors text-lg font-bold"
+                      className="w-10 h-10 flex items-center justify-center bg-white border border-gray-200 rounded text-gray-500 hover:text-blue-500 hover:border-blue-500 disabled:opacity-50 transition-colors text-xl font-bold"
                       disabled={isSaving}
                     >
                       +
