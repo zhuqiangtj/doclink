@@ -321,7 +321,6 @@ body {
   gap: var(--spacing-md);
   padding: 0 var(--spacing-lg);
   overflow-y: auto;
-  flex: 1;
 }
 
 .mobile-form-group {
@@ -378,7 +377,6 @@ body {
   gap: var(--spacing-sm);
   padding: var(--spacing-lg);
   border-top: 1px solid var(--border-color);
-  margin-top: auto;
 }
 
 .mobile-cancel-btn {
@@ -456,10 +454,6 @@ body {
   .mobile-modal {
     margin: var(--spacing-sm);
     max-width: calc(100vw - 2rem);
-  }
-  
-  .mobile-modal-actions {
-    flex-direction: column;
   }
   
   .mobile-room-actions {

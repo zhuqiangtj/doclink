@@ -50,7 +50,7 @@ export async function POST(request: Request) {
   }
 
   try {
-    const { name, bedCount, doctorId: requestDoctorId } = await request.json();
+    const { name, bedCount, isPrivate, doctorId: requestDoctorId } = await request.json();
 
     if (!name || !bedCount || bedCount < 1) {
       return NextResponse.json({ error: 'Missing required fields or invalid bedCount' }, { status: 400 });
@@ -85,14 +85,15 @@ export async function POST(request: Request) {
       data: {
         name,
         bedCount: Number(bedCount),
+        isPrivate: isPrivate ?? false,
         doctorId: targetDoctorId,
       },
       include: { doctor: { include: { user: { select: { id: true, name: true } } } } }, // Corrected include
     });
 
-    await createAuditLog(session, 'CREATE_ROOM', 'Room', newRoom.id, { name, bedCount, doctorId: targetDoctorId });
+    await createAuditLog(session, 'CREATE_ROOM', 'Room', newRoom.id, { name, bedCount, isPrivate: newRoom.isPrivate, doctorId: targetDoctorId });
     try {
-      await publishDoctorEvent(targetDoctorId, 'ROOM_CREATED', { roomId: newRoom.id, name: newRoom.name, bedCount: newRoom.bedCount });
+      await publishDoctorEvent(targetDoctorId, 'ROOM_CREATED', { roomId: newRoom.id, name: newRoom.name, bedCount: newRoom.bedCount, isPrivate: newRoom.isPrivate });
     } catch {}
     return NextResponse.json(newRoom, { status: 201 });
 
@@ -116,8 +117,8 @@ export async function PUT(request: Request) {
   }
 
   try {
-    const { name, bedCount, doctorId: newDoctorId } = await request.json();
-    if (!name && bedCount === undefined && newDoctorId === undefined) {
+    const { name, bedCount, isPrivate, doctorId: newDoctorId } = await request.json();
+    if (!name && bedCount === undefined && isPrivate === undefined && newDoctorId === undefined) {
       return NextResponse.json({ error: 'No update data provided' }, { status: 400 });
     }
 
@@ -127,22 +128,24 @@ export async function PUT(request: Request) {
     }
 
     // Authorization and data preparation
-    const updateData: { name?: string; bedCount?: number; doctorId?: string } = {};
+    const updateData: { name?: string; bedCount?: number; isPrivate?: boolean; doctorId?: string } = {};
 
     if (session.user.role === 'DOCTOR') {
       const doctorProfile = await prisma.doctor.findUnique({ where: { userId: session.user.id } });
       if (!doctorProfile || existingRoom.doctorId !== doctorProfile.id) {
         return NextResponse.json({ error: 'Forbidden: You can only update your own rooms.' }, { status: 403 });
       }
-      // Doctors can only update name and bedCount, not change owner
+      // Doctors can only update name, bedCount and isPrivate, not change owner
       if (name) updateData.name = name;
       if (bedCount !== undefined) updateData.bedCount = Number(bedCount);
+      if (isPrivate !== undefined) updateData.isPrivate = isPrivate;
       if (newDoctorId !== undefined && newDoctorId !== existingRoom.doctorId) {
         return NextResponse.json({ error: 'Forbidden: Doctors cannot change room ownership.' }, { status: 403 });
       }
     } else if (session.user.role === 'ADMIN') {
       if (name) updateData.name = name;
       if (bedCount !== undefined) updateData.bedCount = Number(bedCount);
+      if (isPrivate !== undefined) updateData.isPrivate = isPrivate;
       if (newDoctorId !== undefined) {
         const doctorExists = await prisma.doctor.findUnique({ where: { id: newDoctorId } });
         if (!doctorExists) {
@@ -162,7 +165,7 @@ export async function PUT(request: Request) {
 
     await createAuditLog(session, 'UPDATE_ROOM', 'Room', updatedRoom.id, { old: existingRoom, new: updatedRoom });
     try {
-      await publishDoctorEvent(updatedRoom.doctorId, 'ROOM_UPDATED', { roomId: updatedRoom.id, name: updatedRoom.name, bedCount: updatedRoom.bedCount });
+      await publishDoctorEvent(updatedRoom.doctorId, 'ROOM_UPDATED', { roomId: updatedRoom.id, name: updatedRoom.name, bedCount: updatedRoom.bedCount, isPrivate: updatedRoom.isPrivate });
     } catch {}
     return NextResponse.json(updatedRoom);
 

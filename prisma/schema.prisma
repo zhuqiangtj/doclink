@@ -63,6 +63,7 @@ model Room {
   id           String        @id @default(cuid())
   name         String
   bedCount     Int
+  isPrivate    Boolean       @default(false)
   doctorId     String
   appointments Appointment[]
   doctor       Doctor        @relation(fields: [doctorId], references: [id])

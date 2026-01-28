@@ -11,6 +11,7 @@ interface Room {
   id: string;
   name: string;
   bedCount: number;
+  isPrivate: boolean;
   doctorId: string;
   doctor: { id: string; name: string };
 }
@@ -32,6 +33,7 @@ export default function DoctorRoomsPage() {
   // --- Form States ---
   const [roomName, setRoomName] = useState('');
   const [bedCount, setBedCount] = useState(1);
+  const [isPrivate, setIsPrivate] = useState(false);
 
   // --- UI States ---
   const [isLoading, setIsLoading] = useState(true);
@@ -121,7 +123,7 @@ export default function DoctorRoomsPage() {
         if (!res.ok) return;
         const rooms: Room[] = await res.json();
         const snap = new Map<string, string>();
-        rooms.forEach(r => { snap.set(r.id, `${r.name}|${r.bedCount}`); });
+        rooms.forEach(r => { snap.set(r.id, `${r.name}|${r.bedCount}|${r.isPrivate}`); });
         let changed = false;
         const prev = roomsSnapshotRef.current;
         if (prev.size !== snap.size) changed = true;
@@ -144,6 +146,7 @@ export default function DoctorRoomsPage() {
     setModalMode('add');
     setRoomName('');
     setBedCount(1);
+    setIsPrivate(false);
     setSelectedRoom(null);
     setShowModal(true);
   };
@@ -152,6 +155,7 @@ export default function DoctorRoomsPage() {
     setModalMode('edit');
     setRoomName(room.name);
     setBedCount(room.bedCount);
+    setIsPrivate(room.isPrivate);
     setSelectedRoom(room);
     setShowModal(true);
   };
@@ -162,6 +166,7 @@ export default function DoctorRoomsPage() {
     setSelectedRoom(null);
     setRoomName('');
     setBedCount(1);
+    setIsPrivate(false);
   };
 
   // --- Handlers ---
@@ -180,6 +185,7 @@ export default function DoctorRoomsPage() {
           body: JSON.stringify({
             name: roomName,
             bedCount: bedCount,
+            isPrivate: isPrivate,
             doctorId: doctorProfile.id,
           }),
         });
@@ -194,6 +200,7 @@ export default function DoctorRoomsPage() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             name: roomName,
+            isPrivate: isPrivate,
             // 編輯時不傳送 bedCount，保持原有床位數量
           }),
         });
@@ -267,7 +274,10 @@ export default function DoctorRoomsPage() {
           {doctorProfile.Room && doctorProfile.Room.length > 0 ? doctorProfile.Room.map(room => (
             <div key={room.id} className="mobile-room-item">
               <div className="mobile-room-info">
-                <h3 className="mobile-room-name">{room.name}</h3>
+                <h3 className="mobile-room-name">
+                  {room.name}
+                  {room.isPrivate && <span className="text-xs text-red-500 ml-2 font-normal">(私有)</span>}
+                </h3>
                 <p className="mobile-room-details">{room.bedCount} 床位</p>
               </div>
               <div className="mobile-room-actions">
@@ -323,6 +333,23 @@ export default function DoctorRoomsPage() {
                   <p className="mobile-form-help-text">編輯時無法修改床位數量</p>
                 )}
               </div>
+              <div className="mobile-form-group flex flex-row items-center gap-2 mt-2">
+                <input
+                  type="checkbox"
+                  id="isPrivate"
+                  checked={isPrivate}
+                  onChange={(e) => setIsPrivate(e.target.checked)}
+                  className="w-5 h-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                />
+                <label htmlFor="isPrivate" className="mobile-form-label mb-0 cursor-pointer select-none">
+                  设为私有诊室
+                </label>
+              </div>
+              {isPrivate && (
+                <p className="text-xs text-gray-500 italic mt-1">
+                  私有诊室不会在病人端首页显示，只能由医生进行预约。
+                </p>
+              )}
             </form>
             <div className="mobile-modal-actions">
               <button type="button" onClick={closeModal} className="mobile-cancel-btn" disabled={isSubmitting}>

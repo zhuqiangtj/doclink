@@ -15,7 +15,7 @@ import { fetchDateStatusesForMonth, isPastDate } from '../../../utils/dateStatus
 import { fetchWithTimeout } from '../../../utils/network';
 
 // --- Interfaces ---
-interface Room { id: string; name: string; bedCount: number; }
+interface Room { id: string; name: string; bedCount: number; isPrivate?: boolean; }
 interface DoctorProfile { id: string; name: string; Room: Room[]; }
 interface Appointment { 
   id: string; 
@@ -1820,6 +1820,7 @@ export default function DoctorSchedulePage() {
                   >
                     <div className="flex items-center justify-center gap-1">
                       <span className="truncate max-w-[100px]">{room.name}</span>
+                      {room.isPrivate && <span className="text-xs text-red-500 font-normal scale-90">(私)</span>}
                       {hasSchedule && (
                         <span className={`w-1.5 h-1.5 rounded-full ${isActive ? 'bg-blue-500' : 'bg-blue-300'}`}></span>
                       )}

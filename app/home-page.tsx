@@ -15,7 +15,7 @@ import { fetchWithTimeout } from "../utils/network";
 interface Doctor { 
   id: string; 
   name: string;
-  rooms?: { id: string; name: string }[];
+  rooms?: { id: string; name: string; isPrivate?: boolean }[];
 }
 interface Appointment {
   id: string;
@@ -88,7 +88,8 @@ export default function PatientScheduleHome() {
   const rooms = useMemo(() => {
     const doc = doctors.find(d => d.id === selectedDoctorId);
     if (doc?.rooms && doc.rooms.length > 0) {
-      return doc.rooms;
+      // Filter out private rooms for patient view
+      return doc.rooms.filter(r => !r.isPrivate);
     }
     return [];
   }, [doctors, selectedDoctorId]);
