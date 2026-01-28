@@ -1068,8 +1068,8 @@ export default function PatientScheduleHome() {
         {doctors.length === 0 ? (
           <p className="mobile-no-selection">暂无医生数据</p>
         ) : (
-          <div className="mobile-top-controls">
-            <div className="mobile-control">
+          <div className="mobile-top-controls" style={{ gridTemplateColumns: '1fr' }}>
+            <div className="mobile-control" style={{ width: '100%' }}>
               <label className="mobile-control-label">医生</label>
               <select
                 className="mobile-input"
@@ -1082,22 +1082,6 @@ export default function PatientScheduleHome() {
                 {doctors.map((d) => (
                   <option key={d.id} value={d.id}>{d.name}</option>
                 ))}
-              </select>
-            </div>
-            <div className="mobile-control">
-              <label className="mobile-control-label">诊室</label>
-              <select
-                className="mobile-input"
-                value={selectedRoomId}
-                onChange={(e) => setSelectedRoomId(e.target.value)}
-              >
-                {rooms.length === 0 ? (
-                  <option value="">当日无诊室</option>
-                ) : (
-                  rooms.map((r) => (
-                    <option key={r.id} value={r.id}>{r.name}</option>
-                  ))
-                )}
               </select>
             </div>
           </div>
@@ -1125,6 +1109,45 @@ export default function PatientScheduleHome() {
           <p className="mobile-no-selection" style={{ marginTop: '8px' }}>
             请选择医生以加载排班高亮与容量统计
           </p>
+        )}
+
+        {/* 诊室选择 - 多标签页显示 */}
+        {selectedDoctorId && rooms.length > 0 && (
+          <div className="flex w-full mt-4 mb-1 bg-white rounded-xl shadow-sm overflow-hidden border border-gray-100">
+            {rooms.map(room => {
+              const isActive = selectedRoomId === room.id;
+              const hasSchedule = schedulesForSelectedDay.some(s => s.room.id === room.id);
+              
+              return (
+                <button
+                  key={room.id}
+                  onClick={() => setSelectedRoomId(room.id)}
+                  disabled={isDayLoading}
+                  className={`flex-1 py-3 text-sm font-medium transition-colors relative
+                    ${isActive 
+                      ? 'bg-blue-50 text-blue-600 font-semibold' 
+                      : 'bg-white text-gray-500 hover:bg-gray-50'
+                    }
+                  `}
+                >
+                  <div className="flex items-center justify-center gap-1">
+                    <span className="truncate max-w-[100px]">{room.name}</span>
+                    {hasSchedule && (
+                      <span className={`w-1.5 h-1.5 rounded-full ${isActive ? 'bg-blue-500' : 'bg-blue-300'}`}></span>
+                    )}
+                  </div>
+                  {isActive && (
+                    <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-500"></div>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        )}
+        {selectedDoctorId && rooms.length === 0 && (
+           <p className="mobile-no-selection" style={{ marginTop: '8px' }}>
+             该日暂无诊室排班
+           </p>
         )}
       </div>
 
