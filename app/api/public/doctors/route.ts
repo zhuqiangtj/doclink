@@ -6,14 +6,19 @@ export async function GET() {
   try {
     const doctors = await prisma.doctor.findMany({
       include: {
-        user: { select: { name: true } }
+        user: { select: { name: true } },
+        Room: { select: { id: true, name: true }, orderBy: { name: 'asc' } }
       },
       orderBy: { 
         user: { name: 'asc' }
       }
     });
 
-const result = doctors.map(d => ({ id: d.id, name: d.user?.name || '未知医生' }));
+    const result = doctors.map(d => ({ 
+      id: d.id, 
+      name: d.user?.name || '未知医生',
+      rooms: d.Room
+    }));
     return NextResponse.json(result);
   } catch (error) {
     console.error('Error fetching public doctors:', error);

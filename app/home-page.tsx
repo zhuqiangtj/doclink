@@ -12,7 +12,11 @@ import { fetchPublicDateStatusesForMonth } from "../utils/publicDateStatusUtils"
 import { isPastDate } from "../utils/dateStatusUtils";
 import { fetchWithTimeout } from "../utils/network";
 
-interface Doctor { id: string; name: string }
+interface Doctor { 
+  id: string; 
+  name: string;
+  rooms?: { id: string; name: string }[];
+}
 interface Appointment {
   id: string;
   scheduleId: string;
@@ -70,7 +74,7 @@ export default function PatientScheduleHome() {
 
   const [doctors, setDoctors] = useState<Doctor[]>([]);
   const [selectedDoctorId, setSelectedDoctorId] = useState<string>("");
-  const [rooms, setRooms] = useState<{ id: string; name: string }[]>([]);
+  // const [rooms, setRooms] = useState<{ id: string; name: string }[]>([]); // Derived from schedulesForSelectedDay
   const [selectedRoomId, setSelectedRoomId] = useState<string>("");
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [dateStatuses, setDateStatuses] = useState<DateStatus[]>([]);
@@ -79,6 +83,27 @@ export default function PatientScheduleHome() {
   const [schedulesForSelectedDay, setSchedulesForSelectedDay] = useState<Schedule[]>([]);
   const [isDayLoading, setIsDayLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Derive rooms from selected doctor's profile (all fixed rooms)
+  const rooms = useMemo(() => {
+    const doc = doctors.find(d => d.id === selectedDoctorId);
+    if (doc?.rooms && doc.rooms.length > 0) {
+      return doc.rooms;
+    }
+    return [];
+  }, [doctors, selectedDoctorId]);
+
+  // Ensure selectedRoomId is valid when rooms change
+  useEffect(() => {
+    if (rooms.length === 0) {
+      if (selectedRoomId !== "") setSelectedRoomId("");
+    } else {
+      const isSelectedValid = rooms.some(r => r.id === selectedRoomId);
+      if (!selectedRoomId || !isSelectedValid) {
+        setSelectedRoomId(rooms[0].id);
+      }
+    }
+  }, [rooms, selectedRoomId]);
 
   const [patientId, setPatientId] = useState<string | null>(null);
   const [myAppointmentsBySlot, setMyAppointmentsBySlot] = useState<Record<string, string>>({}); // timeSlotId -> appointmentId
@@ -209,22 +234,6 @@ export default function PatientScheduleHome() {
       const mergedDetails = dedupeSchedulesByRoom(details);
       setSchedulesForSelectedDay(mergedDetails);
 
-      // 构建当日诊室列表（去重）并设置默认选中
-      const uniqueRoomsMap = new Map<string, string>();
-      mergedDetails.forEach((d) => {
-        if (d?.room?.id && d?.room?.name) {
-          uniqueRoomsMap.set(d.room.id, d.room.name);
-        }
-      });
-      const uniqueRooms = Array.from(uniqueRoomsMap.entries()).map(([id, name]) => ({ id, name }));
-      setRooms(uniqueRooms);
-      // 若当前选中的诊室不在当日列表中，则默认选中第一个
-      if (uniqueRooms.length === 0) {
-        setSelectedRoomId("");
-      } else if (!selectedRoomId || !uniqueRooms.find(r => r.id === selectedRoomId)) {
-        setSelectedRoomId(uniqueRooms[0].id);
-      }
-
       // 同步“我的预约”映射：避免医生取消后本页仍显示“已预约”
       try {
         const appointmentsRes = await fetchWithTimeout("/api/appointments");
@@ -253,7 +262,7 @@ export default function PatientScheduleHome() {
     } catch (err) {
       if (requestId === dayFetchRequestIdRef.current) {
         setError(err instanceof Error ? err.message : "发生未知错误");
-        setRooms([]);
+        setSchedulesForSelectedDay([]); // This will trigger rooms update to []
         setSelectedRoomId("");
       }
     } finally {
@@ -1152,7 +1161,6 @@ export default function PatientScheduleHome() {
       </div>
 
       <div className="mobile-card">
-        <div className="mobile-section-header"><h3>可预约时段</h3></div>
         {!selectedDoctorId && (
           <p className="mobile-no-selection">请选择医生以查看当天可预约时段</p>
         )}
@@ -1169,7 +1177,6 @@ export default function PatientScheduleHome() {
                   .filter((s) => !selectedRoomId || s.room.id === selectedRoomId)
                   .map((schedule) => (
                   <div key={schedule.id} className="mobile-schedule-container">
-                    <h3 className="mobile-room-title">{schedule.room.name}</h3>
                     <div className="mobile-time-grid">
                       {schedule.timeSlots.map((slot) => {
                         const isPast = isTimeSlotPast(schedule.date, slot.startTime);
