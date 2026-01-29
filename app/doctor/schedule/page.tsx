@@ -2218,118 +2218,157 @@ export default function DoctorSchedulePage() {
                           const statusClassKey = statusKey.toLowerCase().replace('_', '-');
 
                           return (
-                            <div key={apptIndex} className={`mobile-patient-item-inline ${statusKey === 'NO_SHOW' ? 'mobile-status-no-show' : ''}`}>
+                            <div key={apptIndex} className={`flex flex-col gap-3 p-3 border-b border-gray-100 last:border-0 ${statusKey === 'NO_SHOW' ? 'bg-red-50' : 'hover:bg-gray-50 transition-colors'}`}>
+                              {/* 上部分：病人基本信息与操作按钮 */}
+                              <div className="flex justify-between items-start w-full">
+                                <div 
+                                  className="flex flex-col gap-1.5 flex-1 min-w-0 cursor-pointer"
+                                  onClick={() => openPatientDetailModal(appointment.patient, 'treatment')}
+                                >
+                                  <div className="flex items-center gap-2">
+                                    <span className="font-bold text-gray-900 text-base truncate">{appointment.patient.user.name}</span>
+                                    {(() => {
+                                      const score = appointment.patient.credibilityScore ?? null;
+                                      return (
+                                        <span className={`px-1.5 py-0.5 rounded text-xs font-medium border ${
+                                          score && score >= 15 ? 'bg-green-50 text-green-700 border-green-200' :
+                                          score && score >= 10 ? 'bg-blue-50 text-blue-700 border-blue-200' :
+                                          'bg-red-50 text-red-700 border-red-200'
+                                        }`} title="积分">
+                                          {score ?? '—'}分
+                                        </span>
+                                      );
+                                    })()}
+                                    {(() => {
+                                      const { text } = getGenderInfo(appointment.patient.user.gender);
+                                      const bgClass = text === '男' ? 'bg-blue-50 text-blue-600 border-blue-100' : 'bg-pink-50 text-pink-600 border-pink-100';
+                                      return (
+                                        <span className={`px-1.5 py-0.5 rounded text-xs border ${bgClass}`}>{text}</span>
+                                      );
+                                    })()}
+                                    {(() => {
+                                      const age = calcAgeFromBirthDate(appointment.patient.user.dateOfBirth);
+                                      return (
+                                        <span className="px-1.5 py-0.5 rounded text-xs bg-gray-100 text-gray-600 border border-gray-200">{age != null ? `${age}岁` : '未知'}</span>
+                                      );
+                                    })()}
+                                  </div>
+                                  
+                                  {appointment.patient.user.phone && (
+                                    <a 
+                                      className="text-xs text-gray-500 hover:text-blue-600 flex items-center gap-1 w-fit" 
+                                      href={`tel:${String(appointment.patient.user.phone).replace(/\s+/g, '')}`} 
+                                      onClick={(e) => e.stopPropagation()}
+                                    >
+                                      <svg className="w-3 h-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"/></svg>
+                                      {appointment.patient.user.phone}
+                                    </a>
+                                  )}
+                                </div>
+
+                                <div className="flex items-center gap-2 shrink-0 ml-2 pt-0.5">
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      openPatientDetailModal(appointment.patient, 'treatment');
+                                    }}
+                                    className="p-1.5 rounded-full text-purple-600 bg-purple-50 hover:bg-purple-100 transition-colors"
+                                    title="治疗历史"
+                                  >
+                                    <FaHistory className="w-3.5 h-3.5" />
+                                  </button>
+                                  {normalizeStatus(appointment.status) !== 'NO_SHOW' && normalizeStatus(appointment.status) !== 'CANCELLED' && (
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        openSymptomModal(appointment);
+                                      }}
+                                      className={`p-1.5 rounded-full transition-colors ${
+                                        appointment.symptoms 
+                                          ? 'text-green-600 bg-green-50 hover:bg-green-100' 
+                                          : 'text-blue-600 bg-blue-50 hover:bg-blue-100'
+                                      }`}
+                                      title={appointment.symptoms ? "修改病情/治疗方案" : "录入病情/治疗方案"}
+                                    >
+                                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                      </svg>
+                                    </button>
+                                  )}
+                                  {!isPast && normalizeStatus(appointment.status) === 'PENDING' && (
+                                    <button
+                                      onClick={() => openCancelDialog(appointment, schedule, index)}
+                                      className="p-1.5 rounded-full text-red-500 bg-red-50 hover:bg-red-100 transition-colors"
+                                      title="取消预约"
+                                    >
+                                      <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20">
+                                        <path fillRule="evenodd" d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z" clipRule="evenodd" />
+                                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                                      </svg>
+                                    </button>
+                                  )}
+                                  {isPast && normalizeStatus(appointment.status) !== 'NO_SHOW' && normalizeStatus(appointment.status) !== 'CANCELLED' && (
+                                    <button
+                                      onClick={() => openNoShowDialog(appointment, schedule, index)}
+                                      className="p-1.5 rounded-full text-orange-500 bg-orange-50 hover:bg-orange-100 transition-colors"
+                                      title="标记爽约"
+                                    >
+                                      <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20">
+                                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16z" clipRule="evenodd" />
+                                        <path fillRule="evenodd" d="M7 10a3 3 0 116 0 3 3 0 01-6 0z" clipRule="evenodd" />
+                                      </svg>
+                                    </button>
+                                  )}
+                                </div>
+                              </div>
+
+                              {/* 下部分：详细信息平铺展示 */}
                               <div 
-                                className="mobile-patient-info-inline cursor-pointer hover:bg-gray-50 transition-colors rounded p-1 -m-1"
+                                className="grid grid-cols-4 gap-2 text-xs text-gray-500 w-full bg-gray-50/50 p-2 rounded-lg cursor-pointer"
                                 onClick={() => openPatientDetailModal(appointment.patient, 'treatment')}
                               >
-                                <span className="mobile-patient-name-inline">
-                                  {appointment.patient.user.name}
-                                  {(() => {
-                                    const score = appointment.patient.credibilityScore ?? null;
-                                    const colorClass = getCreditColorClass(score);
-                                    return (
-                                      <span className={`credit-inline-badge ${colorClass}`} title="積分">
-                                        {score ?? '—'}
-                                      </span>
-                                    );
-                                  })()}
-                                  {(() => {
-                                    const { text, className } = getGenderInfo(appointment.patient.user.gender);
-                                    return (
-                                      <span className={`gender-inline-badge ${className}`} title="性別">{text}</span>
-                                    );
-                                  })()}
-                                  {(() => {
-                                    const age = calcAgeFromBirthDate(appointment.patient.user.dateOfBirth);
-                                    return (
-                                      <span className="age-inline-badge" title="年齡">{age != null ? `${age}歲` : '年齡未知'}</span>
-                                    );
-                                  })()}
-                                  {(() => {
-                                    const phone = appointment.patient.user.phone;
-                                    if (!phone) return null;
-                                    const tel = String(phone).replace(/\s+/g, '');
-                                    return (
-                                      <a 
-                                        className="phone-inline-badge" 
-                                        href={`tel:${tel}`} 
-                                        aria-label={`拨打 ${phone}`}
-                                        onClick={(e) => e.stopPropagation()}
-                                      >
-                                        {phone}
-                                      </a>
-                                    );
-                                  })()}
-                                </span>
-                                <span className="mobile-patient-details-inline">
-                                  操作时间：{operatedAtString} 操作员：{
-                                    // 使用歷史記錄的操作者，否則依據 reason 與當前醫生資訊推斷
+                                <div className="flex flex-col gap-0.5">
+                                  <span className="text-[10px] text-gray-400">操作时间</span>
+                                  <span className="font-medium text-gray-700 truncate" title={operatedAtString}>
+                                    {operatedAtString.split(' ')[1] || operatedAtString}
+                                  </span>
+                                </div>
+                                <div className="flex flex-col gap-0.5 border-l border-gray-100 pl-2">
+                                  <span className="text-[10px] text-gray-400">操作员</span>
+                                  <span className="font-medium text-gray-700 truncate" title={
                                     appointment.history && appointment.history.length > 0 
                                       ? appointment.history[0].operatorName
                                       : ((appointment.reason === '医生预约')
                                           ? (doctorProfile?.name || session?.user?.name || '医生')
                                           : appointment.patient.user.name)
-                                  } 角色：{
-                                    (appointment.history && appointment.history.length > 0)
+                                  }>
+                                    {appointment.history && appointment.history.length > 0 
+                                      ? appointment.history[0].operatorName
+                                      : ((appointment.reason === '医生预约')
+                                          ? (doctorProfile?.name || session?.user?.name || '医生')
+                                          : appointment.patient.user.name)}
+                                  </span>
+                                </div>
+                                <div className="flex flex-col gap-0.5 border-l border-gray-100 pl-2">
+                                  <span className="text-[10px] text-gray-400">角色</span>
+                                  <span className="font-medium text-gray-700 truncate">
+                                    {(appointment.history && appointment.history.length > 0)
                                       ? ((appointment.reason === '医生预约') ? '医生' : '患者')
-                                      : ((appointment.reason === '医生预约' || appointment.user.role === 'DOCTOR') ? '医生' : '患者')
-                                  } 状态：<span className={`mobile-status-badge-inline mobile-status-${statusClassKey}`}>{statusText}</span>
-                                  {appointment.symptoms && (
-                                    <span className="ml-2 text-xs text-green-600 font-medium border border-green-200 bg-green-50 px-1 rounded">已录入病情</span>
-                                  )}
-                                </span>
-                              </div>
-                              <div className="flex items-center space-x-2">
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    openPatientDetailModal(appointment.patient, 'treatment');
-                                  }}
-                                  className="mobile-patient-delete-btn-inline text-purple-600"
-                                   title="治疗历史"
-                                 >
-                                   <FaHistory className="w-4 h-4" />
-                                 </button>
-                                {/* 病情录入按钮 - 仅在非爽约/非取消且非过去状态下显示，或者是医生自己创建的 */}
-                                {normalizeStatus(appointment.status) !== 'NO_SHOW' && normalizeStatus(appointment.status) !== 'CANCELLED' && (
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      openSymptomModal(appointment);
-                                    }}
-                                    className={`mobile-patient-delete-btn-inline ${appointment.symptoms ? 'text-green-600' : 'text-blue-600'}`}
-                                    title={appointment.symptoms ? "修改病情/治疗方案" : "录入病情/治疗方案"}
-                                  >
-                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                                    </svg>
-                                  </button>
-                                )}
-                                {!isPast && normalizeStatus(appointment.status) === 'PENDING' && (
-                                  <button
-                                    onClick={() => openCancelDialog(appointment, schedule, index)}
-                                    className="mobile-patient-delete-btn-inline"
-                                    title="取消预约"
-                                  >
-                                    <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-                                      <path fillRule="evenodd" d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z" clipRule="evenodd" />
-                                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-                                    </svg>
-                                  </button>
-                                )}
-                                {isPast && normalizeStatus(appointment.status) !== 'NO_SHOW' && normalizeStatus(appointment.status) !== 'CANCELLED' && (
-                                  <button
-                                    onClick={() => openNoShowDialog(appointment, schedule, index)}
-                                    className="mobile-patient-delete-btn-inline"
-                                    title="标记爽约"
-                                  >
-                                    <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-                                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16z" clipRule="evenodd" />
-                                      <path fillRule="evenodd" d="M7 10a3 3 0 116 0 3 3 0 01-6 0z" clipRule="evenodd" />
-                                    </svg>
-                                  </button>
-                                )}
+                                      : ((appointment.reason === '医生预约' || appointment.user.role === 'DOCTOR') ? '医生' : '患者')}
+                                  </span>
+                                </div>
+                                <div className="flex flex-col gap-0.5 border-l border-gray-100 pl-2">
+                                  <span className="text-[10px] text-gray-400">状态</span>
+                                  <span className={`font-medium truncate ${
+                                    statusKey === 'COMPLETED' ? 'text-green-600' :
+                                    statusKey === 'NO_SHOW' ? 'text-red-600' :
+                                    statusKey === 'CANCELLED' ? 'text-gray-400' :
+                                    'text-blue-600'
+                                  }`}>
+                                    {statusText}
+                                    {appointment.symptoms && <span className="text-green-600 ml-1">✓</span>}
+                                  </span>
+                                </div>
                               </div>
                             </div>
                           );
