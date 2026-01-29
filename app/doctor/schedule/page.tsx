@@ -1577,10 +1577,25 @@ export default function DoctorSchedulePage() {
           setPatientHistoryAppointments(data.data);
           setPatientDetailTotalCount(data.pagination.total);
           setPatientDetailCurrentPage(data.pagination.page);
+
+          // Sync visitCount from total completed appointments
+          if (effectiveTab === 'treatment') {
+            setPatientDetailData((prev: any) => {
+               if (!prev) return prev;
+               return { ...prev, visitCount: data.pagination.total };
+            });
+          }
         } else {
           // Fallback
           setPatientHistoryAppointments(Array.isArray(data) ? data : []);
           setPatientDetailTotalCount(Array.isArray(data) ? data.length : 0);
+          
+          if (effectiveTab === 'treatment' && Array.isArray(data)) {
+            setPatientDetailData((prev: any) => {
+               if (!prev) return prev;
+               return { ...prev, visitCount: data.length };
+            });
+          }
         }
       }
     } catch (e) {

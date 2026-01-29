@@ -36,11 +36,18 @@ export async function GET(
           }
         },
         appointments: {
-          orderBy: {
-            schedule: {
-              date: 'desc'
+          orderBy: [
+            {
+              schedule: {
+                date: 'desc'
+              }
+            },
+            {
+              timeSlot: {
+                startTime: 'desc'
+              }
             }
-          },
+          ],
           select: {
             id: true,
             time: true,

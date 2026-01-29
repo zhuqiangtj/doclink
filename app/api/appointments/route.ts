@@ -69,9 +69,18 @@ export async function GET(request: Request) {
           select: { operatedAt: true, status: true, action: true }
         },
       },
-      orderBy: {
-        createTime: 'desc',
-      },
+      orderBy: [
+        {
+          schedule: {
+            date: 'desc'
+          }
+        },
+        {
+          timeSlot: {
+            startTime: 'desc'
+          }
+        }
+      ],
     };
 
     // Add pagination if requested

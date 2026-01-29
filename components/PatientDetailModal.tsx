@@ -120,13 +120,27 @@ export default function PatientDetailModal({
     if (isServerSide) {
       return appointments;
     }
+    const sortAppointments = (list: Appointment[]) => {
+      return [...list].sort((a, b) => {
+        // Construct date objects for comparison
+        // Handle potential time formats like "09:00" or "09:00 - 09:30"
+        const getTimeStr = (t: string) => t ? t.split('-')[0].trim() : '00:00';
+        const dateA = new Date(`${a.date}T${getTimeStr(a.time)}`);
+        const dateB = new Date(`${b.date}T${getTimeStr(b.time)}`);
+        
+        if (!isNaN(dateA.getTime()) && !isNaN(dateB.getTime())) {
+          return dateB.getTime() - dateA.getTime();
+        }
+        // Fallback to date only if time parsing fails
+        return new Date(b.date).getTime() - new Date(a.date).getTime();
+      });
+    };
+
     if (activeTab === 'treatment') {
-      return appointments
-        .filter(a => a.status === 'COMPLETED')
-        .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+      return sortAppointments(appointments.filter(a => a.status === 'COMPLETED'));
     }
     // history tab shows all
-    return appointments;
+    return sortAppointments(appointments);
   };
 
   const currentTabAppointments = getCurrentTabAppointments();
