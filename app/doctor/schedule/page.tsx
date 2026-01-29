@@ -2234,12 +2234,20 @@ export default function DoctorSchedulePage() {
                           const statusClassKey = statusKey.toLowerCase().replace('_', '-');
 
                           return (
-                            <div key={apptIndex} className={`bg-white rounded-xl shadow-sm border border-gray-200 p-3 mb-3 ${statusKey === 'NO_SHOW' ? 'bg-red-50/50' : ''}`}>
+                            <div key={apptIndex} className={`bg-white rounded-xl shadow-sm border border-gray-200 p-3 mb-3 ${statusKey === 'NO_SHOW' ? 'bg-red-50/50' : ''}`}
+                                 onClick={(e) => {
+                                   e.stopPropagation(); // 防止冒泡触发折叠
+                                   openPatientDetailModal(appointment.patient, 'treatment');
+                                 }}
+                            >
                               {/* 上部分：病人基本信息与操作按钮 */}
                               <div className="flex justify-between items-start w-full mb-3">
                                 <div 
                                   className="flex flex-col gap-1 flex-1 min-w-0 cursor-pointer"
-                                  onClick={() => openPatientDetailModal(appointment.patient, 'treatment')}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    openPatientDetailModal(appointment.patient, 'treatment');
+                                  }}
                                 >
                                   <div className="flex items-center gap-2 flex-wrap">
                                     <span className="font-bold text-gray-900 text-lg">{appointment.patient.user.name}</span>

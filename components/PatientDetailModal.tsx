@@ -60,9 +60,16 @@ export default function PatientDetailModal({
     if (isOpen && patient) {
       setHistoryPage(1);
       setTempScore(patient.credibilityScore);
+      // Only set active tab if it's the first render or modal opening
+      // Do NOT reset active tab if patient data updates while modal is open
+    }
+  }, [isOpen, patient]); // Removed initialTab from dependency
+
+  useEffect(() => {
+    if (isOpen) {
       setActiveTab(initialTab);
     }
-  }, [isOpen, patient, initialTab]);
+  }, [isOpen, initialTab]);
 
   useEffect(() => {
     setHistoryPage(1);
