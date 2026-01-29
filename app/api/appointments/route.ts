@@ -9,14 +9,20 @@ import { publishDoctorEvent, publishPatientEvent } from '@/lib/realtime';
 // 使用全局 Prisma 单例，避免开发环境热刷新导致连接过多和请求失败
 
 // GET appointments (for doctors or patients)
-export async function GET() {
+export async function GET(request: Request) {
   const session = await getServerSession(authOptions);
   if (!session) {
     console.error('[API_APPOINTMENTS] Unauthorized attempt to fetch appointments.');
     return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
   }
 
-  console.log(`[API_APPOINTMENTS] User ${session.user.username} (${session.user.role}) is fetching appointments.`);
+  const { searchParams } = new URL(request.url);
+  const targetPatientId = searchParams.get('patientId');
+  const status = searchParams.get('status');
+  const page = parseInt(searchParams.get('page') || '0', 10);
+  const limit = parseInt(searchParams.get('limit') || '0', 10);
+
+  console.log(`[API_APPOINTMENTS] User ${session.user.username} (${session.user.role}) is fetching appointments. params: patientId=${targetPatientId}, status=${status}, page=${page}, limit=${limit}`);
 
   try {
     const whereClause: { doctorId?: string; patientId?: string; status?: string; schedule?: { date: string } } = {};
@@ -25,14 +31,25 @@ export async function GET() {
       const userProfile = await prisma.user.findUnique({ where: { id: session.user.id }, include: { doctorProfile: true } });
       if (!userProfile?.doctorProfile) return NextResponse.json({ error: 'Doctor profile not found' }, { status: 404 });
       whereClause.doctorId = userProfile.doctorProfile.id;
+      
+      // Allow doctor to filter by specific patient
+      if (targetPatientId) {
+        whereClause.patientId = targetPatientId;
+      }
+
+      // Allow filtering by status
+      if (status) {
+        whereClause.status = status;
+      }
 
     } else if (session.user.role === 'PATIENT') {
-       const userProfile = await prisma.user.findUnique({ where: { id: session.user.id }, include: { patientProfile: true } });
-       if (!userProfile?.patientProfile) return NextResponse.json({ error: 'Patient profile not found' }, { status: 404 });
+      const userProfile = await prisma.user.findUnique({ where: { id: session.user.id }, include: { patientProfile: true } });
+      if (!userProfile?.patientProfile) return NextResponse.json({ error: 'Patient profile not found' }, { status: 404 });
       whereClause.patientId = userProfile.patientProfile.id;
     }
 
-    const appointments = await prisma.appointment.findMany({
+    // Prepare query options
+    const queryOptions: any = {
       where: whereClause,
       include: {
         patient: { select: { id: true, credibilityScore: true, user: { select: { name: true, phone: true, dateOfBirth: true, gender: true } } } },
@@ -55,7 +72,29 @@ export async function GET() {
       orderBy: {
         createTime: 'desc',
       },
-    });
+    };
+
+    // Add pagination if requested
+    if (page > 0 && limit > 0) {
+      queryOptions.skip = (page - 1) * limit;
+      queryOptions.take = limit;
+    }
+
+    // Execute queries (parallel if pagination needed to get count)
+    let appointments;
+    let totalCount = 0;
+
+    if (page > 0 && limit > 0) {
+      const [data, count] = await prisma.$transaction([
+        prisma.appointment.findMany(queryOptions),
+        prisma.appointment.count({ where: whereClause })
+      ]);
+      appointments = data;
+      totalCount = count;
+    } else {
+      appointments = await prisma.appointment.findMany(queryOptions);
+      totalCount = appointments.length;
+    }
 
     // Remap to include date directly for easier frontend consumption
     const formattedAppointments = appointments.map(apt => ({
@@ -63,6 +102,19 @@ export async function GET() {
       date: apt.schedule.date,
       statusOperatedAt: apt.history && apt.history.length > 0 ? apt.history[0].operatedAt : undefined,
     }));
+
+    // If pagination was used, return object with data and meta
+    if (page > 0 && limit > 0) {
+      return NextResponse.json({
+        data: formattedAppointments,
+        pagination: {
+          page,
+          limit,
+          total: totalCount,
+          totalPages: Math.ceil(totalCount / limit)
+        }
+      });
+    }
 
     return NextResponse.json(formattedAppointments);
   } catch (error) {

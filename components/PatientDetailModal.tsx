@@ -30,14 +30,31 @@ interface PatientDetailModalProps {
   appointments?: Appointment[];
   onSave?: (patientId: string, newScore: number) => Promise<void>;
   initialTab?: 'overview' | 'treatment' | 'history';
+  totalCount?: number;
+  onPageChange?: (page: number) => void;
+  onTabChange?: (tab: 'overview' | 'treatment' | 'history') => void;
+  isLoading?: boolean;
 }
 
-export default function PatientDetailModal({ isOpen, onClose, patient, appointments = [], onSave, initialTab = 'overview' }: PatientDetailModalProps) {
+export default function PatientDetailModal({ 
+  isOpen, 
+  onClose, 
+  patient, 
+  appointments = [], 
+  onSave, 
+  initialTab = 'overview',
+  totalCount,
+  onPageChange,
+  onTabChange,
+  isLoading = false
+}: PatientDetailModalProps) {
   const [activeTab, setActiveTab] = useState<'overview' | 'treatment' | 'history'>(initialTab);
   const [historyPage, setHistoryPage] = useState(1);
   const [tempScore, setTempScore] = useState(0);
   const [isSaving, setIsSaving] = useState(false);
   const itemsPerPage = 5;
+
+  const isServerSide = typeof totalCount === 'number' && !!onPageChange;
 
   useEffect(() => {
     if (isOpen && patient) {
@@ -51,6 +68,13 @@ export default function PatientDetailModal({ isOpen, onClose, patient, appointme
     setHistoryPage(1);
   }, [activeTab]);
 
+  const handleTabClick = (tab: 'overview' | 'treatment' | 'history') => {
+    setActiveTab(tab);
+    if (onTabChange) {
+      onTabChange(tab);
+    }
+  };
+
   const handleSave = async () => {
     if (!onSave || !patient) return;
     setIsSaving(true);
@@ -61,6 +85,14 @@ export default function PatientDetailModal({ isOpen, onClose, patient, appointme
       console.error(e);
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const handlePageChange = (newPage: number) => {
+    if (newPage < 1 || newPage > totalPages) return;
+    setHistoryPage(newPage);
+    if (isServerSide && onPageChange) {
+      onPageChange(newPage);
     }
   };
 
@@ -85,6 +117,9 @@ export default function PatientDetailModal({ isOpen, onClose, patient, appointme
   };
 
   const getCurrentTabAppointments = () => {
+    if (isServerSide) {
+      return appointments;
+    }
     if (activeTab === 'treatment') {
       return appointments
         .filter(a => a.status === 'COMPLETED')
@@ -95,11 +130,14 @@ export default function PatientDetailModal({ isOpen, onClose, patient, appointme
   };
 
   const currentTabAppointments = getCurrentTabAppointments();
-  const totalPages = Math.ceil((currentTabAppointments.length || 0) / itemsPerPage);
-  const paginatedAppointments = currentTabAppointments.slice(
-    (historyPage - 1) * itemsPerPage,
-    historyPage * itemsPerPage
-  );
+  
+  const totalPages = isServerSide 
+    ? Math.ceil((totalCount || 0) / itemsPerPage)
+    : Math.ceil((currentTabAppointments.length || 0) / itemsPerPage);
+
+  const paginatedAppointments = isServerSide
+    ? currentTabAppointments
+    : currentTabAppointments.slice((historyPage - 1) * itemsPerPage, historyPage * itemsPerPage);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4 animate-fadeIn">
@@ -132,21 +170,21 @@ export default function PatientDetailModal({ isOpen, onClose, patient, appointme
           <div className="flex border-b border-gray-100">
             <button
               className={`flex-1 py-1.5 text-sm font-medium transition-colors relative ${activeTab === 'overview' ? 'text-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
-              onClick={() => setActiveTab('overview')}
+              onClick={() => handleTabClick('overview')}
             >
               概览
               {activeTab === 'overview' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600"></div>}
             </button>
             <button
               className={`flex-1 py-1.5 text-sm font-medium transition-colors relative ${activeTab === 'treatment' ? 'text-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
-              onClick={() => setActiveTab('treatment')}
+              onClick={() => handleTabClick('treatment')}
             >
               治疗历史
               {activeTab === 'treatment' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600"></div>}
             </button>
             <button
               className={`flex-1 py-1.5 text-sm font-medium transition-colors relative ${activeTab === 'history' ? 'text-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
-              onClick={() => setActiveTab('history')}
+              onClick={() => handleTabClick('history')}
             >
               预约记录
               {activeTab === 'history' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600"></div>}
@@ -261,7 +299,7 @@ export default function PatientDetailModal({ isOpen, onClose, patient, appointme
                   {totalPages > 1 && (
                     <div className="flex justify-between items-center p-2 bg-gray-50 border-t border-gray-100 rounded-b-lg">
                       <button
-                        onClick={() => setHistoryPage(p => Math.max(1, p - 1))}
+                        onClick={() => handlePageChange(historyPage - 1)}
                         disabled={historyPage === 1}
                         className="p-1 rounded hover:bg-gray-200 disabled:opacity-50 disabled:hover:bg-transparent text-gray-600"
                       >
@@ -271,7 +309,7 @@ export default function PatientDetailModal({ isOpen, onClose, patient, appointme
                         {historyPage} / {totalPages}
                       </span>
                       <button
-                        onClick={() => setHistoryPage(p => Math.min(totalPages, p + 1))}
+                        onClick={() => handlePageChange(historyPage + 1)}
                         disabled={historyPage === totalPages}
                         className="p-1 rounded hover:bg-gray-200 disabled:opacity-50 disabled:hover:bg-transparent text-gray-600"
                       >
@@ -318,7 +356,7 @@ export default function PatientDetailModal({ isOpen, onClose, patient, appointme
                   {totalPages > 1 && (
                     <div className="flex justify-between items-center p-2 bg-gray-50 border-t border-gray-100">
                       <button
-                        onClick={() => setHistoryPage(p => Math.max(1, p - 1))}
+                        onClick={() => handlePageChange(historyPage - 1)}
                         disabled={historyPage === 1}
                         className="p-1 rounded hover:bg-gray-200 disabled:opacity-50 disabled:hover:bg-transparent text-gray-600"
                       >
@@ -328,7 +366,7 @@ export default function PatientDetailModal({ isOpen, onClose, patient, appointme
                         {historyPage} / {totalPages}
                       </span>
                       <button
-                        onClick={() => setHistoryPage(p => Math.min(totalPages, p + 1))}
+                        onClick={() => handlePageChange(historyPage + 1)}
                         disabled={historyPage === totalPages}
                         className="p-1 rounded hover:bg-gray-200 disabled:opacity-50 disabled:hover:bg-transparent text-gray-600"
                       >

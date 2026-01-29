@@ -1551,10 +1551,44 @@ export default function DoctorSchedulePage() {
   const [patientDetailData, setPatientDetailData] = useState<any>(null);
   const [patientHistoryAppointments, setPatientHistoryAppointments] = useState<any[]>([]);
   const [patientDetailInitialTab, setPatientDetailInitialTab] = useState<'overview' | 'treatment' | 'history'>('treatment');
+  
+  // Pagination State for Patient Detail Modal
+  const [patientDetailTotalCount, setPatientDetailTotalCount] = useState(0);
+  const [patientDetailCurrentPage, setPatientDetailCurrentPage] = useState(1);
+  const [patientDetailLoading, setPatientDetailLoading] = useState(false);
+  const [currentPatientId, setCurrentPatientId] = useState<string | null>(null);
+  const [currentPatientTab, setCurrentPatientTab] = useState<'overview' | 'treatment' | 'history'>('treatment');
 
   // 病情錄入模態框狀態
   const [isSymptomModalOpen, setIsSymptomModalOpen] = useState(false);
   const [selectedAppointmentForSymptom, setSelectedAppointmentForSymptom] = useState<Appointment | null>(null);
+
+  const fetchPatientAppointments = async (patientId: string, page: number, tab: string) => {
+    if (!patientId) return;
+    setPatientDetailLoading(true);
+    try {
+      const effectiveTab = tab === 'overview' ? 'treatment' : tab;
+      const statusParam = effectiveTab === 'treatment' ? '&status=COMPLETED' : '';
+      
+      const res = await fetchWithTimeout(`/api/appointments?patientId=${patientId}&page=${page}&limit=5${statusParam}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.pagination) {
+          setPatientHistoryAppointments(data.data);
+          setPatientDetailTotalCount(data.pagination.total);
+          setPatientDetailCurrentPage(data.pagination.page);
+        } else {
+          // Fallback
+          setPatientHistoryAppointments(Array.isArray(data) ? data : []);
+          setPatientDetailTotalCount(Array.isArray(data) ? data.length : 0);
+        }
+      }
+    } catch (e) {
+      console.error("Failed to fetch patient appointments", e);
+    } finally {
+      setPatientDetailLoading(false);
+    }
+  };
 
   const openPatientDetailModal = async (patientSource: any, tab: 'overview' | 'treatment' | 'history' = 'treatment') => {
     if (!patientSource || !patientSource.user) return;
@@ -1576,48 +1610,30 @@ export default function DoctorSchedulePage() {
     setPatientDetailData(mappedPatient);
     setPatientHistoryAppointments([]);
     setPatientDetailInitialTab(tab);
+    
+    // Set pagination state
+    setCurrentPatientId(patientSource.id);
+    setCurrentPatientTab(tab);
+    setPatientDetailCurrentPage(1);
+    
     setIsPatientDetailModalOpen(true);
 
+    // 1. Fetch Patient Details (for stats)
     try {
-      // 复用病人列表的逻辑：获取所有预约并过滤，以确保数据一致性
-      // 虽然这比直接获取单个病人详情开销大，但能保证与病人列表页面的数据完全一致
-      const res = await fetchWithTimeout('/api/appointments');
-      
+      console.log(`Fetching details for patient: ${patientSource.id}`);
+      const res = await fetchWithTimeout(`/api/patients/${patientSource.id}`);
       if (res.ok) {
-        const allAppointments = await res.json();
-        
-        if (Array.isArray(allAppointments)) {
-          // 过滤出当前病人的预约
-          const patientAppointments = allAppointments.filter((appt: any) => 
-            appt.patient?.id === patientSource.id
-          );
-          
-          console.log(`Found ${patientAppointments.length} appointments for patient ${patientSource.id}`);
-          setPatientHistoryAppointments(patientAppointments);
-          
-          // 计算统计数据
-          const visitCount = patientAppointments.filter((a: any) => a.status === 'COMPLETED').length;
-          const noShowCount = patientAppointments.filter((a: any) => a.status === 'NO_SHOW').length;
-          const totalAppointments = patientAppointments.length;
-          
-          // 更新病人详情数据
-          setPatientDetailData((prev: any) => ({
-            ...prev,
-            visitCount,
-            noShowCount,
-            totalAppointments,
-            // 从最新的预约中获取最新的信誉分
-            credibilityScore: patientAppointments[0]?.patient?.credibilityScore ?? prev.credibilityScore
-          }));
-        } else {
-          console.warn('Appointments API did not return an array');
+        const data = await res.json();
+        if (data.patient) {
+          setPatientDetailData(data.patient);
         }
-      } else {
-        console.error('Failed to fetch appointments:', res.status, res.statusText);
       }
     } catch (e) {
-      console.error("Failed to fetch appointments", e);
+      console.error("Failed to fetch patient details", e);
     }
+
+    // 2. Fetch Appointments (Paginated)
+    await fetchPatientAppointments(patientSource.id, 1, tab);
   };
 
   const openSymptomModal = (appointment: Appointment) => {
@@ -2707,6 +2723,13 @@ export default function DoctorSchedulePage() {
           patient={patientDetailData}
           appointments={patientHistoryAppointments}
           initialTab={patientDetailInitialTab}
+          totalCount={patientDetailTotalCount}
+          onPageChange={(page) => fetchPatientAppointments(currentPatientId!, page, currentPatientTab)}
+          onTabChange={(tab) => {
+            setCurrentPatientTab(tab);
+            fetchPatientAppointments(currentPatientId!, 1, tab);
+          }}
+          isLoading={patientDetailLoading}
         />
       )}
 
