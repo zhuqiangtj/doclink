@@ -3,6 +3,8 @@
 import { useState, useEffect, useCallback, FormEvent, useMemo, useRef } from 'react';
 import { useSession } from 'next-auth/react';
 import CancelAppointmentModal from '../../../components/CancelAppointmentModal';
+import PatientDetailModal from '../../../components/PatientDetailModal';
+import AppointmentSymptomModal from '../../../components/AppointmentSymptomModal';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 import './mobile.css';
@@ -28,6 +30,8 @@ interface Appointment {
   time: string;
   timeSlot?: { startTime: string; endTime: string; };
   reason?: string;
+  symptoms?: string;
+  treatmentPlan?: string;
   history?: Array<{ operatedAt: string; operatorName: string; }>;
 }
 interface TimeSlot { 
@@ -161,6 +165,16 @@ const isTimeSlotPast = (date: Date, time: string): boolean => {
   
   // 到點（開始時間）即視為過期
   return slotDateTime <= now;
+};
+
+const isKnownStatus = (s: string): s is 'PENDING' | 'COMPLETED' | 'CANCELLED' | 'NO_SHOW' => {
+  return s === 'PENDING' || s === 'COMPLETED' || s === 'CANCELLED' || s === 'NO_SHOW';
+};
+
+const normalizeStatus = (status: string): 'PENDING' | 'COMPLETED' | 'CANCELLED' | 'NO_SHOW' => {
+  if (isKnownStatus(status)) return status;
+  if (status === 'CHECKED_IN' || status === 'CONFIRMED') return 'PENDING';
+  return 'PENDING';
 };
 
 // --- Component ---
@@ -1531,6 +1545,61 @@ export default function DoctorSchedulePage() {
   } | null>(null);
   const [noShowLoading, setNoShowLoading] = useState(false);
 
+  // 病人詳細信息模態框狀態
+  const [isPatientDetailModalOpen, setIsPatientDetailModalOpen] = useState(false);
+  const [patientDetailData, setPatientDetailData] = useState<any>(null);
+
+  // 病情錄入模態框狀態
+  const [isSymptomModalOpen, setIsSymptomModalOpen] = useState(false);
+  const [selectedAppointmentForSymptom, setSelectedAppointmentForSymptom] = useState<Appointment | null>(null);
+
+  const openPatientDetailModal = (patient: any) => {
+    setPatientDetailData(patient);
+    setIsPatientDetailModalOpen(true);
+  };
+
+  const openSymptomModal = (appointment: Appointment) => {
+    setSelectedAppointmentForSymptom(appointment);
+    setIsSymptomModalOpen(true);
+  };
+
+  const handleSaveSymptom = async (appointmentId: string, symptoms: string, treatmentPlan: string) => {
+    try {
+      const response = await fetchWithTimeout(`/api/appointments/${appointmentId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ symptoms, treatmentPlan })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || '保存失败');
+      }
+
+      // 更新本地狀態
+      setSchedulesForSelectedDay(prev => 
+        prev.map(schedule => ({
+          ...schedule,
+          timeSlots: schedule.timeSlots.map(slot => ({
+            ...slot,
+            appointments: slot.appointments.map(appt => 
+              appt.id === appointmentId 
+                ? { ...appt, symptoms, treatmentPlan }
+                : appt
+            )
+          }))
+        }))
+      );
+      
+      setSuccess('病情与治疗方案已保存');
+      setTimeout(() => setSuccess(null), 3000);
+      setIsSymptomModalOpen(false);
+    } catch (error) {
+      console.error('Failed to save symptoms:', error);
+      setError('保存失败，请重试');
+    }
+  };
+
   const openNoShowDialog = (appointment: Appointment, schedule: Schedule, slotIndex: number) => {
     setSelectedAppointmentForNoShow({
       appointmentId: appointment.id,
@@ -2072,7 +2141,10 @@ export default function DoctorSchedulePage() {
 
                           return (
                             <div key={apptIndex} className={`mobile-patient-item-inline ${statusKey === 'NO_SHOW' ? 'mobile-status-no-show' : ''}`}>
-                              <div className="mobile-patient-info-inline">
+                              <div 
+                                className="mobile-patient-info-inline cursor-pointer hover:bg-gray-50 transition-colors rounded p-1 -m-1"
+                                onClick={() => openPatientDetailModal(appointment.patient)}
+                              >
                                 <span className="mobile-patient-name-inline">
                                   {appointment.patient.user.name}
                                   {(() => {
@@ -2101,7 +2173,14 @@ export default function DoctorSchedulePage() {
                                     if (!phone) return null;
                                     const tel = String(phone).replace(/\s+/g, '');
                                     return (
-                                      <a className="phone-inline-badge" href={`tel:${tel}`} aria-label={`拨打 ${phone}`}>{phone}</a>
+                                      <a 
+                                        className="phone-inline-badge" 
+                                        href={`tel:${tel}`} 
+                                        aria-label={`拨打 ${phone}`}
+                                        onClick={(e) => e.stopPropagation()}
+                                      >
+                                        {phone}
+                                      </a>
                                     );
                                   })()}
                                 </span>
@@ -2118,32 +2197,52 @@ export default function DoctorSchedulePage() {
                                       ? ((appointment.reason === '医生预约') ? '医生' : '患者')
                                       : ((appointment.reason === '医生预约' || appointment.user.role === 'DOCTOR') ? '医生' : '患者')
                                   } 状态：<span className={`mobile-status-badge-inline mobile-status-${statusClassKey}`}>{statusText}</span>
+                                  {appointment.symptoms && (
+                                    <span className="ml-2 text-xs text-green-600 font-medium border border-green-200 bg-green-50 px-1 rounded">已录入病情</span>
+                                  )}
                                 </span>
                               </div>
-                              {!isPast && normalizeStatus(appointment.status) === 'PENDING' && (
-                                <button
-                                  onClick={() => openCancelDialog(appointment, schedule, index)}
-                                  className="mobile-patient-delete-btn-inline"
-                                  title="取消预约"
-                                >
-                                  <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-                                    <path fillRule="evenodd" d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z" clipRule="evenodd" />
-                                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-                                  </svg>
-                                </button>
-                              )}
-                              {isPast && normalizeStatus(appointment.status) !== 'NO_SHOW' && normalizeStatus(appointment.status) !== 'CANCELLED' && (
-                                <button
-                                  onClick={() => openNoShowDialog(appointment, schedule, index)}
-                                  className="mobile-patient-delete-btn-inline"
-                                  title="标记爽约"
-                                >
-                                  <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-                                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16z" clipRule="evenodd" />
-                                    <path fillRule="evenodd" d="M7 10a3 3 0 116 0 3 3 0 01-6 0z" clipRule="evenodd" />
-                                  </svg>
-                                </button>
-                              )}
+                              <div className="flex items-center space-x-2">
+                                {/* 病情录入按钮 - 仅在非爽约/非取消且非过去状态下显示，或者是医生自己创建的 */}
+                                {normalizeStatus(appointment.status) !== 'NO_SHOW' && normalizeStatus(appointment.status) !== 'CANCELLED' && (
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      openSymptomModal(appointment);
+                                    }}
+                                    className={`mobile-patient-delete-btn-inline ${appointment.symptoms ? 'text-green-600' : 'text-blue-600'}`}
+                                    title={appointment.symptoms ? "修改病情/治疗方案" : "录入病情/治疗方案"}
+                                  >
+                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                    </svg>
+                                  </button>
+                                )}
+                                {!isPast && normalizeStatus(appointment.status) === 'PENDING' && (
+                                  <button
+                                    onClick={() => openCancelDialog(appointment, schedule, index)}
+                                    className="mobile-patient-delete-btn-inline"
+                                    title="取消预约"
+                                  >
+                                    <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                                      <path fillRule="evenodd" d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z" clipRule="evenodd" />
+                                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                                    </svg>
+                                  </button>
+                                )}
+                                {isPast && normalizeStatus(appointment.status) !== 'NO_SHOW' && normalizeStatus(appointment.status) !== 'CANCELLED' && (
+                                  <button
+                                    onClick={() => openNoShowDialog(appointment, schedule, index)}
+                                    className="mobile-patient-delete-btn-inline"
+                                    title="标记爽约"
+                                  >
+                                    <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16z" clipRule="evenodd" />
+                                      <path fillRule="evenodd" d="M7 10a3 3 0 116 0 3 3 0 01-6 0z" clipRule="evenodd" />
+                                    </svg>
+                                  </button>
+                                )}
+                              </div>
                             </div>
                           );
                         })}
@@ -2528,17 +2627,25 @@ export default function DoctorSchedulePage() {
           </div>
         </div>
       )}
-        </>
+
+      {isPatientDetailModalOpen && (
+        <PatientDetailModal
+          isOpen={isPatientDetailModalOpen}
+          onClose={() => setIsPatientDetailModalOpen(false)}
+          patient={patientDetailData}
+        />
+      )}
+
+      {isSymptomModalOpen && (
+        <AppointmentSymptomModal
+          isOpen={isSymptomModalOpen}
+          onClose={() => setIsSymptomModalOpen(false)}
+          appointment={selectedAppointmentForSymptom}
+          onSave={handleSaveSymptom}
+        />
+      )}
+
       {/* 底部功能區 - 用於調試或其他用途 */}
     </div>
   );
 }
-  const isKnownStatus = (s: string): s is 'PENDING' | 'COMPLETED' | 'CANCELLED' | 'NO_SHOW' => {
-    return s === 'PENDING' || s === 'COMPLETED' || s === 'CANCELLED' || s === 'NO_SHOW';
-  };
-
-  const normalizeStatus = (status: string): 'PENDING' | 'COMPLETED' | 'CANCELLED' | 'NO_SHOW' => {
-    if (isKnownStatus(status)) return status;
-    if (status === 'CHECKED_IN' || status === 'CONFIRMED') return 'PENDING';
-    return 'PENDING';
-  };

@@ -61,7 +61,7 @@ export async function GET(request: Request) {
               appointments: {
                 where: { status: { not: 'CANCELLED' } },
                 include: {
-                  patient: { select: { credibilityScore: true, user: { select: { name: true, gender: true, dateOfBirth: true, phone: true } } } },
+                  patient: { select: { id: true, credibilityScore: true, user: { select: { name: true, gender: true, dateOfBirth: true, phone: true } } } },
                   user: { select: { name: true, role: true } },
                   history: {
                     select: { operatedAt: true, operatorName: true, action: true },
@@ -94,7 +94,7 @@ export async function GET(request: Request) {
               appointments: {
                 where: { status: { not: 'CANCELLED' } },
                 include: {
-                  patient: { select: { credibilityScore: true, user: { select: { name: true, gender: true, dateOfBirth: true, phone: true } } } },
+                  patient: { select: { id: true, credibilityScore: true, user: { select: { name: true, gender: true, dateOfBirth: true, phone: true } } } },
                   user: { select: { name: true, role: true } },
                   history: {
                     select: { operatedAt: true, operatorName: true, action: true },
@@ -127,7 +127,7 @@ export async function GET(request: Request) {
             appointments: {
               where: { status: { not: 'CANCELLED' } },
               include: {
-                patient: { select: { credibilityScore: true, user: { select: { name: true, gender: true, dateOfBirth: true, phone: true } } } },
+                patient: { select: { id: true, credibilityScore: true, user: { select: { name: true, gender: true, dateOfBirth: true, phone: true } } } },
                 user: { select: { name: true, role: true } },
                 history: {
                   select: { operatedAt: true, operatorName: true, action: true },

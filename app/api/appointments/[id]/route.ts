@@ -259,3 +259,51 @@ export async function DELETE(
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }
+
+// PATCH /api/appointments/[id] — 更新预约详情（病情、治疗方案）
+export async function PATCH(
+  request: Request,
+  context: { params: Promise<{ id: string }> }
+) {
+  const session = await getServerSession(authOptions);
+  if (!session || session.user.role !== 'DOCTOR') {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
+  }
+
+  const { id: appointmentId } = await context.params;
+  const body = await request.json();
+  const { symptoms, treatmentPlan } = body;
+
+  try {
+    const appointment = await prisma.appointment.findUnique({
+      where: { id: appointmentId },
+    });
+
+    if (!appointment) {
+      return NextResponse.json({ error: 'Appointment not found' }, { status: 404 });
+    }
+
+    // Verify the doctor owns this appointment
+    const doctorUser = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      include: { doctorProfile: true }
+    });
+
+    if (!doctorUser?.doctorProfile || doctorUser.doctorProfile.id !== appointment.doctorId) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+
+    const updated = await prisma.appointment.update({
+      where: { id: appointmentId },
+      data: {
+        symptoms,
+        treatmentPlan
+      }
+    });
+
+    return NextResponse.json(updated);
+  } catch (error) {
+    console.error(`Error updating appointment ${appointmentId}:`, error);
+    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+  }
+}

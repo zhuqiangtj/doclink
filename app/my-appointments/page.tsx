@@ -17,7 +17,7 @@ interface Appointment {
   status: string;
   reason?: string; // 添加原因字段
   doctor: { user: { name: string } };
-  room: { name: string };
+  room: { name: string; isPrivate?: boolean };
   createTime: string;
   statusOperatedAt?: string;
 }
@@ -278,15 +278,25 @@ export default function MyAppointmentsPage() {
   // --- Filters Logic ---
   const uniqueRoomNames = useMemo(() => {
     const names = new Set<string>();
-    appointments.forEach(a => { if (a.room?.name) names.add(a.room.name); });
+    appointments.forEach(a => { 
+      // Filter out private rooms from the filter list
+      if (a.room?.name && !a.room.isPrivate) {
+        names.add(a.room.name); 
+      }
+    });
     return Array.from(names);
   }, [appointments]);
 
   const filteredAppointments = useMemo(() => {
     return appointments.filter(apt => {
       const dateMatch = !selectedDate || apt.date === selectedDate;
-      const roomMatch = !selectedRoomName || apt.room?.name === selectedRoomName;
       const statusMatch = !selectedStatus || normalizeStatus(apt.status) === normalizeStatus(selectedStatus);
+      
+      // Private rooms always bypass the room filter (always visible regardless of room selection)
+      // Public rooms must match the selected room (or match all if no room selected)
+      const isPrivate = apt.room?.isPrivate;
+      const roomMatch = isPrivate || (!selectedRoomName || apt.room?.name === selectedRoomName);
+      
       return dateMatch && roomMatch && statusMatch;
     });
   }, [appointments, selectedDate, selectedRoomName, selectedStatus]);

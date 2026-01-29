@@ -124,6 +124,8 @@ model Appointment {
   bedId      Int
   status     AppointmentStatus    @default(PENDING)
   reason     String?
+  symptoms   String?
+  treatmentPlan String?
   createTime DateTime             @default(now())
   doctor     Doctor               @relation(fields: [doctorId], references: [id])
   patient    Patient              @relation(fields: [patientId], references: [id])
