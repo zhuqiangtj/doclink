@@ -47,6 +47,10 @@ export default function PatientDetailModal({ isOpen, onClose, patient, appointme
     }
   }, [isOpen, patient, initialTab]);
 
+  useEffect(() => {
+    setHistoryPage(1);
+  }, [activeTab]);
+
   const handleSave = async () => {
     if (!onSave || !patient) return;
     setIsSaving(true);
@@ -80,16 +84,27 @@ export default function PatientDetailModal({ isOpen, onClose, patient, appointme
     }
   };
 
-  const totalPages = Math.ceil((appointments?.length || 0) / itemsPerPage);
-  const paginatedAppointments = appointments?.slice(
+  const getCurrentTabAppointments = () => {
+    if (activeTab === 'treatment') {
+      return appointments
+        .filter(a => a.status === 'COMPLETED')
+        .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    }
+    // history tab shows all
+    return appointments;
+  };
+
+  const currentTabAppointments = getCurrentTabAppointments();
+  const totalPages = Math.ceil((currentTabAppointments.length || 0) / itemsPerPage);
+  const paginatedAppointments = currentTabAppointments.slice(
     (historyPage - 1) * itemsPerPage,
     historyPage * itemsPerPage
   );
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4 animate-fadeIn">
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-md overflow-hidden animate-slideUp h-[600px] max-h-[90vh] flex flex-col">
-        <div className="flex justify-between items-center p-4 border-b border-gray-100 bg-gray-50 shrink-0">
+      <div className="bg-white rounded-lg shadow-xl w-full max-w-md overflow-hidden animate-slideUp h-[500px] max-h-[90vh] flex flex-col">
+        <div className="flex justify-between items-center p-3 border-b border-gray-100 bg-gray-50 shrink-0">
           <h3 className="text-lg font-bold text-gray-800 flex items-center gap-2">
             <FaUser className="text-blue-500" />
             病人详细信息
@@ -102,13 +117,13 @@ export default function PatientDetailModal({ isOpen, onClose, patient, appointme
           </button>
         </div>
 
-        <div className="p-6 space-y-6 overflow-y-auto custom-scrollbar flex-1">
+        <div className="p-4 space-y-4 overflow-y-auto custom-scrollbar flex-1">
           <div className="flex items-center gap-4">
-            <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center text-blue-500 text-2xl font-bold shrink-0">
+            <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center text-blue-500 text-xl font-bold shrink-0">
               {patient.name.charAt(0)}
             </div>
             <div>
-              <h2 className="text-xl font-bold text-gray-900">{patient.name}</h2>
+              <h2 className="text-lg font-bold text-gray-900">{patient.name}</h2>
               <p className="text-gray-500 text-sm">{patient.phone || '无电话号码'}</p>
             </div>
           </div>
@@ -116,21 +131,21 @@ export default function PatientDetailModal({ isOpen, onClose, patient, appointme
           {/* Tabs Navigation */}
           <div className="flex border-b border-gray-100">
             <button
-              className={`flex-1 py-2 text-sm font-medium transition-colors relative ${activeTab === 'overview' ? 'text-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
+              className={`flex-1 py-1.5 text-sm font-medium transition-colors relative ${activeTab === 'overview' ? 'text-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
               onClick={() => setActiveTab('overview')}
             >
               概览
               {activeTab === 'overview' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600"></div>}
             </button>
             <button
-              className={`flex-1 py-2 text-sm font-medium transition-colors relative ${activeTab === 'treatment' ? 'text-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
+              className={`flex-1 py-1.5 text-sm font-medium transition-colors relative ${activeTab === 'treatment' ? 'text-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
               onClick={() => setActiveTab('treatment')}
             >
               治疗历史
               {activeTab === 'treatment' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600"></div>}
             </button>
             <button
-              className={`flex-1 py-2 text-sm font-medium transition-colors relative ${activeTab === 'history' ? 'text-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
+              className={`flex-1 py-1.5 text-sm font-medium transition-colors relative ${activeTab === 'history' ? 'text-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
               onClick={() => setActiveTab('history')}
             >
               预约记录
@@ -213,14 +228,12 @@ export default function PatientDetailModal({ isOpen, onClose, patient, appointme
           )}
 
           {activeTab === 'treatment' && (
-            <div className="animate-fadeIn space-y-4">
-              {appointments.filter(a => a.status === 'COMPLETED').length > 0 ? (
-                appointments
-                  .filter(a => a.status === 'COMPLETED')
-                  .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-                  .map((apt) => (
-                    <div key={apt.id} className="bg-gray-50 rounded-lg p-4 border border-gray-100">
-                      <div className="flex justify-between items-center mb-2">
+            <div className="animate-fadeIn space-y-3">
+              {currentTabAppointments.length > 0 ? (
+                <>
+                  {paginatedAppointments.map((apt) => (
+                    <div key={apt.id} className="bg-gray-50 rounded-lg p-3 border border-gray-100">
+                      <div className="flex justify-between items-center mb-1.5">
                         <div className="text-sm font-bold text-gray-800 flex items-center gap-2">
                           <FaCalendarAlt className="text-blue-500" />
                           {apt.date}
@@ -228,22 +241,45 @@ export default function PatientDetailModal({ isOpen, onClose, patient, appointme
                         <div className="text-xs text-gray-500">{apt.time}</div>
                       </div>
                       
-                      <div className="space-y-3">
+                      <div className="space-y-2">
                         <div>
-                          <div className="text-xs text-gray-500 mb-1 font-medium">病情描述</div>
-                          <p className="text-sm text-gray-700 bg-white p-2 rounded border border-gray-100 min-h-[40px]">
+                          <div className="text-xs text-gray-500 mb-0.5 font-medium">病情描述</div>
+                          <p className="text-sm text-gray-700 bg-white p-1.5 rounded border border-gray-100 min-h-[24px]">
                             {apt.symptoms || '无记录'}
                           </p>
                         </div>
                         <div>
-                          <div className="text-xs text-gray-500 mb-1 font-medium">治疗方案</div>
-                          <p className="text-sm text-gray-700 bg-white p-2 rounded border border-gray-100 min-h-[40px]">
+                          <div className="text-xs text-gray-500 mb-0.5 font-medium">治疗方案</div>
+                          <p className="text-sm text-gray-700 bg-white p-1.5 rounded border border-gray-100 min-h-[24px]">
                             {apt.treatmentPlan || '无记录'}
                           </p>
                         </div>
                       </div>
                     </div>
-                  ))
+                  ))}
+                  
+                  {totalPages > 1 && (
+                    <div className="flex justify-between items-center p-2 bg-gray-50 border-t border-gray-100 rounded-b-lg">
+                      <button
+                        onClick={() => setHistoryPage(p => Math.max(1, p - 1))}
+                        disabled={historyPage === 1}
+                        className="p-1 rounded hover:bg-gray-200 disabled:opacity-50 disabled:hover:bg-transparent text-gray-600"
+                      >
+                        <FaChevronLeft size={12} />
+                      </button>
+                      <span className="text-xs text-gray-500">
+                        {historyPage} / {totalPages}
+                      </span>
+                      <button
+                        onClick={() => setHistoryPage(p => Math.min(totalPages, p + 1))}
+                        disabled={historyPage === totalPages}
+                        className="p-1 rounded hover:bg-gray-200 disabled:opacity-50 disabled:hover:bg-transparent text-gray-600"
+                      >
+                        <FaChevronRight size={12} />
+                      </button>
+                    </div>
+                  )}
+                </>
               ) : (
                 <div className="text-center py-8 text-gray-400 text-sm bg-gray-50 rounded-lg">
                   暂无治疗历史记录
@@ -254,7 +290,7 @@ export default function PatientDetailModal({ isOpen, onClose, patient, appointme
 
           {activeTab === 'history' && (
             <div className="animate-fadeIn">
-              {appointments.length > 0 ? (
+              {currentTabAppointments.length > 0 ? (
                 <div className="border border-gray-100 rounded-lg overflow-hidden">
                   <table className="w-full text-sm text-left">
                     <thead className="bg-gray-50 text-gray-500">
@@ -310,7 +346,7 @@ export default function PatientDetailModal({ isOpen, onClose, patient, appointme
           )}
         </div>
 
-        <div className="p-4 border-t border-gray-100 flex justify-end shrink-0 gap-3">
+        <div className="p-3 border-t border-gray-100 flex justify-end shrink-0 gap-3">
           <button
             onClick={onClose}
             className="px-4 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 transition-colors font-medium text-sm"

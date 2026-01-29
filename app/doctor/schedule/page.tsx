@@ -22,6 +22,7 @@ interface DoctorProfile { id: string; name: string; Room: Room[]; }
 interface Appointment { 
   id: string; 
   patient: { 
+    id: string;
     user: { name: string; gender?: string; dateOfBirth?: string; phone?: string }, 
     credibilityScore?: number,
   }; 
@@ -1585,6 +1586,8 @@ export default function DoctorSchedulePage() {
         if (data.appointments) {
           setPatientHistoryAppointments(data.appointments);
         }
+      } else {
+        console.error('Failed to fetch patient details:', res.status, res.statusText);
       }
     } catch (e) {
       console.error("Failed to fetch patient details", e);

@@ -35,15 +35,21 @@ export async function GET(
         },
         appointments: {
           orderBy: {
-            date: 'desc'
+            schedule: {
+              date: 'desc'
+            }
           },
           select: {
             id: true,
-            date: true,
             time: true,
             status: true,
             symptoms: true,
-            treatmentPlan: true
+            treatmentPlan: true,
+            schedule: {
+              select: {
+                date: true
+              }
+            }
           }
         }
       }
@@ -83,9 +89,18 @@ export async function GET(
       totalAppointments,
     };
 
+    const formattedAppointments = patient.appointments.map(apt => ({
+      id: apt.id,
+      date: apt.schedule.date,
+      time: apt.time,
+      status: apt.status,
+      symptoms: apt.symptoms,
+      treatmentPlan: apt.treatmentPlan
+    }));
+
     return NextResponse.json({
       patient: formattedPatient,
-      appointments: patient.appointments
+      appointments: formattedAppointments
     });
 
   } catch (error) {
