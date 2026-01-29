@@ -1553,8 +1553,24 @@ export default function DoctorSchedulePage() {
   const [isSymptomModalOpen, setIsSymptomModalOpen] = useState(false);
   const [selectedAppointmentForSymptom, setSelectedAppointmentForSymptom] = useState<Appointment | null>(null);
 
-  const openPatientDetailModal = (patient: any) => {
-    setPatientDetailData(patient);
+  const openPatientDetailModal = (patientSource: any) => {
+    if (!patientSource || !patientSource.user) return;
+    
+    // 转换数据结构以匹配 PatientDetailModal 的要求
+    const mappedPatient = {
+      id: patientSource.id,
+      name: patientSource.user.name || '未知',
+      gender: patientSource.user.gender,
+      age: calcAgeFromBirthDate(patientSource.user.dateOfBirth),
+      phone: patientSource.user.phone,
+      credibilityScore: patientSource.credibilityScore ?? 0,
+      // 以下字段在当前上下文中不可用，设为默认值
+      visitCount: 0,
+      noShowCount: 0,
+      totalAppointments: 0
+    };
+    
+    setPatientDetailData(mappedPatient);
     setIsPatientDetailModalOpen(true);
   };
 
