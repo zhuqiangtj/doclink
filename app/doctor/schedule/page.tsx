@@ -1579,33 +1579,44 @@ export default function DoctorSchedulePage() {
     setIsPatientDetailModalOpen(true);
 
     try {
-      console.log(`Fetching details for patient: ${patientSource.id}`);
-      // 使用 fetch 替代 fetchWithTimeout 以避免潜在的 AbortController 问题，并强制不缓存
-      const res = await fetch(`/api/patients/${patientSource.id}`, { 
-        cache: 'no-store',
-        headers: {
-          'Content-Type': 'application/json'
-        }
-      });
+      // 复用病人列表的逻辑：获取所有预约并过滤，以确保数据一致性
+      // 虽然这比直接获取单个病人详情开销大，但能保证与病人列表页面的数据完全一致
+      const res = await fetchWithTimeout('/api/appointments');
       
       if (res.ok) {
-        const data = await res.json();
-        console.log('Patient details fetched:', data);
-        if (data.patient) {
-          setPatientDetailData(data.patient);
-        }
-        if (Array.isArray(data.appointments)) {
-          console.log('Setting history appointments:', data.appointments.length);
-          setPatientHistoryAppointments(data.appointments);
+        const allAppointments = await res.json();
+        
+        if (Array.isArray(allAppointments)) {
+          // 过滤出当前病人的预约
+          const patientAppointments = allAppointments.filter((appt: any) => 
+            appt.patient?.id === patientSource.id
+          );
+          
+          console.log(`Found ${patientAppointments.length} appointments for patient ${patientSource.id}`);
+          setPatientHistoryAppointments(patientAppointments);
+          
+          // 计算统计数据
+          const visitCount = patientAppointments.filter((a: any) => a.status === 'COMPLETED').length;
+          const noShowCount = patientAppointments.filter((a: any) => a.status === 'NO_SHOW').length;
+          const totalAppointments = patientAppointments.length;
+          
+          // 更新病人详情数据
+          setPatientDetailData((prev: any) => ({
+            ...prev,
+            visitCount,
+            noShowCount,
+            totalAppointments,
+            // 从最新的预约中获取最新的信誉分
+            credibilityScore: patientAppointments[0]?.patient?.credibilityScore ?? prev.credibilityScore
+          }));
         } else {
-          console.warn('Appointments data is not an array:', data.appointments);
-          setPatientHistoryAppointments([]);
+          console.warn('Appointments API did not return an array');
         }
       } else {
-        console.error('Failed to fetch patient details:', res.status, res.statusText);
+        console.error('Failed to fetch appointments:', res.status, res.statusText);
       }
     } catch (e) {
-      console.error("Failed to fetch patient details", e);
+      console.error("Failed to fetch appointments", e);
     }
   };
 
