@@ -1620,13 +1620,14 @@ export default function DoctorSchedulePage() {
 
     // 1. Fetch Patient Details (for stats)
     try {
-      console.log(`Fetching details for patient: ${patientSource.id}`);
-      const res = await fetchWithTimeout(`/api/patients/${patientSource.id}`);
+      const res = await fetchWithTimeout(`/api/patients/${patientSource.id}`, { cache: 'no-store' });
       if (res.ok) {
         const data = await res.json();
         if (data.patient) {
           setPatientDetailData(data.patient);
         }
+      } else {
+        console.error('Failed to fetch patient details, status:', res.status);
       }
     } catch (e) {
       console.error("Failed to fetch patient details", e);
