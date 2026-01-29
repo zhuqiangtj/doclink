@@ -1811,7 +1811,7 @@ export default function DoctorSchedulePage() {
           <div className="bg-black/60 text-white text-sm px-4 py-2 rounded">{overlayText}</div>
         </div>
       )}
-      <>
+      
       <div className="mobile-card">
         <div className="w-full flex justify-between items-center mb-2">
           {doctorProfile?.name ? (
