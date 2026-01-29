@@ -2218,64 +2218,41 @@ export default function DoctorSchedulePage() {
                           const statusClassKey = statusKey.toLowerCase().replace('_', '-');
 
                           return (
-                            <div key={apptIndex} className={`flex flex-col gap-3 p-3 border-b border-gray-100 last:border-0 ${statusKey === 'NO_SHOW' ? 'bg-red-50' : 'hover:bg-gray-50 transition-colors'}`}>
+                            <div key={apptIndex} className={`bg-white rounded-xl shadow-sm border border-gray-200 p-3 mb-3 ${statusKey === 'NO_SHOW' ? 'bg-red-50/50' : ''}`}>
                               {/* 上部分：病人基本信息与操作按钮 */}
-                              <div className="flex justify-between items-start w-full">
+                              <div className="flex justify-between items-start w-full mb-3">
                                 <div 
-                                  className="flex flex-col gap-1.5 flex-1 min-w-0 cursor-pointer"
+                                  className="flex flex-col gap-1 flex-1 min-w-0 cursor-pointer"
                                   onClick={() => openPatientDetailModal(appointment.patient, 'treatment')}
                                 >
-                                  <div className="flex items-center gap-2">
-                                    <span className="font-bold text-gray-900 text-base truncate">{appointment.patient.user.name}</span>
-                                    {(() => {
-                                      const score = appointment.patient.credibilityScore ?? null;
-                                      return (
-                                        <span className={`px-1.5 py-0.5 rounded text-xs font-medium border ${
-                                          score && score >= 15 ? 'bg-green-50 text-green-700 border-green-200' :
-                                          score && score >= 10 ? 'bg-blue-50 text-blue-700 border-blue-200' :
-                                          'bg-red-50 text-red-700 border-red-200'
-                                        }`} title="积分">
-                                          {score ?? '—'}分
-                                        </span>
-                                      );
-                                    })()}
+                                  <div className="flex items-center gap-2 flex-wrap">
+                                    <span className="font-bold text-gray-900 text-lg">{appointment.patient.user.name}</span>
                                     {(() => {
                                       const { text } = getGenderInfo(appointment.patient.user.gender);
                                       const bgClass = text === '男' ? 'bg-blue-50 text-blue-600 border-blue-100' : 'bg-pink-50 text-pink-600 border-pink-100';
                                       return (
-                                        <span className={`px-1.5 py-0.5 rounded text-xs border ${bgClass}`}>{text}</span>
+                                        <span className={`px-2 py-0.5 rounded text-xs border ${bgClass} font-medium`}>{text}</span>
                                       );
                                     })()}
                                     {(() => {
                                       const age = calcAgeFromBirthDate(appointment.patient.user.dateOfBirth);
                                       return (
-                                        <span className="px-1.5 py-0.5 rounded text-xs bg-gray-100 text-gray-600 border border-gray-200">{age != null ? `${age}岁` : '未知'}</span>
+                                        <span className="px-2 py-0.5 rounded text-xs bg-amber-50 text-amber-700 border border-amber-200 font-medium">{age != null ? `${age}岁` : '未知'}</span>
                                       );
                                     })()}
                                   </div>
-                                  
-                                  {appointment.patient.user.phone && (
-                                    <a 
-                                      className="text-xs text-gray-500 hover:text-blue-600 flex items-center gap-1 w-fit" 
-                                      href={`tel:${String(appointment.patient.user.phone).replace(/\s+/g, '')}`} 
-                                      onClick={(e) => e.stopPropagation()}
-                                    >
-                                      <svg className="w-3 h-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"/></svg>
-                                      {appointment.patient.user.phone}
-                                    </a>
-                                  )}
                                 </div>
 
-                                <div className="flex items-center gap-2 shrink-0 ml-2 pt-0.5">
+                                <div className="flex items-center gap-3 shrink-0 ml-2 pt-0.5">
                                   <button
                                     onClick={(e) => {
                                       e.stopPropagation();
                                       openPatientDetailModal(appointment.patient, 'treatment');
                                     }}
-                                    className="p-1.5 rounded-full text-purple-600 bg-purple-50 hover:bg-purple-100 transition-colors"
+                                    className="p-2 rounded-full text-purple-600 bg-purple-50 hover:bg-purple-100 transition-colors"
                                     title="治疗历史"
                                   >
-                                    <FaHistory className="w-3.5 h-3.5" />
+                                    <FaHistory className="w-4 h-4" />
                                   </button>
                                   {normalizeStatus(appointment.status) !== 'NO_SHOW' && normalizeStatus(appointment.status) !== 'CANCELLED' && (
                                     <button
@@ -2283,14 +2260,14 @@ export default function DoctorSchedulePage() {
                                         e.stopPropagation();
                                         openSymptomModal(appointment);
                                       }}
-                                      className={`p-1.5 rounded-full transition-colors ${
+                                      className={`p-2 rounded-full transition-colors ${
                                         appointment.symptoms 
                                           ? 'text-green-600 bg-green-50 hover:bg-green-100' 
                                           : 'text-blue-600 bg-blue-50 hover:bg-blue-100'
                                       }`}
                                       title={appointment.symptoms ? "修改病情/治疗方案" : "录入病情/治疗方案"}
                                     >
-                                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                                       </svg>
                                     </button>
@@ -2298,10 +2275,10 @@ export default function DoctorSchedulePage() {
                                   {!isPast && normalizeStatus(appointment.status) === 'PENDING' && (
                                     <button
                                       onClick={() => openCancelDialog(appointment, schedule, index)}
-                                      className="p-1.5 rounded-full text-red-500 bg-red-50 hover:bg-red-100 transition-colors"
+                                      className="p-2 rounded-full text-red-500 bg-red-50 hover:bg-red-100 transition-colors"
                                       title="取消预约"
                                     >
-                                      <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20">
+                                      <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
                                         <path fillRule="evenodd" d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z" clipRule="evenodd" />
                                         <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
                                       </svg>
@@ -2310,10 +2287,10 @@ export default function DoctorSchedulePage() {
                                   {isPast && normalizeStatus(appointment.status) !== 'NO_SHOW' && normalizeStatus(appointment.status) !== 'CANCELLED' && (
                                     <button
                                       onClick={() => openNoShowDialog(appointment, schedule, index)}
-                                      className="p-1.5 rounded-full text-orange-500 bg-orange-50 hover:bg-orange-100 transition-colors"
+                                      className="p-2 rounded-full text-orange-500 bg-orange-50 hover:bg-orange-100 transition-colors"
                                       title="标记爽约"
                                     >
-                                      <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20">
+                                      <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
                                         <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16z" clipRule="evenodd" />
                                         <path fillRule="evenodd" d="M7 10a3 3 0 116 0 3 3 0 01-6 0z" clipRule="evenodd" />
                                       </svg>
