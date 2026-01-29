@@ -11,7 +11,7 @@ import './mobile.css';
 import './mobile-overrides.css';
 import '../appointments/mobile.css';
 import { getStatusText } from '../../../utils/statusText';
-import { FaTrash, FaSave, FaUserPlus, FaPlusCircle } from 'react-icons/fa';
+import { FaTrash, FaSave, FaUserPlus, FaPlusCircle, FaHistory } from 'react-icons/fa';
 import EnhancedDatePicker, { DateStatus } from '../../../components/EnhancedDatePicker';
 import { fetchDateStatusesForMonth, isPastDate } from '../../../utils/dateStatusUtils';
 import { fetchWithTimeout } from '../../../utils/network';
@@ -1550,12 +1550,13 @@ export default function DoctorSchedulePage() {
   const [isPatientDetailModalOpen, setIsPatientDetailModalOpen] = useState(false);
   const [patientDetailData, setPatientDetailData] = useState<any>(null);
   const [patientHistoryAppointments, setPatientHistoryAppointments] = useState<any[]>([]);
+  const [patientDetailInitialTab, setPatientDetailInitialTab] = useState<'overview' | 'treatment' | 'history'>('treatment');
 
   // 病情錄入模態框狀態
   const [isSymptomModalOpen, setIsSymptomModalOpen] = useState(false);
   const [selectedAppointmentForSymptom, setSelectedAppointmentForSymptom] = useState<Appointment | null>(null);
 
-  const openPatientDetailModal = async (patientSource: any) => {
+  const openPatientDetailModal = async (patientSource: any, tab: 'overview' | 'treatment' | 'history' = 'treatment') => {
     if (!patientSource || !patientSource.user) return;
     
     // 转换数据结构以匹配 PatientDetailModal 的要求
@@ -1574,17 +1575,31 @@ export default function DoctorSchedulePage() {
     
     setPatientDetailData(mappedPatient);
     setPatientHistoryAppointments([]);
+    setPatientDetailInitialTab(tab);
     setIsPatientDetailModalOpen(true);
 
     try {
-      const res = await fetchWithTimeout(`/api/patients/${patientSource.id}`);
+      console.log(`Fetching details for patient: ${patientSource.id}`);
+      // 使用 fetch 替代 fetchWithTimeout 以避免潜在的 AbortController 问题，并强制不缓存
+      const res = await fetch(`/api/patients/${patientSource.id}`, { 
+        cache: 'no-store',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+      
       if (res.ok) {
         const data = await res.json();
+        console.log('Patient details fetched:', data);
         if (data.patient) {
           setPatientDetailData(data.patient);
         }
-        if (data.appointments) {
+        if (Array.isArray(data.appointments)) {
+          console.log('Setting history appointments:', data.appointments.length);
           setPatientHistoryAppointments(data.appointments);
+        } else {
+          console.warn('Appointments data is not an array:', data.appointments);
+          setPatientHistoryAppointments([]);
         }
       } else {
         console.error('Failed to fetch patient details:', res.status, res.statusText);
@@ -2179,7 +2194,7 @@ export default function DoctorSchedulePage() {
                             <div key={apptIndex} className={`mobile-patient-item-inline ${statusKey === 'NO_SHOW' ? 'mobile-status-no-show' : ''}`}>
                               <div 
                                 className="mobile-patient-info-inline cursor-pointer hover:bg-gray-50 transition-colors rounded p-1 -m-1"
-                                onClick={() => openPatientDetailModal(appointment.patient)}
+                                onClick={() => openPatientDetailModal(appointment.patient, 'treatment')}
                               >
                                 <span className="mobile-patient-name-inline">
                                   {appointment.patient.user.name}
@@ -2239,6 +2254,16 @@ export default function DoctorSchedulePage() {
                                 </span>
                               </div>
                               <div className="flex items-center space-x-2">
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    openPatientDetailModal(appointment.patient, 'treatment');
+                                  }}
+                                  className="mobile-patient-delete-btn-inline text-purple-600"
+                                   title="治疗历史"
+                                 >
+                                   <FaHistory className="w-4 h-4" />
+                                 </button>
                                 {/* 病情录入按钮 - 仅在非爽约/非取消且非过去状态下显示，或者是医生自己创建的 */}
                                 {normalizeStatus(appointment.status) !== 'NO_SHOW' && normalizeStatus(appointment.status) !== 'CANCELLED' && (
                                   <button
@@ -2670,7 +2695,7 @@ export default function DoctorSchedulePage() {
           onClose={() => setIsPatientDetailModalOpen(false)}
           patient={patientDetailData}
           appointments={patientHistoryAppointments}
-          initialTab="treatment"
+          initialTab={patientDetailInitialTab}
         />
       )}
 
