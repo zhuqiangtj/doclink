@@ -2667,6 +2667,7 @@ export default function DoctorSchedulePage() {
           onClose={() => setIsPatientDetailModalOpen(false)}
           patient={patientDetailData}
           appointments={patientHistoryAppointments}
+          initialTab="treatment"
         />
       )}
 

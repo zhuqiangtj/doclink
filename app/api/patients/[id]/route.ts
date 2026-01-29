@@ -41,7 +41,9 @@ export async function GET(
             id: true,
             date: true,
             time: true,
-            status: true
+            status: true,
+            symptoms: true,
+            treatmentPlan: true
           }
         }
       }

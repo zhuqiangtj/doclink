@@ -7,6 +7,8 @@ interface Appointment {
   date: string;
   time: string;
   status: string;
+  symptoms?: string | null;
+  treatmentPlan?: string | null;
 }
 
 interface PatientData {
@@ -27,10 +29,11 @@ interface PatientDetailModalProps {
   patient: PatientData | null;
   appointments?: Appointment[];
   onSave?: (patientId: string, newScore: number) => Promise<void>;
+  initialTab?: 'overview' | 'treatment' | 'history';
 }
 
-export default function PatientDetailModal({ isOpen, onClose, patient, appointments = [], onSave }: PatientDetailModalProps) {
-  const [activeTab, setActiveTab] = useState<'overview' | 'history'>('overview');
+export default function PatientDetailModal({ isOpen, onClose, patient, appointments = [], onSave, initialTab = 'overview' }: PatientDetailModalProps) {
+  const [activeTab, setActiveTab] = useState<'overview' | 'treatment' | 'history'>(initialTab);
   const [historyPage, setHistoryPage] = useState(1);
   const [tempScore, setTempScore] = useState(0);
   const [isSaving, setIsSaving] = useState(false);
@@ -40,9 +43,9 @@ export default function PatientDetailModal({ isOpen, onClose, patient, appointme
     if (isOpen && patient) {
       setHistoryPage(1);
       setTempScore(patient.credibilityScore);
-      setActiveTab('overview');
+      setActiveTab(initialTab);
     }
-  }, [isOpen, patient]);
+  }, [isOpen, patient, initialTab]);
 
   const handleSave = async () => {
     if (!onSave || !patient) return;
@@ -85,7 +88,7 @@ export default function PatientDetailModal({ isOpen, onClose, patient, appointme
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4 animate-fadeIn">
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-md overflow-hidden animate-slideUp max-h-[90vh] flex flex-col">
+      <div className="bg-white rounded-lg shadow-xl w-full max-w-md overflow-hidden animate-slideUp h-[600px] max-h-[90vh] flex flex-col">
         <div className="flex justify-between items-center p-4 border-b border-gray-100 bg-gray-50 shrink-0">
           <h3 className="text-lg font-bold text-gray-800 flex items-center gap-2">
             <FaUser className="text-blue-500" />
@@ -118,6 +121,13 @@ export default function PatientDetailModal({ isOpen, onClose, patient, appointme
             >
               概览
               {activeTab === 'overview' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600"></div>}
+            </button>
+            <button
+              className={`flex-1 py-2 text-sm font-medium transition-colors relative ${activeTab === 'treatment' ? 'text-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
+              onClick={() => setActiveTab('treatment')}
+            >
+              治疗历史
+              {activeTab === 'treatment' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600"></div>}
             </button>
             <button
               className={`flex-1 py-2 text-sm font-medium transition-colors relative ${activeTab === 'history' ? 'text-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
@@ -199,6 +209,46 @@ export default function PatientDetailModal({ isOpen, onClose, patient, appointme
                 </div>
                 <div className="font-semibold text-red-600 text-sm">{patient.noShowCount}</div>
               </div>
+            </div>
+          )}
+
+          {activeTab === 'treatment' && (
+            <div className="animate-fadeIn space-y-4">
+              {appointments.filter(a => a.status === 'COMPLETED').length > 0 ? (
+                appointments
+                  .filter(a => a.status === 'COMPLETED')
+                  .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+                  .map((apt) => (
+                    <div key={apt.id} className="bg-gray-50 rounded-lg p-4 border border-gray-100">
+                      <div className="flex justify-between items-center mb-2">
+                        <div className="text-sm font-bold text-gray-800 flex items-center gap-2">
+                          <FaCalendarAlt className="text-blue-500" />
+                          {apt.date}
+                        </div>
+                        <div className="text-xs text-gray-500">{apt.time}</div>
+                      </div>
+                      
+                      <div className="space-y-3">
+                        <div>
+                          <div className="text-xs text-gray-500 mb-1 font-medium">病情描述</div>
+                          <p className="text-sm text-gray-700 bg-white p-2 rounded border border-gray-100 min-h-[40px]">
+                            {apt.symptoms || '无记录'}
+                          </p>
+                        </div>
+                        <div>
+                          <div className="text-xs text-gray-500 mb-1 font-medium">治疗方案</div>
+                          <p className="text-sm text-gray-700 bg-white p-2 rounded border border-gray-100 min-h-[40px]">
+                            {apt.treatmentPlan || '无记录'}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  ))
+              ) : (
+                <div className="text-center py-8 text-gray-400 text-sm bg-gray-50 rounded-lg">
+                  暂无治疗历史记录
+                </div>
+              )}
             </div>
           )}
 
