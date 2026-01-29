@@ -1548,12 +1548,13 @@ export default function DoctorSchedulePage() {
   // 病人詳細信息模態框狀態
   const [isPatientDetailModalOpen, setIsPatientDetailModalOpen] = useState(false);
   const [patientDetailData, setPatientDetailData] = useState<any>(null);
+  const [patientHistoryAppointments, setPatientHistoryAppointments] = useState<any[]>([]);
 
   // 病情錄入模態框狀態
   const [isSymptomModalOpen, setIsSymptomModalOpen] = useState(false);
   const [selectedAppointmentForSymptom, setSelectedAppointmentForSymptom] = useState<Appointment | null>(null);
 
-  const openPatientDetailModal = (patientSource: any) => {
+  const openPatientDetailModal = async (patientSource: any) => {
     if (!patientSource || !patientSource.user) return;
     
     // 转换数据结构以匹配 PatientDetailModal 的要求
@@ -1571,7 +1572,23 @@ export default function DoctorSchedulePage() {
     };
     
     setPatientDetailData(mappedPatient);
+    setPatientHistoryAppointments([]);
     setIsPatientDetailModalOpen(true);
+
+    try {
+      const res = await fetchWithTimeout(`/api/patients/${patientSource.id}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.patient) {
+          setPatientDetailData(data.patient);
+        }
+        if (data.appointments) {
+          setPatientHistoryAppointments(data.appointments);
+        }
+      }
+    } catch (e) {
+      console.error("Failed to fetch patient details", e);
+    }
   };
 
   const openSymptomModal = (appointment: Appointment) => {
@@ -2649,6 +2666,7 @@ export default function DoctorSchedulePage() {
           isOpen={isPatientDetailModalOpen}
           onClose={() => setIsPatientDetailModalOpen(false)}
           patient={patientDetailData}
+          appointments={patientHistoryAppointments}
         />
       )}
 
