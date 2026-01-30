@@ -2273,7 +2273,7 @@ export default function DoctorSchedulePage() {
                                       e.stopPropagation();
                                       openPatientDetailModal(appointment.patient, 'treatment');
                                     }}
-                                    className="p-3 rounded-full text-purple-700 bg-purple-100 hover:bg-purple-200 transition-colors shadow-sm border border-purple-200"
+                                    className="p-2 rounded-full text-purple-700 bg-purple-100 hover:bg-purple-200 transition-colors shadow-sm border border-purple-200"
                                     title="治疗历史"
                                   >
                                     <FaHistory className="w-5 h-5" />
@@ -2284,7 +2284,7 @@ export default function DoctorSchedulePage() {
                                         e.stopPropagation();
                                         openSymptomModal(appointment);
                                       }}
-                                      className={`p-3 rounded-full transition-colors shadow-sm border ${
+                                      className={`p-2 rounded-full transition-colors shadow-sm border ${
                                         appointment.symptoms 
                                           ? 'text-green-700 bg-green-100 hover:bg-green-200 border-green-200' 
                                           : 'text-blue-700 bg-blue-100 hover:bg-blue-200 border-blue-200'
@@ -2299,7 +2299,7 @@ export default function DoctorSchedulePage() {
                                   {!isPast && normalizeStatus(appointment.status) === 'PENDING' && (
                                     <button
                                       onClick={() => openCancelDialog(appointment, schedule, index)}
-                                      className="p-3 rounded-full text-red-600 bg-red-100 hover:bg-red-200 transition-colors shadow-sm border border-red-200"
+                                      className="p-2 rounded-full text-red-600 bg-red-100 hover:bg-red-200 transition-colors shadow-sm border border-red-200"
                                       title="取消预约"
                                     >
                                       <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
@@ -2311,7 +2311,7 @@ export default function DoctorSchedulePage() {
                                   {isPast && normalizeStatus(appointment.status) !== 'NO_SHOW' && normalizeStatus(appointment.status) !== 'CANCELLED' && (
                                     <button
                                       onClick={() => openNoShowDialog(appointment, schedule, index)}
-                                      className="p-3 rounded-full text-orange-600 bg-orange-100 hover:bg-orange-200 transition-colors shadow-sm border border-orange-200"
+                                      className="p-2 rounded-full text-orange-600 bg-orange-100 hover:bg-orange-200 transition-colors shadow-sm border border-orange-200"
                                       title="标记爽约"
                                     >
                                       <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
