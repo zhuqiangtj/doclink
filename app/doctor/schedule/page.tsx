@@ -2262,6 +2262,15 @@ export default function DoctorSchedulePage() {
                                     <span className="px-2 py-0.5 rounded text-xs bg-amber-100 text-amber-800 border border-amber-200 font-bold shadow-sm shrink-0">{age != null ? `${age}岁` : '未知'}</span>
                                   );
                                 })()}
+                                {appointment.patient.credibilityScore !== undefined && appointment.patient.credibilityScore !== null && (
+                                  <span className={`px-2 py-0.5 rounded text-xs border font-bold shadow-sm shrink-0 ml-1 ${
+                                    appointment.patient.credibilityScore < 60 
+                                      ? 'bg-red-100 text-red-700 border-red-200' 
+                                      : 'bg-green-100 text-green-700 border-green-200'
+                                  }`}>
+                                    积分: {appointment.patient.credibilityScore}
+                                  </span>
+                                )}
                               </div>
 
                               {/* 第二行：操作按钮 */}
