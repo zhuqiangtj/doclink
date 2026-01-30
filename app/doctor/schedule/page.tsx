@@ -2242,20 +2242,19 @@ export default function DoctorSchedulePage() {
                             >
                               {/* 上部分：病人基本信息与操作按钮 */}
                               <div className="flex justify-between items-start w-full mb-3">
-                                <div 
-                                  className="flex flex-col gap-1 flex-1 min-w-0 cursor-pointer"
+                                <div className="flex flex-col gap-1 flex-1 min-w-0 cursor-pointer"
                                   onClick={(e) => {
                                     e.stopPropagation();
                                     openPatientDetailModal(appointment.patient, 'treatment');
                                   }}
                                 >
                                   <div className="flex items-center gap-2">
-                                    <span className="font-bold text-gray-900 text-lg truncate">{appointment.patient.user.name}</span>
+                                    <span className="font-bold text-gray-900 text-base truncate">{appointment.patient.user.name}</span>
                                     {(() => {
                                       const { text } = getGenderInfo(appointment.patient.user.gender);
                                       const bgClass = text === '男' ? 'bg-blue-100 text-blue-700 border-blue-200' : 'bg-pink-100 text-pink-700 border-pink-200';
                                       return (
-                                        <span className={`px-2 py-0.5 rounded text-xs border ${bgClass} font-bold shadow-sm shrink-0`}>{text}</span>
+                                        <span className={`px-2 py-0.5 rounded text-xs border ${bgClass} font-bold shadow-sm shrink-0 ml-1`}>{text}</span>
                                       );
                                     })()}
                                     {(() => {
@@ -2267,16 +2266,16 @@ export default function DoctorSchedulePage() {
                                   </div>
                                 </div>
 
-                                <div className="flex items-center gap-3 shrink-0 ml-2 pt-0.5">
+                                <div className="flex items-center gap-2 shrink-0 ml-2 pt-1">
                                   <button
                                     onClick={(e) => {
                                       e.stopPropagation();
                                       openPatientDetailModal(appointment.patient, 'treatment');
                                     }}
-                                    className="p-2 rounded-full text-purple-700 bg-purple-100 hover:bg-purple-200 transition-colors shadow-sm border border-purple-200"
+                                    className="p-1.5 rounded-full text-purple-700 bg-purple-100 hover:bg-purple-200 transition-colors shadow-sm border border-purple-200"
                                     title="治疗历史"
                                   >
-                                    <FaHistory className="w-5 h-5" />
+                                    <FaHistory className="w-4 h-4" />
                                   </button>
                                   {normalizeStatus(appointment.status) !== 'NO_SHOW' && normalizeStatus(appointment.status) !== 'CANCELLED' && (
                                     <button
@@ -2284,14 +2283,14 @@ export default function DoctorSchedulePage() {
                                         e.stopPropagation();
                                         openSymptomModal(appointment);
                                       }}
-                                      className={`p-2 rounded-full transition-colors shadow-sm border ${
+                                      className={`p-1.5 rounded-full transition-colors shadow-sm border ${
                                         appointment.symptoms 
                                           ? 'text-green-700 bg-green-100 hover:bg-green-200 border-green-200' 
                                           : 'text-blue-700 bg-blue-100 hover:bg-blue-200 border-blue-200'
                                       }`}
                                       title={appointment.symptoms ? "修改病情/治疗方案" : "录入病情/治疗方案"}
                                     >
-                                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                                       </svg>
                                     </button>
@@ -2299,10 +2298,10 @@ export default function DoctorSchedulePage() {
                                   {!isPast && normalizeStatus(appointment.status) === 'PENDING' && (
                                     <button
                                       onClick={() => openCancelDialog(appointment, schedule, index)}
-                                      className="p-2 rounded-full text-red-600 bg-red-100 hover:bg-red-200 transition-colors shadow-sm border border-red-200"
+                                      className="p-1.5 rounded-full text-red-600 bg-red-100 hover:bg-red-200 transition-colors shadow-sm border border-red-200"
                                       title="取消预约"
                                     >
-                                      <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                                      <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
                                         <path fillRule="evenodd" d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z" clipRule="evenodd" />
                                         <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
                                       </svg>
@@ -2311,10 +2310,10 @@ export default function DoctorSchedulePage() {
                                   {isPast && normalizeStatus(appointment.status) !== 'NO_SHOW' && normalizeStatus(appointment.status) !== 'CANCELLED' && (
                                     <button
                                       onClick={() => openNoShowDialog(appointment, schedule, index)}
-                                      className="p-2 rounded-full text-orange-600 bg-orange-100 hover:bg-orange-200 transition-colors shadow-sm border border-orange-200"
+                                      className="p-1.5 rounded-full text-orange-600 bg-orange-100 hover:bg-orange-200 transition-colors shadow-sm border border-orange-200"
                                       title="标记爽约"
                                     >
-                                      <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                                      <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
                                         <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16z" clipRule="evenodd" />
                                         <path fillRule="evenodd" d="M7 10a3 3 0 116 0 3 3 0 01-6 0z" clipRule="evenodd" />
                                       </svg>
