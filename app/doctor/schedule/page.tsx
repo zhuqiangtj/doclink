@@ -1556,6 +1556,7 @@ export default function DoctorSchedulePage() {
   const [patientDetailTotalCount, setPatientDetailTotalCount] = useState(0);
   const [patientDetailCurrentPage, setPatientDetailCurrentPage] = useState(1);
   const [patientDetailLoading, setPatientDetailLoading] = useState(false);
+  const [patientDetailError, setPatientDetailError] = useState<string | null>(null);
   const [currentPatientId, setCurrentPatientId] = useState<string | null>(null);
   const [currentPatientTab, setCurrentPatientTab] = useState<'overview' | 'treatment' | 'history'>('treatment');
 
@@ -1566,6 +1567,7 @@ export default function DoctorSchedulePage() {
   const fetchPatientAppointments = async (patientId: string, page: number, tab: string) => {
     if (!patientId) return;
     setPatientDetailLoading(true);
+    setPatientDetailError(null);
     try {
       const effectiveTab = tab === 'overview' ? 'treatment' : tab;
       const statusParam = effectiveTab === 'treatment' ? '&status=COMPLETED' : '';
@@ -1600,6 +1602,7 @@ export default function DoctorSchedulePage() {
       }
     } catch (e) {
       console.error("Failed to fetch patient appointments", e);
+      setPatientDetailError('网络问题，加载失败');
     } finally {
       setPatientDetailLoading(false);
     }
@@ -1630,6 +1633,7 @@ export default function DoctorSchedulePage() {
     setCurrentPatientId(patientSource.id);
     setCurrentPatientTab(tab);
     setPatientDetailCurrentPage(1);
+    setPatientDetailError(null);
     
     setIsPatientDetailModalOpen(true);
 
@@ -2776,6 +2780,8 @@ export default function DoctorSchedulePage() {
             fetchPatientAppointments(currentPatientId!, 1, tab);
           }}
           isLoading={patientDetailLoading}
+          error={patientDetailError}
+          onRetry={() => fetchPatientAppointments(currentPatientId!, patientDetailCurrentPage, currentPatientTab)}
         />
       )}
 

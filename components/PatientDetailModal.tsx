@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { FaTimes, FaUser, FaVenusMars, FaBirthdayCake, FaStar, FaNotesMedical, FaUserSlash, FaCalendarAlt, FaChevronLeft, FaChevronRight } from 'react-icons/fa';
+import { FaTimes, FaUser, FaVenusMars, FaBirthdayCake, FaStar, FaNotesMedical, FaUserSlash, FaCalendarAlt, FaChevronLeft, FaChevronRight, FaRedo } from 'react-icons/fa';
 import { getStatusText } from '../utils/statusText';
 
 interface Appointment {
@@ -34,6 +34,8 @@ interface PatientDetailModalProps {
   onPageChange?: (page: number) => void;
   onTabChange?: (tab: 'overview' | 'treatment' | 'history') => void;
   isLoading?: boolean;
+  error?: string | null;
+  onRetry?: () => void;
 }
 
 export default function PatientDetailModal({ 
@@ -46,7 +48,9 @@ export default function PatientDetailModal({
   totalCount,
   onPageChange,
   onTabChange,
-  isLoading = false
+  isLoading = false,
+  error,
+  onRetry
 }: PatientDetailModalProps) {
   const [activeTab, setActiveTab] = useState<'overview' | 'treatment' | 'history'>(initialTab);
   const [historyPage, setHistoryPage] = useState(1);
@@ -287,8 +291,32 @@ export default function PatientDetailModal({
           )}
 
           {activeTab === 'treatment' && (
-            <div className="animate-fadeIn space-y-3">
-              {currentTabAppointments.length > 0 ? (
+            <div className="animate-fadeIn space-y-3 relative min-h-[100px]">
+              {isLoading && (
+                <div className="absolute inset-0 z-10 flex items-center justify-center bg-white/50 rounded-lg">
+                  <div className="bg-black/70 text-white px-4 py-2 rounded-full text-sm font-medium animate-fadeIn shadow-lg backdrop-blur-sm">
+                    正在加载...
+                  </div>
+                </div>
+              )}
+              {!isLoading && error ? (
+                <div className="absolute inset-0 z-10 flex items-center justify-center bg-white/50 rounded-lg">
+                  <div className="flex flex-col items-center gap-3 bg-white/90 p-4 rounded-xl shadow-lg border border-red-100">
+                     <div className="text-red-500 font-medium text-sm flex items-center gap-2">
+                        <FaTimes className="bg-red-100 rounded-full p-0.5" />
+                        {error}
+                     </div>
+                     {onRetry && (
+                        <button 
+                           onClick={onRetry}
+                           className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-1.5 rounded-full text-xs font-medium transition-all shadow-sm flex items-center gap-1.5"
+                        >
+                           <FaRedo className="text-xs" /> 重试
+                        </button>
+                     )}
+                  </div>
+                </div>
+              ) : currentTabAppointments.length > 0 ? (
                 <>
                   {paginatedAppointments.map((apt) => (
                     <div key={apt.id} className="bg-gray-50 rounded-lg p-3 border border-gray-100">
