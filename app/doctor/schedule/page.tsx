@@ -2249,8 +2249,8 @@ export default function DoctorSchedulePage() {
                                     openPatientDetailModal(appointment.patient, 'treatment');
                                   }}
                                 >
-                                  <div className="flex items-center gap-2 overflow-hidden">
-                                    <span className="font-bold text-gray-900 text-lg whitespace-nowrap overflow-hidden text-ellipsis">{appointment.patient.user.name}</span>
+                                  <div className="flex items-center gap-2">
+                                    <span className="font-bold text-gray-900 text-lg truncate min-w-0">{appointment.patient.user.name}</span>
                                     {(() => {
                                       const { text } = getGenderInfo(appointment.patient.user.gender);
                                       const bgClass = text === '男' ? 'bg-blue-100 text-blue-700 border-blue-200' : 'bg-pink-100 text-pink-700 border-pink-200';
