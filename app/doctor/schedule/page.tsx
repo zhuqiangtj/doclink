@@ -1634,6 +1634,7 @@ export default function DoctorSchedulePage() {
     setCurrentPatientTab(tab);
     setPatientDetailCurrentPage(1);
     setPatientDetailError(null);
+    setPatientDetailLoading(true);
 
     setIsPatientDetailModalOpen(true);
 
@@ -2020,8 +2021,8 @@ export default function DoctorSchedulePage() {
                   <div
                     key={index}
                     className={`mobile-time-slot-single-line ${isPast
-                        ? (hasAppointments ? 'mobile-time-slot-past-with-appointments' : 'mobile-time-slot-past')
-                        : (hasAppointments ? 'mobile-time-slot-with-appointments' : 'mobile-time-slot-no-appointments')
+                      ? (hasAppointments ? 'mobile-time-slot-past-with-appointments' : 'mobile-time-slot-past')
+                      : (hasAppointments ? 'mobile-time-slot-with-appointments' : 'mobile-time-slot-no-appointments')
                       } ${!isPast && isModified ? 'mobile-time-slot-modified' : ''} ${expandedActionRows.has(key) ? 'mobile-time-slot-selected' : ''}`}
                     onClick={(e) => {
                       const target = e.target as HTMLElement | null;
@@ -2124,12 +2125,12 @@ export default function DoctorSchedulePage() {
 
                       {/* 預約狀態信息 */}
                       <div className={`mobile-slot-info-inline mobile-slot-info-fluid ${slot.availableBeds <= 0
+                        ? 'mobile-density-high'
+                        : (slot.availableBeds / Math.max(1, slot.bedCount) <= 0.25
                           ? 'mobile-density-high'
-                          : (slot.availableBeds / Math.max(1, slot.bedCount) <= 0.25
-                            ? 'mobile-density-high'
-                            : (slot.availableBeds / Math.max(1, slot.bedCount) <= 0.5
-                              ? 'mobile-density-medium'
-                              : 'mobile-density-low'))
+                          : (slot.availableBeds / Math.max(1, slot.bedCount) <= 0.5
+                            ? 'mobile-density-medium'
+                            : 'mobile-density-low'))
                         }`}>
                         <span className="font-semibold">
                           {slot.bedCount - slot.availableBeds}/{slot.bedCount}
@@ -2146,8 +2147,8 @@ export default function DoctorSchedulePage() {
                           type="button"
                           onClick={() => handleAddAppointment(schedule, index)}
                           className={`mobile-icon-btn-colored ${slot.availableBeds <= 0 || isPast
-                              ? 'mobile-icon-btn-disabled-colored'
-                              : 'mobile-icon-btn-success'
+                            ? 'mobile-icon-btn-disabled-colored'
+                            : 'mobile-icon-btn-success'
                             }`}
                           disabled={slot.availableBeds <= 0 || isPast}
                           title={
@@ -2167,8 +2168,8 @@ export default function DoctorSchedulePage() {
                           onClick={() => handleSaveTimeSlot(schedule.id, index)}
                           disabled={isPast || hasAppointments || !isModified || isSaving || isDeleting || !isValidEdit}
                           className={`mobile-icon-btn-colored ${!isPast && !hasAppointments && isModified && !isSaving && !isDeleting && isValidEdit
-                              ? 'mobile-icon-btn-save-colored'
-                              : 'mobile-icon-btn-disabled-colored'
+                            ? 'mobile-icon-btn-save-colored'
+                            : 'mobile-icon-btn-disabled-colored'
                             }`}
                           title={
                             isPast
@@ -2263,8 +2264,8 @@ export default function DoctorSchedulePage() {
                                 })()}
                                 {appointment.patient.credibilityScore !== undefined && appointment.patient.credibilityScore !== null && (
                                   <span className={`px-2 py-0.5 rounded text-xs border font-bold shadow-sm shrink-0 ml-1 ${appointment.patient.credibilityScore < 60
-                                      ? 'bg-red-100 text-red-700 border-red-200'
-                                      : 'bg-green-100 text-green-700 border-green-200'
+                                    ? 'bg-red-100 text-red-700 border-red-200'
+                                    : 'bg-green-100 text-green-700 border-green-200'
                                     }`}>
                                     积分: {appointment.patient.credibilityScore}
                                   </span>
@@ -2290,8 +2291,8 @@ export default function DoctorSchedulePage() {
                                       openSymptomModal(appointment);
                                     }}
                                     className={`p-1.5 rounded-full transition-colors shadow-sm border ${appointment.symptoms
-                                        ? 'text-green-700 bg-green-100 hover:bg-green-200 border-green-200'
-                                        : 'text-blue-700 bg-blue-100 hover:bg-blue-200 border-blue-200'
+                                      ? 'text-green-700 bg-green-100 hover:bg-green-200 border-green-200'
+                                      : 'text-blue-700 bg-blue-100 hover:bg-blue-200 border-blue-200'
                                       }`}
                                     title={appointment.symptoms ? "修改病情/治疗方案" : "录入病情/治疗方案"}
                                   >
@@ -2370,9 +2371,9 @@ export default function DoctorSchedulePage() {
                                 <div className="flex flex-col gap-0.5 border-l border-gray-100 pl-2">
                                   <span className="text-[10px] text-gray-400">状态</span>
                                   <span className={`font-medium truncate ${statusKey === 'COMPLETED' ? 'text-green-600' :
-                                      statusKey === 'NO_SHOW' ? 'text-red-600' :
-                                        statusKey === 'CANCELLED' ? 'text-gray-400' :
-                                          'text-blue-600'
+                                    statusKey === 'NO_SHOW' ? 'text-red-600' :
+                                      statusKey === 'CANCELLED' ? 'text-gray-400' :
+                                        'text-blue-600'
                                     }`}>
                                     {statusText}
                                     {appointment.symptoms && <span className="text-green-600 ml-1">✓</span>}
@@ -2455,8 +2456,8 @@ export default function DoctorSchedulePage() {
               <button
                 onClick={handleApplyTemplate}
                 className={`mobile-btn flex-1 ${doctorProfile?.Room && doctorProfile.Room.length > 0
-                    ? 'mobile-btn-primary'
-                    : 'mobile-btn-disabled'
+                  ? 'mobile-btn-primary'
+                  : 'mobile-btn-disabled'
                   }`}
                 disabled={isTemplateApplying || !doctorProfile?.Room || doctorProfile.Room.length === 0}
               >
