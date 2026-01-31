@@ -2399,7 +2399,7 @@ export default function DoctorSchedulePage() {
       )}
 
       {isTemplateModalOpen && (
-        <div className="mobile-modal-overlay">
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/30 backdrop-blur-sm p-4 animate-fadeIn">
           <div className="mobile-modal">
             <div className="mobile-modal-header">
               <h2>选择诊室套用模板</h2>
@@ -2652,7 +2652,7 @@ export default function DoctorSchedulePage() {
       )}
 
       {isAddTimeSlotModalOpen && (
-        <div className="mobile-modal-overlay">
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/30 backdrop-blur-sm p-4 animate-fadeIn">
           <div className="mobile-modal mobile-modal-compact">
             <div className="mobile-modal-header">
               <h2 className="text-xl font-bold">新增时段</h2>
