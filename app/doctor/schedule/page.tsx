@@ -2469,7 +2469,7 @@ export default function DoctorSchedulePage() {
       )}
 
       {isBookingModalOpen && (
-        <div className="mobile-modal-overlay">
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/30 backdrop-blur-sm p-4 animate-fadeIn">
           <div className="mobile-modal mobile-modal-compact">
             <div className="mobile-modal-header">
               <h2 className="text-xl font-bold">新增預約</h2>
