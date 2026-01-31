@@ -2140,251 +2140,255 @@ export default function DoctorSchedulePage() {
                     </div>
 
                     {/* 第二行：操作按鈕（可折疊，平鋪三個按鈕）*/}
-                    {expandedActionRows.has(key) && (
-                      <div className="mobile-slot-actions-row">
-                        {/* 新增按鈕 */}
-                        <button
-                          type="button"
-                          onClick={() => handleAddAppointment(schedule, index)}
-                          className={`mobile-icon-btn-colored ${slot.availableBeds <= 0 || isPast
-                            ? 'mobile-icon-btn-disabled-colored'
-                            : 'mobile-icon-btn-success'
-                            }`}
-                          disabled={slot.availableBeds <= 0 || isPast}
-                          title={
-                            isPast
-                              ? "时间已过，无法预约"
-                              : (slot.availableBeds <= 0 ? "已满额" : "新增预约")
-                          }
-                        >
-                          <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                            <path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" />
-                          </svg>
-                        </button>
+                    {/* 可折疊區域容器：包含操作按鈕和患者列表 */}
+                    <div className={`collapsible-wrapper ${expandedActionRows.has(key) ? 'expanded' : ''}`}>
+                      <div className="collapsible-content">
 
-                        {/* 保存按钮 */}
-                        <button
-                          type="button"
-                          onClick={() => handleSaveTimeSlot(schedule.id, index)}
-                          disabled={isPast || hasAppointments || !isModified || isSaving || isDeleting || !isValidEdit}
-                          className={`mobile-icon-btn-colored ${!isPast && !hasAppointments && isModified && !isSaving && !isDeleting && isValidEdit
-                            ? 'mobile-icon-btn-save-colored'
-                            : 'mobile-icon-btn-disabled-colored'
-                            }`}
-                          title={
-                            isPast
-                              ? '时间已过，不可编辑'
-                              : hasAppointments
-                                ? '已有预约，不可编辑该时段'
-                                : (isModified ? (isValidEdit ? '保存变更' : '时间或床位数不合法') : '无变更')
-                          }
-                        >
-                          {isSaving ? (
-                            <span className="mobile-btn-spinner" aria-hidden="true" />
-                          ) : (
+                        {/* 操作按鈕 */}
+                        <div className="mobile-slot-actions-row">
+                          {/* 新增按鈕 */}
+                          <button
+                            type="button"
+                            onClick={() => handleAddAppointment(schedule, index)}
+                            className={`mobile-icon-btn-colored ${slot.availableBeds <= 0 || isPast
+                              ? 'mobile-icon-btn-disabled-colored'
+                              : 'mobile-icon-btn-success'
+                              }`}
+                            disabled={slot.availableBeds <= 0 || isPast}
+                            title={
+                              isPast
+                                ? "时间已过，无法预约"
+                                : (slot.availableBeds <= 0 ? "已满额" : "新增预约")
+                            }
+                          >
                             <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                              <path d="M7.707 10.293a1 1 0 10-1.414 1.414l2 2a1 1 0 001.414 0l4-4a1 1 0 00-1.414-1.414L9 11.586l-1.293-1.293z" />
+                              <path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" />
                             </svg>
-                          )}
-                        </button>
+                          </button>
 
-                        {/* 刪除按鈕 */}
-                        <button
-                          type="button"
-                          onClick={() => handleDeleteTimeSlot(schedule.id, slot.id)}
-                          disabled={isPast || hasAppointments || isSaving || isDeleting}
-                          className={`mobile-icon-btn-colored mobile-icon-btn-delete-colored ${(isPast || hasAppointments || isSaving || isDeleting) ? 'mobile-icon-btn-disabled-colored' : ''
-                            }`}
-                          title={
-                            isPast
-                              ? '時間已過，不可刪除'
-                              : (hasAppointments ? '已有预约，不可刪除該時段' : '刪除時段')
-                          }
-                        >
-                          {isDeleting ? (
-                            <span className="mobile-btn-spinner" aria-hidden="true" />
-                          ) : (
-                            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                              <path fillRule="evenodd" d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z" clipRule="evenodd" />
-                              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-                            </svg>
-                          )}
-                        </button>
+                          {/* 保存按钮 */}
+                          <button
+                            type="button"
+                            onClick={() => handleSaveTimeSlot(schedule.id, index)}
+                            disabled={isPast || hasAppointments || !isModified || isSaving || isDeleting || !isValidEdit}
+                            className={`mobile-icon-btn-colored ${!isPast && !hasAppointments && isModified && !isSaving && !isDeleting && isValidEdit
+                              ? 'mobile-icon-btn-save-colored'
+                              : 'mobile-icon-btn-disabled-colored'
+                              }`}
+                            title={
+                              isPast
+                                ? '时间已过，不可编辑'
+                                : hasAppointments
+                                  ? '已有预约，不可编辑该时段'
+                                  : (isModified ? (isValidEdit ? '保存变更' : '时间或床位数不合法') : '无变更')
+                            }
+                          >
+                            {isSaving ? (
+                              <span className="mobile-btn-spinner" aria-hidden="true" />
+                            ) : (
+                              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                                <path d="M7.707 10.293a1 1 0 10-1.414 1.414l2 2a1 1 0 001.414 0l4-4a1 1 0 00-1.414-1.414L9 11.586l-1.293-1.293z" />
+                              </svg>
+                            )}
+                          </button>
 
-                      </div>
-                    )}
+                          {/* 刪除按鈕 */}
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteTimeSlot(schedule.id, slot.id)}
+                            disabled={isPast || hasAppointments || isSaving || isDeleting}
+                            className={`mobile-icon-btn-colored mobile-icon-btn-delete-colored ${(isPast || hasAppointments || isSaving || isDeleting) ? 'mobile-icon-btn-disabled-colored' : ''
+                              }`}
+                            title={
+                              isPast
+                                ? '時間已過，不可刪除'
+                                : (hasAppointments ? '已有预约，不可刪除該時段' : '刪除時段')
+                            }
+                          >
+                            {isDeleting ? (
+                              <span className="mobile-btn-spinner" aria-hidden="true" />
+                            ) : (
+                              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                                <path fillRule="evenodd" d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z" clipRule="evenodd" />
+                                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                              </svg>
+                            )}
+                          </button>
+                        </div>
 
-                    {/* 已預約患者列表 - 展開時直接顯示 */}
-                    {slot.appointments.length > 0 && expandedActionRows.has(key) && (
-                      <div className="mobile-patient-list-inline">
-                        {slot.appointments.map((appointment, apptIndex) => {
-                          const operatedAtString = (appointment.history && appointment.history.length > 0)
-                            ? new Date(appointment.history[0].operatedAt).toLocaleString('zh-TW', {
-                              year: 'numeric',
-                              month: '2-digit',
-                              day: '2-digit',
-                              hour: '2-digit',
-                              minute: '2-digit',
-                              hour12: false,
-                            })
-                            : `${schedule.date} ${appointment.time}`;
+                        {/* 已預約患者列表 - 始終渲染，通過 wrapper 控制顯示 */}
+                        {slot.appointments.length > 0 && (
+                          <div className="mobile-patient-list-inline">
+                            {slot.appointments.map((appointment, apptIndex) => {
+                              const operatedAtString = (appointment.history && appointment.history.length > 0)
+                                ? new Date(appointment.history[0].operatedAt).toLocaleString('zh-TW', {
+                                  year: 'numeric',
+                                  month: '2-digit',
+                                  day: '2-digit',
+                                  hour: '2-digit',
+                                  minute: '2-digit',
+                                  hour12: false,
+                                })
+                                : `${schedule.date} ${appointment.time}`;
 
-                          const statusKey = normalizeStatus(appointment.status);
-                          const statusText = (getStatusText(statusKey) || '').trim() || '待就诊';
-                          const statusClassKey = statusKey.toLowerCase().replace('_', '-');
+                              const statusKey = normalizeStatus(appointment.status);
+                              const statusText = (getStatusText(statusKey) || '').trim() || '待就诊';
+                              const statusClassKey = statusKey.toLowerCase().replace('_', '-');
 
-                          return (
-                            <div key={apptIndex} className={`rounded-xl shadow-lg border border-gray-300 p-3 mb-3 bg-gradient-to-b from-white to-gray-50 ${statusKey === 'NO_SHOW' ? 'from-red-50 to-red-100 border-red-200' : ''}`}
-                              onClick={(e) => {
-                                e.stopPropagation(); // 防止冒泡触发折叠
-                                openPatientDetailModal(appointment.patient, 'treatment');
-                              }}
-                            >
-                              {/* 第一行：姓名、性别、年龄 */}
-                              <div
-                                className="flex items-center gap-2 mb-2 w-full cursor-pointer"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  openPatientDetailModal(appointment.patient, 'treatment');
-                                }}
-                              >
-                                <span className="font-bold text-gray-900 text-base truncate">{appointment.patient.user.name}</span>
-                                {(() => {
-                                  const { text } = getGenderInfo(appointment.patient.user.gender);
-                                  const bgClass = text === '男' ? 'bg-blue-100 text-blue-700 border-blue-200' : 'bg-pink-100 text-pink-700 border-pink-200';
-                                  return (
-                                    <span className={`px-2 py-0.5 rounded text-xs border ${bgClass} font-bold shadow-sm shrink-0 ml-1`}>{text}</span>
-                                  );
-                                })()}
-                                {(() => {
-                                  const age = calcAgeFromBirthDate(appointment.patient.user.dateOfBirth);
-                                  return (
-                                    <span className="px-2 py-0.5 rounded text-xs bg-amber-100 text-amber-800 border border-amber-200 font-bold shadow-sm shrink-0">{age != null ? `${age}岁` : '未知'}</span>
-                                  );
-                                })()}
-                                {appointment.patient.credibilityScore !== undefined && appointment.patient.credibilityScore !== null && (
-                                  <span className={`px-2 py-0.5 rounded text-xs border font-bold shadow-sm shrink-0 ml-1 ${appointment.patient.credibilityScore < 60
-                                    ? 'bg-red-100 text-red-700 border-red-200'
-                                    : 'bg-green-100 text-green-700 border-green-200'
-                                    }`}>
-                                    积分: {appointment.patient.credibilityScore}
-                                  </span>
-                                )}
-                              </div>
-
-                              {/* 第二行：操作按钮 */}
-                              <div className="flex items-center gap-3 mb-3 w-full">
-                                <button
+                              return (
+                                <div key={apptIndex} className={`rounded-xl shadow-lg border border-gray-300 p-3 mb-3 bg-gradient-to-b from-white to-gray-50 ${statusKey === 'NO_SHOW' ? 'from-red-50 to-red-100 border-red-200' : ''}`}
                                   onClick={(e) => {
-                                    e.stopPropagation();
+                                    e.stopPropagation(); // 防止冒泡触发折叠
                                     openPatientDetailModal(appointment.patient, 'treatment');
                                   }}
-                                  className="p-1.5 rounded-full text-purple-700 bg-purple-100 hover:bg-purple-200 transition-colors shadow-sm border border-purple-200"
-                                  title="治疗历史"
                                 >
-                                  <FaHistory className="w-4 h-4" />
-                                </button>
-                                {normalizeStatus(appointment.status) !== 'NO_SHOW' && normalizeStatus(appointment.status) !== 'CANCELLED' && (
-                                  <button
+                                  {/* 第一行：姓名、性别、年龄 */}
+                                  <div
+                                    className="flex items-center gap-2 mb-2 w-full cursor-pointer"
                                     onClick={(e) => {
                                       e.stopPropagation();
-                                      openSymptomModal(appointment);
+                                      openPatientDetailModal(appointment.patient, 'treatment');
                                     }}
-                                    className={`p-1.5 rounded-full transition-colors shadow-sm border ${appointment.symptoms
-                                      ? 'text-green-700 bg-green-100 hover:bg-green-200 border-green-200'
-                                      : 'text-blue-700 bg-blue-100 hover:bg-blue-200 border-blue-200'
-                                      }`}
-                                    title={appointment.symptoms ? "修改病情/治疗方案" : "录入病情/治疗方案"}
                                   >
-                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                                    </svg>
-                                  </button>
-                                )}
-                                {!isPast && normalizeStatus(appointment.status) === 'PENDING' && (
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      openCancelDialog(appointment, schedule, index);
-                                    }}
-                                    className="p-1.5 rounded-full text-red-600 bg-red-100 hover:bg-red-200 transition-colors shadow-sm border border-red-200"
-                                    title="取消预约"
-                                  >
-                                    <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                                      <path fillRule="evenodd" d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z" clipRule="evenodd" />
-                                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-                                    </svg>
-                                  </button>
-                                )}
-                                {isPast && normalizeStatus(appointment.status) !== 'NO_SHOW' && normalizeStatus(appointment.status) !== 'CANCELLED' && (
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      openNoShowDialog(appointment, schedule, index);
-                                    }}
-                                    className="p-1.5 rounded-full text-orange-600 bg-orange-100 hover:bg-orange-200 transition-colors shadow-sm border border-orange-200"
-                                    title="标记爽约"
-                                  >
-                                    <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16z" clipRule="evenodd" />
-                                      <path fillRule="evenodd" d="M7 10a3 3 0 116 0 3 3 0 01-6 0z" clipRule="evenodd" />
-                                    </svg>
-                                  </button>
-                                )}
-                              </div>
+                                    <span className="font-bold text-gray-900 text-base truncate">{appointment.patient.user.name}</span>
+                                    {(() => {
+                                      const { text } = getGenderInfo(appointment.patient.user.gender);
+                                      const bgClass = text === '男' ? 'bg-blue-100 text-blue-700 border-blue-200' : 'bg-pink-100 text-pink-700 border-pink-200';
+                                      return (
+                                        <span className={`px-2 py-0.5 rounded text-xs border ${bgClass} font-bold shadow-sm shrink-0 ml-1`}>{text}</span>
+                                      );
+                                    })()}
+                                    {(() => {
+                                      const age = calcAgeFromBirthDate(appointment.patient.user.dateOfBirth);
+                                      return (
+                                        <span className="px-2 py-0.5 rounded text-xs bg-amber-100 text-amber-800 border border-amber-200 font-bold shadow-sm shrink-0">{age != null ? `${age}岁` : '未知'}</span>
+                                      );
+                                    })()}
+                                    {appointment.patient.credibilityScore !== undefined && appointment.patient.credibilityScore !== null && (
+                                      <span className={`px-2 py-0.5 rounded text-xs border font-bold shadow-sm shrink-0 ml-1 ${appointment.patient.credibilityScore < 60
+                                        ? 'bg-red-100 text-red-700 border-red-200'
+                                        : 'bg-green-100 text-green-700 border-green-200'
+                                        }`}>
+                                        积分: {appointment.patient.credibilityScore}
+                                      </span>
+                                    )}
+                                  </div>
 
-                              {/* 下部分：详细信息平铺展示 */}
-                              <div
-                                className="grid grid-cols-4 gap-2 text-xs text-gray-600 w-full bg-white/60 p-2 rounded-lg border border-gray-100 cursor-pointer shadow-inner"
-                                onClick={() => openPatientDetailModal(appointment.patient, 'treatment')}
-                              >
-                                <div className="flex flex-col gap-0.5">
-                                  <span className="text-[10px] text-gray-400">操作时间</span>
-                                  <span className="font-medium text-gray-700 truncate" title={operatedAtString}>
-                                    {operatedAtString.split(' ')[1] || operatedAtString}
-                                  </span>
+                                  {/* 第二行：操作按钮 */}
+                                  <div className="flex items-center gap-3 mb-3 w-full">
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        openPatientDetailModal(appointment.patient, 'treatment');
+                                      }}
+                                      className="p-1.5 rounded-full text-purple-700 bg-purple-100 hover:bg-purple-200 transition-colors shadow-sm border border-purple-200"
+                                      title="治疗历史"
+                                    >
+                                      <FaHistory className="w-4 h-4" />
+                                    </button>
+                                    {normalizeStatus(appointment.status) !== 'NO_SHOW' && normalizeStatus(appointment.status) !== 'CANCELLED' && (
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          openSymptomModal(appointment);
+                                        }}
+                                        className={`p-1.5 rounded-full transition-colors shadow-sm border ${appointment.symptoms
+                                          ? 'text-green-700 bg-green-100 hover:bg-green-200 border-green-200'
+                                          : 'text-blue-700 bg-blue-100 hover:bg-blue-200 border-blue-200'
+                                          }`}
+                                        title={appointment.symptoms ? "修改病情/治疗方案" : "录入病情/治疗方案"}
+                                      >
+                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                        </svg>
+                                      </button>
+                                    )}
+                                    {!isPast && normalizeStatus(appointment.status) === 'PENDING' && (
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          openCancelDialog(appointment, schedule, index);
+                                        }}
+                                        className="p-1.5 rounded-full text-red-600 bg-red-100 hover:bg-red-200 transition-colors shadow-sm border border-red-200"
+                                        title="取消预约"
+                                      >
+                                        <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                                          <path fillRule="evenodd" d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z" clipRule="evenodd" />
+                                          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                                        </svg>
+                                      </button>
+                                    )}
+                                    {isPast && normalizeStatus(appointment.status) !== 'NO_SHOW' && normalizeStatus(appointment.status) !== 'CANCELLED' && (
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          openNoShowDialog(appointment, schedule, index);
+                                        }}
+                                        className="p-1.5 rounded-full text-orange-600 bg-orange-100 hover:bg-orange-200 transition-colors shadow-sm border border-orange-200"
+                                        title="标记爽约"
+                                      >
+                                        <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                                          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16z" clipRule="evenodd" />
+                                          <path fillRule="evenodd" d="M7 10a3 3 0 116 0 3 3 0 01-6 0z" clipRule="evenodd" />
+                                        </svg>
+                                      </button>
+                                    )}
+                                  </div>
+
+                                  {/* 下部分：详细信息平铺展示 */}
+                                  <div
+                                    className="grid grid-cols-4 gap-2 text-xs text-gray-600 w-full bg-white/60 p-2 rounded-lg border border-gray-100 cursor-pointer shadow-inner"
+                                    onClick={() => openPatientDetailModal(appointment.patient, 'treatment')}
+                                  >
+                                    <div className="flex flex-col gap-0.5">
+                                      <span className="text-[10px] text-gray-400">操作时间</span>
+                                      <span className="font-medium text-gray-700 truncate" title={operatedAtString}>
+                                        {operatedAtString.split(' ')[1] || operatedAtString}
+                                      </span>
+                                    </div>
+                                    <div className="flex flex-col gap-0.5 border-l border-gray-100 pl-2">
+                                      <span className="text-[10px] text-gray-400">操作员</span>
+                                      <span className="font-medium text-gray-700 truncate" title={
+                                        appointment.history && appointment.history.length > 0
+                                          ? appointment.history[0].operatorName
+                                          : ((appointment.reason === '医生预约')
+                                            ? (doctorProfile?.name || session?.user?.name || '医生')
+                                            : appointment.patient.user.name)
+                                      }>
+                                        {appointment.history && appointment.history.length > 0
+                                          ? appointment.history[0].operatorName
+                                          : ((appointment.reason === '医生预约')
+                                            ? (doctorProfile?.name || session?.user?.name || '医生')
+                                            : appointment.patient.user.name)}
+                                      </span>
+                                    </div>
+                                    <div className="flex flex-col gap-0.5 border-l border-gray-100 pl-2">
+                                      <span className="text-[10px] text-gray-400">角色</span>
+                                      <span className="font-medium text-gray-700 truncate">
+                                        {(appointment.history && appointment.history.length > 0)
+                                          ? ((appointment.reason === '医生预约') ? '医生' : '患者')
+                                          : ((appointment.reason === '医生预约' || appointment.user.role === 'DOCTOR') ? '医生' : '患者')}
+                                      </span>
+                                    </div>
+                                    <div className="flex flex-col gap-0.5 border-l border-gray-100 pl-2">
+                                      <span className="text-[10px] text-gray-400">状态</span>
+                                      <span className={`font-medium truncate ${statusKey === 'COMPLETED' ? 'text-green-600' :
+                                        statusKey === 'NO_SHOW' ? 'text-red-600' :
+                                          statusKey === 'CANCELLED' ? 'text-gray-400' :
+                                            'text-blue-600'
+                                        }`}>
+                                        {statusText}
+                                        {appointment.symptoms && <span className="text-green-600 ml-1">✓</span>}
+                                      </span>
+                                    </div>
+                                  </div>
                                 </div>
-                                <div className="flex flex-col gap-0.5 border-l border-gray-100 pl-2">
-                                  <span className="text-[10px] text-gray-400">操作员</span>
-                                  <span className="font-medium text-gray-700 truncate" title={
-                                    appointment.history && appointment.history.length > 0
-                                      ? appointment.history[0].operatorName
-                                      : ((appointment.reason === '医生预约')
-                                        ? (doctorProfile?.name || session?.user?.name || '医生')
-                                        : appointment.patient.user.name)
-                                  }>
-                                    {appointment.history && appointment.history.length > 0
-                                      ? appointment.history[0].operatorName
-                                      : ((appointment.reason === '医生预约')
-                                        ? (doctorProfile?.name || session?.user?.name || '医生')
-                                        : appointment.patient.user.name)}
-                                  </span>
-                                </div>
-                                <div className="flex flex-col gap-0.5 border-l border-gray-100 pl-2">
-                                  <span className="text-[10px] text-gray-400">角色</span>
-                                  <span className="font-medium text-gray-700 truncate">
-                                    {(appointment.history && appointment.history.length > 0)
-                                      ? ((appointment.reason === '医生预约') ? '医生' : '患者')
-                                      : ((appointment.reason === '医生预约' || appointment.user.role === 'DOCTOR') ? '医生' : '患者')}
-                                  </span>
-                                </div>
-                                <div className="flex flex-col gap-0.5 border-l border-gray-100 pl-2">
-                                  <span className="text-[10px] text-gray-400">状态</span>
-                                  <span className={`font-medium truncate ${statusKey === 'COMPLETED' ? 'text-green-600' :
-                                    statusKey === 'NO_SHOW' ? 'text-red-600' :
-                                      statusKey === 'CANCELLED' ? 'text-gray-400' :
-                                        'text-blue-600'
-                                    }`}>
-                                    {statusText}
-                                    {appointment.symptoms && <span className="text-green-600 ml-1">✓</span>}
-                                  </span>
-                                </div>
-                              </div>
-                            </div>
-                          );
-                        })}
+                              );
+                            })}
+                          </div>
+                        )}
                       </div>
-                    )}
+                    </div>
                   </div>
                 );
               }) : (

@@ -1,3 +1,4 @@
+@import './mobile-animations.css';
 /* 手機端優化樣式 - 全面重構 */
 
 /* 基礎重置和變量 */
@@ -47,7 +48,8 @@ body {
   align-items: center;
   justify-content: flex-start;
   min-height: 100vh;
-  padding: var(--spacing-xs); /* 减少内边距以增加可用宽度 */
+  padding: var(--spacing-xs);
+  /* 减少内边距以增加可用宽度 */
   background-color: var(--background-color);
   width: 100%;
   max-width: 1200px;
@@ -92,8 +94,10 @@ body {
   border: 1px solid var(--border-color);
   margin-bottom: var(--spacing-sm);
   width: 100%;
-  max-width: 100% !important; /* 使用全寬以顯示更多橫向內容 */
-  box-sizing: border-box; /* 確保padding不影響總寬度 */
+  max-width: 100% !important;
+  /* 使用全寬以顯示更多橫向內容 */
+  box-sizing: border-box;
+  /* 確保padding不影響總寬度 */
 }
 
 /* 區段標題 */
@@ -157,8 +161,10 @@ body {
   border: none;
   cursor: pointer;
   transition: all 0.2s;
-  width: 100%; /* 默認全寬 */
-  min-height: 48px; /* 確保觸控區域 */
+  width: 100%;
+  /* 默認全寬 */
+  min-height: 48px;
+  /* 確保觸控區域 */
   text-decoration: none;
 }
 
@@ -231,8 +237,13 @@ body {
 }
 
 @keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
+  0% {
+    transform: rotate(0deg);
+  }
+
+  100% {
+    transform: rotate(360deg);
+  }
 }
 
 /* Global Loading Overlay */
@@ -293,7 +304,8 @@ body {
   bottom: 0;
   background-color: rgba(0, 0, 0, 0.5);
   display: flex;
-  align-items: center; /* 居中對齊 */
+  align-items: center;
+  /* 居中對齊 */
   justify-content: center;
   z-index: 1000;
   padding: 1rem;
@@ -306,13 +318,17 @@ body {
   max-width: 500px;
   border-radius: 12px;
   padding: var(--spacing-lg);
-  height: auto; /* Ensure height adapts to content */
-  max-height: 85vh; /* Limit max height */
+  height: auto;
+  /* Ensure height adapts to content */
+  max-height: 85vh;
+  /* Limit max height */
   display: flex;
   flex-direction: column;
   box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
-  margin: auto; /* Ensure centering as fallback */
-  position: relative; /* Context for children */
+  margin: auto;
+  /* Ensure centering as fallback */
+  position: relative;
+  /* Context for children */
 }
 
 /* Compact Modal alias - behaves same as standard modal now */
@@ -321,13 +337,25 @@ body {
 }
 
 @keyframes fadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
 }
 
 @keyframes scaleIn {
-  from { transform: scale(0.95); opacity: 0; }
-  to { transform: scale(1); opacity: 1; }
+  from {
+    transform: scale(0.95);
+    opacity: 0;
+  }
+
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
 }
 
 .mobile-modal-header {
@@ -346,12 +374,18 @@ body {
 /* Modal Content - Handle scrolling internally */
 .mobile-modal-content {
   margin-bottom: var(--spacing-lg);
-  overflow-y: auto; /* Scroll only content if needed */
-  flex: 1 1 auto; /* Allow shrinking/growing but prioritize content size */
-  min-height: 0; /* Critical for nested flex scrolling */
-  padding: 4px; /* Prevent shadow/ring clipping */
-  margin-left: -4px; /* Compensate padding */
-  margin-right: -4px; /* Compensate padding */
+  overflow-y: auto;
+  /* Scroll only content if needed */
+  flex: 1 1 auto;
+  /* Allow shrinking/growing but prioritize content size */
+  min-height: 0;
+  /* Critical for nested flex scrolling */
+  padding: 4px;
+  /* Prevent shadow/ring clipping */
+  margin-left: -4px;
+  /* Compensate padding */
+  margin-right: -4px;
+  /* Compensate padding */
 }
 
 .mobile-modal-footer {
@@ -390,16 +424,40 @@ body {
   animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }
 
-.mobile-skeleton-w100 { width: 100%; }
-.mobile-skeleton-w75 { width: 75%; }
-.mobile-skeleton-w50 { width: 50%; }
-.mobile-skeleton-w33 { width: 33%; }
-.mobile-skeleton-mb8 { margin-bottom: 8px; }
-.mobile-skeleton-mb12 { margin-bottom: 12px; }
+.mobile-skeleton-w100 {
+  width: 100%;
+}
+
+.mobile-skeleton-w75 {
+  width: 75%;
+}
+
+.mobile-skeleton-w50 {
+  width: 50%;
+}
+
+.mobile-skeleton-w33 {
+  width: 33%;
+}
+
+.mobile-skeleton-mb8 {
+  margin-bottom: 8px;
+}
+
+.mobile-skeleton-mb12 {
+  margin-bottom: 12px;
+}
 
 @keyframes pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: .5; }
+
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: .5;
+  }
 }
 
 /* Search Results in Modal */
@@ -465,8 +523,15 @@ body {
 }
 
 @keyframes scaleIn {
-  from { transform: scale(0.95); opacity: 0; }
-  to { transform: scale(1); opacity: 1; }
+  from {
+    transform: scale(0.95);
+    opacity: 0;
+  }
+
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
 }
 
 .mobile-dialog-header {
@@ -577,19 +642,24 @@ body {
 
 /* Time Slot Row Styles - Restored & Enhanced for Apple Style */
 .mobile-time-slot-single-line {
-  background-color: #eff6ff; /* Light blue background for active slots */
-  border-radius: 16px; /* Larger border radius for card style */
-  margin-bottom: var(--spacing-md); /* More spacing between cards */
-  padding: 1rem; /* More padding */
+  background-color: #eff6ff;
+  /* Light blue background for active slots */
+  border-radius: 16px;
+  /* Larger border radius for card style */
+  margin-bottom: var(--spacing-md);
+  /* More spacing between cards */
+  padding: 1rem;
+  /* More padding */
   transition: all 0.2s cubic-bezier(0.2, 0.8, 0.2, 1);
   cursor: pointer;
   display: flex;
   flex-direction: column;
   gap: var(--spacing-sm);
-  
+
   /* Stronger border and shadow for depth */
   box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-  border: 1px solid #60a5fa; /* Blue-400 - Distinct border */
+  border: 1px solid #60a5fa;
+  /* Blue-400 - Distinct border */
 }
 
 .mobile-time-slot-single-line:active {
@@ -602,8 +672,10 @@ body {
 /* Has Appointments: Distinct Green Tone */
 .mobile-time-slot-with-appointments {
   background: linear-gradient(to bottom right, #f0fdf4, #ffffff);
-  border-left: 4px solid #10b981; /* Solid green indicator */
-  border-top: 1px solid #86efac; /* Green-300 */
+  border-left: 4px solid #10b981;
+  /* Solid green indicator */
+  border-top: 1px solid #86efac;
+  /* Green-300 */
   border-right: 1px solid #86efac;
   border-bottom: 1px solid #86efac;
 }
@@ -611,48 +683,63 @@ body {
 /* No Appointments: Light Blue Base */
 .mobile-time-slot-no-appointments {
   background-color: #eff6ff;
-  border-left: 4px solid #3b82f6; /* Blue indicator */
+  border-left: 4px solid #3b82f6;
+  /* Blue indicator */
 }
 
 /* Past: Enhanced Visibility for Expired Items - Blue Grey Theme */
 .mobile-time-slot-past {
-  background-color: #f1f5f9; /* Slate-100 */
-  border: 1px solid #94a3b8; /* Slate-400 - Blue Grey Border */
+  background-color: #f1f5f9;
+  /* Slate-100 */
+  border: 1px solid #94a3b8;
+  /* Slate-400 - Blue Grey Border */
   opacity: 1;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
-  border-left: 4px solid #64748b; /* Slate-500 - Stronger Blue Grey Indicator */
+  border-left: 4px solid #64748b;
+  /* Slate-500 - Stronger Blue Grey Indicator */
 }
 
 .mobile-time-slot-past .mobile-time-input-inline,
 .mobile-time-slot-past .mobile-total-input-inline {
-  background-color: #e2e8f0; /* Slate-200 */
-  color: #475569; /* Slate-600 - Blue Grey Text */
-  border: 1px solid #cbd5e1; /* Slate-300 - Blue Grey Border */
+  background-color: #e2e8f0;
+  /* Slate-200 */
+  color: #475569;
+  /* Slate-600 - Blue Grey Text */
+  border: 1px solid #cbd5e1;
+  /* Slate-300 - Blue Grey Border */
   font-weight: 500;
 }
 
 /* Past with Appointments: Dark Green Theme */
 .mobile-time-slot-past-with-appointments {
-  background-color: #ecfdf5; /* Emerald-50 */
-  border: 1px solid #059669; /* Emerald-600 - Dark Green Border */
+  background-color: #ecfdf5;
+  /* Emerald-50 */
+  border: 1px solid #059669;
+  /* Emerald-600 - Dark Green Border */
   opacity: 1;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
-  border-left: 4px solid #047857; /* Emerald-700 - Dark Green Indicator */
+  border-left: 4px solid #047857;
+  /* Emerald-700 - Dark Green Indicator */
 }
 
 .mobile-time-slot-past-with-appointments .mobile-time-input-inline,
 .mobile-time-slot-past-with-appointments .mobile-total-input-inline {
-  background-color: #d1fae5; /* Emerald-100 */
-  color: #064e3b; /* Emerald-900 - Dark Green Text */
-  border: 1px solid #34d399; /* Emerald-400 - Green Border */
+  background-color: #d1fae5;
+  /* Emerald-100 */
+  color: #064e3b;
+  /* Emerald-900 - Dark Green Text */
+  border: 1px solid #34d399;
+  /* Emerald-400 - Green Border */
   font-weight: 500;
 }
 
 /* Modified: Amber Highlight */
 .mobile-time-slot-modified {
-  border-left-color: #f59e0b; /* Override left border color */
+  border-left-color: #f59e0b;
+  /* Override left border color */
   background: linear-gradient(to bottom right, #fffbeb, #ffffff);
-  border: 1px solid #fcd34d; /* Amber-300 */
+  border: 1px solid #fcd34d;
+  /* Amber-300 */
 }
 
 /* Selected: Blue Focus Ring */
@@ -665,7 +752,8 @@ body {
 
 /* Ensure inputs inside colored rows stand out */
 .mobile-time-slot-with-appointments input {
-  border-color: #10b981; /* Green-500 */
+  border-color: #10b981;
+  /* Green-500 */
   background-color: #f0fdf4;
   color: #064e3b;
 }
@@ -679,15 +767,19 @@ body {
 .mobile-time-input-inline,
 .mobile-total-input-inline {
   padding: 0.5rem;
-  border: 1px solid #93c5fd; /* Blue-300 */
+  border: 1px solid #93c5fd;
+  /* Blue-300 */
   background-color: white;
-  color: #1e3a8a; /* Blue-900 - Dark blue text */
+  color: #1e3a8a;
+  /* Blue-900 - Dark blue text */
   border-radius: var(--border-radius-sm);
   font-size: 0.9rem;
-  font-weight: 500; /* Bolder text */
+  font-weight: 500;
+  /* Bolder text */
   text-align: center;
   transition: border-color 0.2s;
-  height: 40px; /* Match button height usually */
+  height: 40px;
+  /* Match button height usually */
 }
 
 .mobile-time-input-inline:focus,
@@ -707,7 +799,8 @@ body {
 
 /* Base colored icon button */
 .mobile-icon-btn-colored {
-  flex: 1; /* Equal width */
+  flex: 1;
+  /* Equal width */
   display: flex;
   align-items: center;
   justify-content: center;
@@ -718,7 +811,8 @@ body {
   font-size: 1rem;
   cursor: pointer;
   transition: all 0.2s;
-  min-height: 44px; /* Ensure clickable area */
+  min-height: 44px;
+  /* Ensure clickable area */
 }
 
 .mobile-icon-btn-colored svg {
@@ -728,35 +822,44 @@ body {
 
 /* Success/Add Button */
 .mobile-icon-btn-success {
-  background-color: var(--success-color); /* Green */
+  background-color: var(--success-color);
+  /* Green */
 }
+
 .mobile-icon-btn-success:active {
   background-color: #059669;
 }
 
 /* Save Button */
 .mobile-icon-btn-save-colored {
-  background-color: var(--primary-color); /* Blue */
+  background-color: var(--primary-color);
+  /* Blue */
 }
+
 .mobile-icon-btn-save-colored:active {
   background-color: var(--primary-hover);
 }
 
 /* Delete Button */
 .mobile-icon-btn-delete-colored {
-  background-color: var(--danger-color); /* Red */
+  background-color: var(--danger-color);
+  /* Red */
 }
+
 .mobile-icon-btn-delete-colored:active {
   background-color: #dc2626;
 }
 
 /* Disabled State - Enhanced Visibility */
 .mobile-icon-btn-disabled-colored {
-  background-color: #d1d5db; /* Gray-300 - Darker than before */
-  color: #6b7280; /* Gray-500 - Darker than before */
+  background-color: #d1d5db;
+  /* Gray-300 - Darker than before */
+  color: #6b7280;
+  /* Gray-500 - Darker than before */
   cursor: not-allowed;
   pointer-events: none;
-  border: 1px solid #9ca3af; /* Add border for visibility */
+  border: 1px solid #9ca3af;
+  /* Add border for visibility */
 }
 
 /* Patient List Styles - Inline Version (Restored) */
@@ -815,39 +918,96 @@ body {
   line-height: 1.2;
 }
 
-.credit-inline-badge { background-color: #f3f4f6; color: #4b5563; }
-.credit-good { background-color: #ecfdf5; color: #059669; }
-.credit-medium { background-color: #fffbeb; color: #d97706; }
-.credit-low { background-color: #fef2f2; color: #dc2626; }
-.credit-neutral { background-color: #f3f4f6; color: #4b5563; }
+.credit-inline-badge {
+  background-color: #f3f4f6;
+  color: #4b5563;
+}
 
-.gender-inline-badge { background-color: #eff6ff; color: #3b82f6; }
-.gender-female { background-color: #fdf2f8; color: #db2777; }
-.gender-other { background-color: #f3f4f6; color: #6b7280; }
+.credit-good {
+  background-color: #ecfdf5;
+  color: #059669;
+}
 
-.age-inline-badge { background-color: #f3f4f6; color: #4b5563; }
-.phone-inline-badge { background-color: #f0fdf4; color: #15803d; text-decoration: none; }
+.credit-medium {
+  background-color: #fffbeb;
+  color: #d97706;
+}
 
-.mobile-status-badge-inline { background-color: #f3f4f6; color: #4b5563; }
-.mobile-status-completed { background-color: #ecfdf5; color: #059669; }
-.mobile-status-cancelled { background-color: #fef2f2; color: #dc2626; text-decoration: line-through; }
-.mobile-status-no-show { background-color: #fef2f2; color: #dc2626; }
+.credit-low {
+  background-color: #fef2f2;
+  color: #dc2626;
+}
+
+.credit-neutral {
+  background-color: #f3f4f6;
+  color: #4b5563;
+}
+
+.gender-inline-badge {
+  background-color: #eff6ff;
+  color: #3b82f6;
+}
+
+.gender-female {
+  background-color: #fdf2f8;
+  color: #db2777;
+}
+
+.gender-other {
+  background-color: #f3f4f6;
+  color: #6b7280;
+}
+
+.age-inline-badge {
+  background-color: #f3f4f6;
+  color: #4b5563;
+}
+
+.phone-inline-badge {
+  background-color: #f0fdf4;
+  color: #15803d;
+  text-decoration: none;
+}
+
+.mobile-status-badge-inline {
+  background-color: #f3f4f6;
+  color: #4b5563;
+}
+
+.mobile-status-completed {
+  background-color: #ecfdf5;
+  color: #059669;
+}
+
+.mobile-status-cancelled {
+  background-color: #fef2f2;
+  color: #dc2626;
+  text-decoration: line-through;
+}
+
+.mobile-status-no-show {
+  background-color: #fef2f2;
+  color: #dc2626;
+}
 
 /* The Button Style */
 .mobile-patient-delete-btn-inline {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 36px; /* Increased size for visibility */
+  width: 36px;
+  /* Increased size for visibility */
   height: 36px;
   border-radius: 50%;
-  background-color: #fee2e2; /* Light red background */
-  color: #ef4444; /* Red icon */
+  background-color: #fee2e2;
+  /* Light red background */
+  color: #ef4444;
+  /* Red icon */
   border: none;
   cursor: pointer;
   transition: all 0.2s;
   flex-shrink: 0;
-  box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
 }
 
 .mobile-patient-delete-btn-inline:active {
@@ -856,12 +1016,14 @@ body {
 }
 
 .mobile-patient-delete-btn-inline svg {
-  width: 18px !important; /* Force larger icon size */
+  width: 18px !important;
+  /* Force larger icon size */
   height: 18px !important;
 }
 
 /* No Show Item State */
 .mobile-patient-item-inline.mobile-status-no-show {
   opacity: 0.7;
-  background-color: #fff1f2; /* Very light red bg */
+  background-color: #fff1f2;
+  /* Very light red bg */
 }
