@@ -38,12 +38,12 @@ interface PatientDetailModalProps {
   onRetry?: () => void;
 }
 
-export default function PatientDetailModal({ 
-  isOpen, 
-  onClose, 
-  patient, 
-  appointments = [], 
-  onSave, 
+export default function PatientDetailModal({
+  isOpen,
+  onClose,
+  patient,
+  appointments = [],
+  onSave,
   initialTab = 'overview',
   totalCount,
   onPageChange,
@@ -138,7 +138,7 @@ export default function PatientDetailModal({
         const getTimeStr = (t: string) => t ? t.split('-')[0].trim() : '00:00';
         const dateA = new Date(`${a.date}T${getTimeStr(a.time)}`);
         const dateB = new Date(`${b.date}T${getTimeStr(b.time)}`);
-        
+
         if (!isNaN(dateA.getTime()) && !isNaN(dateB.getTime())) {
           return dateB.getTime() - dateA.getTime();
         }
@@ -155,8 +155,8 @@ export default function PatientDetailModal({
   };
 
   const currentTabAppointments = getCurrentTabAppointments();
-  
-  const totalPages = isServerSide 
+
+  const totalPages = isServerSide
     ? Math.ceil((totalCount || 0) / itemsPerPage)
     : Math.ceil((currentTabAppointments.length || 0) / itemsPerPage);
 
@@ -165,7 +165,7 @@ export default function PatientDetailModal({
     : currentTabAppointments.slice((historyPage - 1) * itemsPerPage, historyPage * itemsPerPage);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4 animate-fadeIn">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm p-4 animate-fadeIn">
       <div className="bg-white rounded-lg shadow-xl w-full max-w-md overflow-hidden animate-slideUp h-[500px] max-h-[90vh] flex flex-col">
         <div className="flex justify-between items-center p-3 border-b border-gray-100 bg-gray-50 shrink-0">
           <h3 className="text-lg font-bold text-gray-800 flex items-center gap-2">
@@ -243,21 +243,21 @@ export default function PatientDetailModal({
                 </div>
                 {onSave ? (
                   <div className="flex items-center justify-center gap-2">
-                    <button 
+                    <button
                       onClick={() => setTempScore(s => Math.max(0, s - 1))}
                       className="w-10 h-10 flex items-center justify-center bg-white border border-gray-200 rounded text-gray-500 hover:text-blue-500 hover:border-blue-500 disabled:opacity-50 transition-colors text-xl font-bold"
                       disabled={isSaving}
                     >
                       -
                     </button>
-                    <input 
-                      type="number" 
+                    <input
+                      type="number"
                       value={tempScore}
                       onChange={(e) => setTempScore(Math.max(0, parseInt(e.target.value) || 0))}
                       className={`w-12 text-center font-semibold text-sm bg-transparent border-b border-gray-300 focus:border-blue-500 focus:outline-none ${tempScore < 60 ? 'text-red-600' : 'text-green-600'}`}
                       disabled={isSaving}
                     />
-                    <button 
+                    <button
                       onClick={() => setTempScore(s => s + 1)}
                       className="w-10 h-10 flex items-center justify-center bg-white border border-gray-200 rounded text-gray-500 hover:text-blue-500 hover:border-blue-500 disabled:opacity-50 transition-colors text-xl font-bold"
                       disabled={isSaving}
@@ -302,18 +302,18 @@ export default function PatientDetailModal({
               {!isLoading && error ? (
                 <div className="absolute inset-0 z-10 flex items-center justify-center bg-white/50 rounded-lg">
                   <div className="flex flex-col items-center gap-3 bg-white/90 p-4 rounded-xl shadow-lg border border-red-100">
-                     <div className="text-red-500 font-medium text-sm flex items-center gap-2">
-                        <FaTimes className="bg-red-100 rounded-full p-0.5" />
-                        {error}
-                     </div>
-                     {onRetry && (
-                        <button 
-                           onClick={onRetry}
-                           className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-1.5 rounded-full text-xs font-medium transition-all shadow-sm flex items-center gap-1.5"
-                        >
-                           <FaRedo className="text-xs" /> 重试
-                        </button>
-                     )}
+                    <div className="text-red-500 font-medium text-sm flex items-center gap-2">
+                      <FaTimes className="bg-red-100 rounded-full p-0.5" />
+                      {error}
+                    </div>
+                    {onRetry && (
+                      <button
+                        onClick={onRetry}
+                        className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-1.5 rounded-full text-xs font-medium transition-all shadow-sm flex items-center gap-1.5"
+                      >
+                        <FaRedo className="text-xs" /> 重试
+                      </button>
+                    )}
                   </div>
                 </div>
               ) : currentTabAppointments.length > 0 ? (
@@ -327,7 +327,7 @@ export default function PatientDetailModal({
                         </div>
                         <div className="text-xs text-gray-500">{apt.time}</div>
                       </div>
-                      
+
                       <div className="space-y-2">
                         <div>
                           <div className="text-xs text-gray-500 mb-0.5 font-medium">病情描述</div>
@@ -344,7 +344,7 @@ export default function PatientDetailModal({
                       </div>
                     </div>
                   ))}
-                  
+
                   {totalPages > 1 && (
                     <div className="flex justify-between items-center p-2 bg-gray-50 border-t border-gray-100 rounded-b-lg">
                       <button
@@ -401,7 +401,7 @@ export default function PatientDetailModal({
                       ))}
                     </tbody>
                   </table>
-                  
+
                   {totalPages > 1 && (
                     <div className="flex justify-between items-center p-2 bg-gray-50 border-t border-gray-100">
                       <button
