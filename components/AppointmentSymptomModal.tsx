@@ -47,7 +47,7 @@ export default function AppointmentSymptomModal({
   };
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4">
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/30 backdrop-blur-sm p-4">
       <div className="bg-white rounded-lg shadow-xl w-full max-w-md overflow-hidden">
         <div className="bg-blue-600 px-4 py-3 flex justify-between items-center text-white">
           <h3 className="font-semibold text-lg">病情录入 - {appointment.patient.user.name}</h3>
@@ -55,7 +55,7 @@ export default function AppointmentSymptomModal({
             <FaTimes size={20} />
           </button>
         </div>
-        
+
         <div className="p-4 space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">病情</label>
@@ -66,7 +66,7 @@ export default function AppointmentSymptomModal({
               placeholder="请输入病人病情描述..."
             />
           </div>
-          
+
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">治疗方案</label>
             <textarea
