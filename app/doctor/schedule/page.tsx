@@ -2333,6 +2333,11 @@ export default function DoctorSchedulePage() {
                                         </svg>
                                       </button>
                                     )}
+                                    {appointment.symptoms && (
+                                      <span className="text-sm text-blue-600 truncate flex-1 ml-2 text-right" title={appointment.symptoms}>
+                                        {appointment.symptoms}
+                                      </span>
+                                    )}
                                   </div>
 
                                   {/* 下部分：详细信息平铺展示 */}
