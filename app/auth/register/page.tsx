@@ -26,6 +26,12 @@ interface ScanResponse {
   shouldReview: boolean;
 }
 
+interface UsernameAvailabilityResponse {
+  available?: boolean;
+  message?: string;
+  suggestedUsername?: string;
+}
+
 async function loadImageFromFile(file: File): Promise<HTMLImageElement> {
   const objectUrl = URL.createObjectURL(file);
   try {
@@ -95,7 +101,7 @@ export default function RegisterPage() {
   setDefaultLocale('zh-CN');
 
   const [name, setName] = useState('');
-  const [phone, setPhone] = useState('');
+  const [phone, setPhone] = useState('13930555555');
   const [gender, setGender] = useState('');
   const [dateOfBirth, setDateOfBirth] = useState('');
   const [username, setUsername] = useState('');
@@ -114,11 +120,6 @@ export default function RegisterPage() {
   const [stage, setStage] = useState<string | null>(null);
   const [isScanning, setIsScanning] = useState(false);
   const [scanDocType, setScanDocType] = useState<ScanDocType>('id_card');
-  const [scanMessage, setScanMessage] = useState<string | null>(null);
-  const [scanNotes, setScanNotes] = useState<string | null>(null);
-  const [scanConfidence, setScanConfidence] = useState<number | null>(null);
-  const [scanPreviewUrl, setScanPreviewUrl] = useState<string | null>(null);
-  const [lastScannedDocLabel, setLastScannedDocLabel] = useState<string | null>(null);
 
   const router = useRouter();
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -170,9 +171,6 @@ export default function RegisterPage() {
 
   const openScanPicker = (docType: ScanDocType) => {
     setScanDocType(docType);
-    setScanMessage(null);
-    setScanNotes(null);
-    setScanConfidence(null);
     setError(null);
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
@@ -185,18 +183,7 @@ export default function RegisterPage() {
     if (!file) return;
 
     const currentDocType = scanDocType;
-    const currentDocLabel =
-      currentDocType === 'id_card' ? '身份证' : '天津医保卡/社保卡';
-
-    if (scanPreviewUrl) {
-      URL.revokeObjectURL(scanPreviewUrl);
-    }
-    setScanPreviewUrl(URL.createObjectURL(file));
-    setLastScannedDocLabel(currentDocLabel);
     setIsScanning(true);
-    setScanMessage(null);
-    setScanNotes(null);
-    setScanConfidence(null);
     setError(null);
     setSuccess(null);
 
@@ -238,22 +225,6 @@ export default function RegisterPage() {
       }
       setPassword(result.password || DEFAULT_PASSWORD);
       setConfirmPassword(result.confirmPassword || result.password || DEFAULT_PASSWORD);
-      setScanNotes(result.notes || null);
-      setScanConfidence(
-        typeof result.confidence === 'number' ? result.confidence : null
-      );
-
-      const filledFields = [
-        result.name ? '姓名' : '',
-        result.gender ? '性别' : '',
-        result.dateOfBirth ? '出生日期' : '',
-      ].filter(Boolean);
-
-      setScanMessage(
-        result.shouldReview
-          ? `已识别${filledFields.length > 0 ? filledFields.join('、') : '部分字段'}，请人工核对后再提交。`
-          : `已自动填写${filledFields.join('、')}，密码默认已填为 ${DEFAULT_PASSWORD}。`
-      );
     } catch (err) {
       setError(err instanceof Error ? err.message : '证件识别失败，请重试。');
     } finally {
@@ -266,7 +237,11 @@ export default function RegisterPage() {
 
   useEffect(() => {
     if (name && !isUsernameManuallyEdited) {
-      const pinyinName = pinyin(name, { style: pinyin.STYLE_NORMAL }).flat().join('');
+      const pinyinName = pinyin(name, { style: pinyin.STYLE_NORMAL })
+        .flat()
+        .join('')
+        .replace(/[^a-zA-Z0-9]/g, '')
+        .toLowerCase();
       setUsername(pinyinName);
     }
   }, [name, isUsernameManuallyEdited]);
@@ -274,12 +249,12 @@ export default function RegisterPage() {
   useEffect(() => {
     const handler = setTimeout(() => {
       setDebouncedUsername(username);
-    }, 500);
+    }, isUsernameManuallyEdited ? 500 : 0);
 
     return () => {
       clearTimeout(handler);
     };
-  }, [username]);
+  }, [username, isUsernameManuallyEdited]);
 
   useEffect(() => {
     if (debouncedUsername.length < 3) {
@@ -291,13 +266,29 @@ export default function RegisterPage() {
       setUsernameAvailability({ status: 'checking', message: '' });
       try {
         const res = await fetchWithTimeout(
-          `/api/users/availability?username=${debouncedUsername}`
+          `/api/users/availability?username=${encodeURIComponent(debouncedUsername)}`
         );
-        const data = await res.json();
+        const data = (await res.json()) as UsernameAvailabilityResponse;
         if (data.available) {
-          setUsernameAvailability({ status: 'available', message: data.message });
+          setUsernameAvailability({
+            status: 'available',
+            message: data.message || '用户名可用。',
+          });
+        } else if (
+          !isUsernameManuallyEdited &&
+          typeof data.suggestedUsername === 'string' &&
+          data.suggestedUsername !== debouncedUsername
+        ) {
+          setUsernameAvailability({
+            status: 'checking',
+            message: `已自动改为 ${data.suggestedUsername}，正在检查...`,
+          });
+          setUsername(data.suggestedUsername);
         } else {
-          setUsernameAvailability({ status: 'taken', message: data.message });
+          setUsernameAvailability({
+            status: 'taken',
+            message: data.message || '用户名已占用。',
+          });
         }
       } catch {
         setUsernameAvailability({ status: 'taken', message: '无法检查用户名。' });
@@ -305,7 +296,7 @@ export default function RegisterPage() {
     };
 
     checkUsername();
-  }, [debouncedUsername]);
+  }, [debouncedUsername, isUsernameManuallyEdited]);
 
   useEffect(() => {
     return () => {
@@ -315,14 +306,6 @@ export default function RegisterPage() {
       }
     };
   }, []);
-
-  useEffect(() => {
-    return () => {
-      if (scanPreviewUrl) {
-        URL.revokeObjectURL(scanPreviewUrl);
-      }
-    };
-  }, [scanPreviewUrl]);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -419,6 +402,11 @@ export default function RegisterPage() {
         throw new Error(data.error || '发生错误');
       }
 
+      const finalUsername =
+        typeof data.username === 'string' && data.username ? data.username : username;
+      setUsername(finalUsername);
+      setUsernameAvailability({ status: 'available', message: '用户名可用。' });
+
       setSuccess('账户创建成功！正在登录…');
       setStage('注册成功，正在登录…');
       setProgress(92);
@@ -431,7 +419,7 @@ export default function RegisterPage() {
         const loginResult = await withTimeout(
           signIn('credentials', {
             redirect: false,
-            username,
+            username: finalUsername,
             password,
           }),
           15000,
@@ -464,7 +452,7 @@ export default function RegisterPage() {
       } catch (loginErr) {
         console.warn('Auto-login failed:', loginErr);
         setSuccess(null);
-        setError('账户已创建，但自动登录失败或超时，请前往登录页面手动登录。');
+        setError(`账户已创建，但自动登录失败或超时，请使用用户名 ${finalUsername} 手动登录。`);
         stopSubmitting();
         setTimeout(() => router.push('/auth/signin'), 2000);
       }
@@ -478,90 +466,40 @@ export default function RegisterPage() {
 
   return (
     <div className="flex items-center justify-center min-h-screen bg-background">
+      <div className="fixed right-4 top-1/2 z-40 -translate-y-1/2">
+        <div className="flex flex-col gap-3 rounded-2xl border border-blue-200 bg-white/95 p-3 shadow-xl backdrop-blur">
+          <button
+            type="button"
+            onClick={() => openScanPicker('id_card')}
+            disabled={isScanning || submitting}
+            className="btn btn-primary text-sm whitespace-nowrap"
+          >
+            {isScanning && scanDocType === 'id_card' ? '正在识别身份证…' : '扫描身份证'}
+          </button>
+          <button
+            type="button"
+            onClick={() => openScanPicker('medical_card')}
+            disabled={isScanning || submitting}
+            className="btn btn-secondary text-sm whitespace-nowrap"
+          >
+            {isScanning && scanDocType === 'medical_card'
+              ? '正在识别医保卡…'
+              : '扫描天津医保卡/社保卡'}
+          </button>
+        </div>
+      </div>
+
       <div className="w-full max-w-md p-10 space-y-8 bg-white rounded-2xl shadow-xl">
         <h1 className="text-3xl font-bold text-center text-foreground">创建账户</h1>
 
-        <div className="rounded-2xl border border-dashed border-blue-300 bg-blue-50/80 p-4 space-y-3">
-          <div className="space-y-1">
-            <h2 className="text-lg font-semibold text-foreground">证件扫描自动填写</h2>
-            <p className="text-sm text-gray-600 leading-6">
-              支持拍照或上传身份证正面，以及天津医保卡/社保卡中带姓名等信息的一面。识别后仍可手动修改。
-            </p>
-            <p className="text-xs text-gray-500 leading-6">
-              轻微倾斜、稍微歪一点通常也能识别；但仍建议尽量拍完整卡面，避免强反光和严重模糊。
-            </p>
-            <p className="text-xs text-gray-500 leading-6">
-              系统会尽量自动压缩大图；如果你使用 OCR.space 免费版，建议单张图片压到 1MB 以内。
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <button
-              type="button"
-              onClick={() => openScanPicker('id_card')}
-              disabled={isScanning || submitting}
-              className="btn btn-primary text-sm"
-            >
-              {isScanning && scanDocType === 'id_card' ? '正在识别身份证…' : '扫描身份证'}
-            </button>
-            <button
-              type="button"
-              onClick={() => openScanPicker('medical_card')}
-              disabled={isScanning || submitting}
-              className="btn btn-secondary text-sm"
-            >
-              {isScanning && scanDocType === 'medical_card'
-                ? '正在识别医保卡…'
-                : '扫描天津医保卡/社保卡'}
-            </button>
-          </div>
-
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/jpeg,image/png,image/webp,image/*"
-            capture="environment"
-            className="hidden"
-            onChange={handleScanFileChange}
-          />
-
-          {isScanning && (
-            <div className="rounded-xl bg-white/90 border border-blue-100 px-4 py-3 text-sm text-blue-700 flex items-center gap-2">
-              <Loader2 size={16} className="animate-spin" />
-              正在识别证件，请稍候…
-            </div>
-          )}
-
-          {(scanMessage || scanNotes || scanPreviewUrl) && (
-            <div className="rounded-xl bg-white/90 border border-blue-100 p-3 space-y-3">
-              {scanPreviewUrl && (
-                <img
-                  src={scanPreviewUrl}
-                  alt="证件预览"
-                  className="w-full h-40 object-cover rounded-lg border border-gray-200"
-                />
-              )}
-              {lastScannedDocLabel && (
-                <p className="text-sm text-gray-700">
-                  最近识别证件：{lastScannedDocLabel}
-                  {typeof scanConfidence === 'number'
-                    ? `（置信度约 ${Math.round(scanConfidence * 100)}%）`
-                    : ''}
-                </p>
-              )}
-              {scanMessage && (
-                <p className="text-sm text-green-700 leading-6">{scanMessage}</p>
-              )}
-              {scanNotes && (
-                <p className="text-xs text-gray-500 leading-6">识别说明：{scanNotes}</p>
-              )}
-            </div>
-          )}
-
-          <p className="text-xs text-gray-500 leading-6">
-            密码默认已自动填为 {DEFAULT_PASSWORD}，提交前可手动修改。证件图片不会在本系统中保存，请在识别后人工核对。
-          </p>
-        </div>
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/jpeg,image/png,image/webp,image/*"
+          capture="environment"
+          className="hidden"
+          onChange={handleScanFileChange}
+        />
 
         <form onSubmit={handleSubmit} className="space-y-8">
           <div>

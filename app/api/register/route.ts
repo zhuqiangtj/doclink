@@ -55,13 +55,13 @@ export async function POST(request: Request) {
     const user = await prisma.$transaction(async (tx) => {
       const newUser = await tx.user.create({
         data: {
-          username: finalUsername, // Use the guaranteed unique username
+          username: finalUsername,
           name,
           phone,
           dateOfBirth: new Date(dateOfBirth),
           gender,
           password: hashedPassword,
-          role: Role.PATIENT, // Always register as a PATIENT
+          role: Role.PATIENT,
         },
       });
 
@@ -73,11 +73,8 @@ export async function POST(request: Request) {
       return newUser;
     });
 
-    // Log the registration action
     await createAuditLog(null, 'REGISTER_PATIENT', 'User', user.id, { username: user.username, name: user.name, role: user.role });
 
-    // Don't return the password hash in the response
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { password: _, ...userWithoutPassword } = user;
 
     return NextResponse.json(userWithoutPassword, { status: 201 });
