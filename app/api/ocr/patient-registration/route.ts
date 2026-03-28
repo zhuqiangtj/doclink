@@ -3,11 +3,14 @@ import { NextResponse } from 'next/server';
 export const runtime = 'nodejs';
 
 const MAX_FILE_SIZE = 4 * 1024 * 1024;
+const OCR_SPACE_FREE_MAX_FILE_SIZE = 1024 * 1024;
 const DEFAULT_OCR_MODEL = process.env.OCR_OPENAI_MODEL || 'gpt-5-mini';
 const DEFAULT_PASSWORD = '123456';
+const OCR_SPACE_ENDPOINT = 'https://api.ocr.space/parse/image';
 
 type ScanDocType = 'id_card' | 'medical_card';
 type OutputGender = 'Male' | 'Female' | 'Other' | null;
+type OcrProvider = 'ocrspace' | 'openai';
 
 interface OcrModelResult {
   name: string | null;
@@ -19,6 +22,16 @@ interface OcrModelResult {
   detectedDocumentType: 'id_card' | 'medical_card' | 'unknown';
 }
 
+interface ParsedOcrFields {
+  name: string | null;
+  gender: OutputGender;
+  dateOfBirth: string | null;
+  socialSecurityNumber: string | null;
+  notes: string;
+  detectedDocumentType: 'id_card' | 'medical_card' | 'unknown';
+  confidence: number | null;
+}
+
 const ALLOWED_MIME_TYPES = new Set([
   'image/jpeg',
   'image/png',
@@ -27,6 +40,14 @@ const ALLOWED_MIME_TYPES = new Set([
 
 function isSupportedDocType(value: string): value is ScanDocType {
   return value === 'id_card' || value === 'medical_card';
+}
+
+function getConfiguredProvider(): OcrProvider {
+  const explicit = (process.env.OCR_PROVIDER || '').trim().toLowerCase();
+  if (explicit === 'ocrspace') return 'ocrspace';
+  if (explicit === 'openai') return 'openai';
+  if (process.env.OCR_SPACE_API_KEY) return 'ocrspace';
+  return 'openai';
 }
 
 function buildPrompt(docType: ScanDocType): string {
@@ -93,6 +114,18 @@ function parseJsonFromModel(text: string): OcrModelResult {
   }
 }
 
+function firstMatch(texts: string[], patterns: RegExp[]): string | null {
+  for (const text of texts) {
+    for (const pattern of patterns) {
+      const match = text.match(pattern);
+      if (match?.[1]) {
+        return match[1];
+      }
+    }
+  }
+  return null;
+}
+
 function normalizeName(name: string | null | undefined): string {
   if (!name) return '';
   const trimmed = name.trim();
@@ -112,6 +145,47 @@ function normalizeGender(gender: unknown): OutputGender {
   if (value === 'female' || value === '女' || value === '女性') return 'Female';
   if (value === 'other' || value === '其他') return 'Other';
   return null;
+}
+
+function compactText(value: string): string {
+  return value.replace(/[\s:：]/g, '');
+}
+
+function extractNameFromText(rawText: string): string | null {
+  const compact = compactText(rawText);
+  return firstMatch(
+    [rawText, compact],
+    [
+      /姓名[:：]?\s*([A-Za-z\u3400-\u9FFF·]{2,20})/u,
+      /姓名([A-Za-z\u3400-\u9FFF·]{2,20}?)(?=(?:性别|民族|社会保障号码|社会保障号|公民身份号码|身份证号码|身份证号|卡号|发卡日期|有效期限|有效期|$))/u,
+      /名[:：]?\s*([A-Za-z\u3400-\u9FFF·]{2,20})/u,
+    ]
+  );
+}
+
+function extractGenderFromText(rawText: string): OutputGender {
+  const compact = compactText(rawText);
+  const value = firstMatch(
+    [rawText, compact],
+    [
+      /性别[:：]?\s*(男|女|男性|女性)/u,
+      /性别(男|女|男性|女性)/u,
+    ]
+  );
+  return normalizeGender(value);
+}
+
+function extractDateOfBirthFromText(rawText: string): string | null {
+  const compact = compactText(rawText);
+  const value = firstMatch(
+    [rawText, compact],
+    [
+      /出生(?:日期)?[:：]?\s*([0-9]{4}[年./-]?[0-9]{1,2}[月./-]?[0-9]{1,2}日?)/u,
+      /出生([0-9]{4}[年./-]?[0-9]{1,2}[月./-]?[0-9]{1,2}日?)/u,
+      /生日[:：]?\s*([0-9]{4}[年./-]?[0-9]{1,2}[月./-]?[0-9]{1,2}日?)/u,
+    ]
+  );
+  return normalizeDate(value);
 }
 
 function normalizeDate(dateOfBirth: string | null | undefined): string | null {
@@ -139,6 +213,28 @@ function normalizeDate(dateOfBirth: string | null | undefined): string | null {
   const day = match[3].padStart(2, '0');
   const candidate = `${year}-${month}-${day}`;
   return isValidDate(candidate) ? candidate : null;
+}
+
+function extractGovernmentIdFromText(rawText: string): string | null {
+  const compact = compactText(rawText).toUpperCase();
+  const labeled = firstMatch(
+    [compact, rawText.toUpperCase()],
+    [
+      /(社会保障号码[0-9]{17}[0-9X])/u,
+      /(社会保障号[0-9]{17}[0-9X])/u,
+      /(公民身份号码[0-9]{17}[0-9X])/u,
+      /(身份证号码[0-9]{17}[0-9X])/u,
+      /(身份证号[0-9]{17}[0-9X])/u,
+    ]
+  );
+  const fromLabel = normalizeGovernmentId(labeled);
+  if (fromLabel) return fromLabel;
+
+  const fallback = rawText.toUpperCase().match(/\b[0-9]{17}[0-9X]\b/);
+  if (fallback?.[0]) {
+    return normalizeGovernmentId(fallback[0]);
+  }
+  return normalizeGovernmentId(compact.match(/[0-9]{17}[0-9X]/)?.[0] || null);
 }
 
 function normalizeGovernmentId(value: string | null | undefined): string | null {
@@ -186,10 +282,204 @@ function toDataUrl(buffer: Buffer, mimeType: string): string {
   return `data:${mimeType};base64,${buffer.toString('base64')}`;
 }
 
-export async function POST(request: Request) {
+async function runOcrSpace(
+  imageUrl: string,
+  docType: ScanDocType
+): Promise<ParsedOcrFields> {
+  if (!process.env.OCR_SPACE_API_KEY) {
+    throw new Error('服务器未配置 OCR.space 密钥，请先设置 OCR_SPACE_API_KEY。');
+  }
+
+  const formData = new FormData();
+  formData.append('base64Image', imageUrl);
+  formData.append('language', 'chs');
+  formData.append('isOverlayRequired', 'false');
+  formData.append('OCREngine', '2');
+  formData.append('scale', 'true');
+
+  const response = await fetch(OCR_SPACE_ENDPOINT, {
+    method: 'POST',
+    headers: {
+      apikey: process.env.OCR_SPACE_API_KEY,
+    },
+    body: formData,
+  });
+
+  if (!response.ok) {
+    const text = await response.text();
+    console.error('[OCR.space] Upstream error:', text);
+    throw new Error('OCR.space 识别服务暂时不可用，请稍后重试。');
+  }
+
+  const payload = (await response.json()) as {
+    IsErroredOnProcessing?: boolean;
+    ErrorMessage?: string[] | string;
+    ErrorDetails?: string;
+    ParsedResults?: Array<{ ParsedText?: string }>;
+  };
+
+  if (payload.IsErroredOnProcessing) {
+    const message = Array.isArray(payload.ErrorMessage)
+      ? payload.ErrorMessage.join(' ')
+      : payload.ErrorMessage || payload.ErrorDetails || '';
+    console.error('[OCR.space] Processing error:', payload);
+    throw new Error(
+      message.includes('1024 KB')
+        ? 'OCR.space 免费版单张图片不能超过 1MB，请重拍或缩小图片后再试。'
+        : 'OCR.space 未能完成识别，请更换清晰照片后重试。'
+    );
+  }
+
+  const rawText = (payload.ParsedResults || [])
+    .map((item) => item.ParsedText || '')
+    .join('\n')
+    .trim();
+
+  if (!rawText) {
+    throw new Error('OCR.space 未读到清晰文字，请重新拍照。');
+  }
+
+  const socialSecurityNumber = extractGovernmentIdFromText(rawText);
+  const textGender = extractGenderFromText(rawText);
+  const textDob = extractDateOfBirthFromText(rawText);
+
+  return {
+    name: extractNameFromText(rawText),
+    gender: textGender,
+    dateOfBirth: textDob,
+    socialSecurityNumber,
+    confidence: null,
+    notes: [
+      '已使用 OCR.space 识别文本，请人工核对。',
+      socialSecurityNumber ? '已识别可用于推导字段的证件号码。' : '',
+      docType === 'medical_card' ? '医保卡/社保卡建议优先拍姓名和社会保障号清晰的一面。' : '',
+    ]
+      .filter(Boolean)
+      .join(' '),
+    detectedDocumentType: docType,
+  };
+}
+
+async function runOpenAiOcr(
+  imageUrl: string,
+  docType: ScanDocType
+): Promise<ParsedOcrFields> {
   if (!process.env.OPENAI_API_KEY) {
+    throw new Error('服务器未配置 OPENAI_API_KEY。');
+  }
+
+  const upstream = await fetch('https://api.openai.com/v1/responses', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      model: DEFAULT_OCR_MODEL,
+      store: false,
+      input: [
+        {
+          role: 'user',
+          content: [
+            {
+              type: 'input_text',
+              text: buildPrompt(docType),
+            },
+            {
+              type: 'input_image',
+              image_url: imageUrl,
+              detail: 'high',
+            },
+          ],
+        },
+      ],
+      text: {
+        format: {
+          type: 'json_schema',
+          name: 'patient_registration_scan',
+          strict: true,
+          schema: {
+            type: 'object',
+            properties: {
+              name: {
+                anyOf: [{ type: 'string' }, { type: 'null' }],
+              },
+              gender: {
+                anyOf: [
+                  {
+                    type: 'string',
+                    enum: ['Male', 'Female', 'Other'],
+                  },
+                  { type: 'null' },
+                ],
+              },
+              dateOfBirth: {
+                anyOf: [{ type: 'string' }, { type: 'null' }],
+              },
+              socialSecurityNumber: {
+                anyOf: [{ type: 'string' }, { type: 'null' }],
+              },
+              confidence: {
+                anyOf: [
+                  { type: 'number', minimum: 0, maximum: 1 },
+                  { type: 'null' },
+                ],
+              },
+              notes: {
+                type: 'string',
+              },
+              detectedDocumentType: {
+                type: 'string',
+                enum: ['id_card', 'medical_card', 'unknown'],
+              },
+            },
+            required: [
+              'name',
+              'gender',
+              'dateOfBirth',
+              'socialSecurityNumber',
+              'confidence',
+              'notes',
+              'detectedDocumentType',
+            ],
+            additionalProperties: false,
+          },
+        },
+      },
+    }),
+  });
+
+  if (!upstream.ok) {
+    const errorText = await upstream.text();
+    console.error('[OpenAI OCR] Upstream error:', errorText);
+    throw new Error('证件识别失败，请稍后重试。');
+  }
+
+  const payload = await upstream.json();
+  const rawText = extractResponseText(payload);
+  if (!rawText) {
+    console.error('[OpenAI OCR] Empty model output:', payload);
+    throw new Error('未能读取到有效识别结果，请重新拍照。');
+  }
+
+  const result = parseJsonFromModel(rawText);
+  return {
+    name: result.name,
+    gender: result.gender,
+    dateOfBirth: result.dateOfBirth,
+    socialSecurityNumber: result.socialSecurityNumber,
+    confidence: result.confidence,
+    notes: result.notes,
+    detectedDocumentType: result.detectedDocumentType,
+  };
+}
+
+export async function POST(request: Request) {
+  const provider = getConfiguredProvider();
+
+  if (!process.env.OCR_SPACE_API_KEY && !process.env.OPENAI_API_KEY) {
     return NextResponse.json(
-      { error: '服务器未配置 OCR 服务密钥，请先设置 OPENAI_API_KEY。' },
+      { error: '服务器未配置 OCR 服务密钥，请先设置 OCR_SPACE_API_KEY 或 OPENAI_API_KEY。' },
       { status: 503 }
     );
   }
@@ -224,111 +514,21 @@ export async function POST(request: Request) {
         { status: 400 }
       );
     }
+    if (provider === 'ocrspace' && file.size > OCR_SPACE_FREE_MAX_FILE_SIZE) {
+      return NextResponse.json(
+        { error: 'OCR.space 免费版单张图片不能超过 1MB，请靠近重拍或裁掉背景后再试。' },
+        { status: 400 }
+      );
+    }
 
     const fileBuffer = Buffer.from(await file.arrayBuffer());
     const imageUrl = toDataUrl(fileBuffer, file.type);
 
-    const upstream = await fetch('https://api.openai.com/v1/responses', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: DEFAULT_OCR_MODEL,
-        store: false,
-        input: [
-          {
-            role: 'user',
-            content: [
-              {
-                type: 'input_text',
-                text: buildPrompt(docTypeEntry),
-              },
-              {
-                type: 'input_image',
-                image_url: imageUrl,
-                detail: 'high',
-              },
-            ],
-          },
-        ],
-        text: {
-          format: {
-            type: 'json_schema',
-            name: 'patient_registration_scan',
-            strict: true,
-            schema: {
-              type: 'object',
-              properties: {
-                name: {
-                  anyOf: [{ type: 'string' }, { type: 'null' }],
-                },
-                gender: {
-                  anyOf: [
-                    {
-                      type: 'string',
-                      enum: ['Male', 'Female', 'Other'],
-                    },
-                    { type: 'null' },
-                  ],
-                },
-                dateOfBirth: {
-                  anyOf: [{ type: 'string' }, { type: 'null' }],
-                },
-                socialSecurityNumber: {
-                  anyOf: [{ type: 'string' }, { type: 'null' }],
-                },
-                confidence: {
-                  anyOf: [
-                    { type: 'number', minimum: 0, maximum: 1 },
-                    { type: 'null' },
-                  ],
-                },
-                notes: {
-                  type: 'string',
-                },
-                detectedDocumentType: {
-                  type: 'string',
-                  enum: ['id_card', 'medical_card', 'unknown'],
-                },
-              },
-              required: [
-                'name',
-                'gender',
-                'dateOfBirth',
-                'socialSecurityNumber',
-                'confidence',
-                'notes',
-                'detectedDocumentType',
-              ],
-              additionalProperties: false,
-            },
-          },
-        },
-      }),
-    });
+    const result =
+      provider === 'ocrspace'
+        ? await runOcrSpace(imageUrl, docTypeEntry)
+        : await runOpenAiOcr(imageUrl, docTypeEntry);
 
-    if (!upstream.ok) {
-      const errorText = await upstream.text();
-      console.error('[OCR] Upstream error:', errorText);
-      return NextResponse.json(
-        { error: '证件识别失败，请稍后重试。' },
-        { status: 502 }
-      );
-    }
-
-    const payload = await upstream.json();
-    const rawText = extractResponseText(payload);
-    if (!rawText) {
-      console.error('[OCR] Empty model output:', payload);
-      return NextResponse.json(
-        { error: '未能读取到有效识别结果，请重新拍照。' },
-        { status: 502 }
-      );
-    }
-
-    const result = parseJsonFromModel(rawText);
     const normalizedName = normalizeName(result.name);
     const normalizedGenderFromText = normalizeGender(result.gender);
     const normalizedDateOfBirthFromText = normalizeDate(result.dateOfBirth);
@@ -348,6 +548,7 @@ export async function POST(request: Request) {
       normalizedGovernmentId
         ? '已根据社会保障号码推导可补全的字段。'
         : '',
+      provider === 'ocrspace' ? '当前识别服务：OCR.space。' : '当前识别服务：OpenAI。',
     ]
       .filter(Boolean)
       .join(' ');
@@ -366,7 +567,12 @@ export async function POST(request: Request) {
   } catch (error) {
     console.error('[OCR] Route error:', error);
     return NextResponse.json(
-      { error: '证件识别失败，请检查图片后重试。' },
+      {
+        error:
+          error instanceof Error
+            ? error.message
+            : '证件识别失败，请检查图片后重试。',
+      },
       { status: 500 }
     );
   }

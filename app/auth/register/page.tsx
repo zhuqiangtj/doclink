@@ -55,15 +55,15 @@ async function canvasToBlob(
 }
 
 async function prepareImageForVercelUpload(file: File): Promise<File> {
-  const TARGET_MAX_BYTES = 4 * 1024 * 1024;
-  const SAFE_TARGET_BYTES = 3_800_000;
+  const TARGET_MAX_BYTES = 950 * 1024;
+  const SAFE_TARGET_BYTES = 900 * 1024;
 
   if (file.size <= SAFE_TARGET_BYTES) {
     return file;
   }
 
   const image = await loadImageFromFile(file);
-  const maxEdge = 2000;
+  const maxEdge = 1800;
   const scale = Math.min(1, maxEdge / Math.max(image.width, image.height));
   const width = Math.max(1, Math.round(image.width * scale));
   const height = Math.max(1, Math.round(image.height * scale));
@@ -77,7 +77,7 @@ async function prepareImageForVercelUpload(file: File): Promise<File> {
   }
   context.drawImage(image, 0, 0, width, height);
 
-  const qualities = [0.86, 0.74, 0.62];
+  const qualities = [0.82, 0.68, 0.56, 0.46];
   for (const quality of qualities) {
     const blob = await canvasToBlob(canvas, 'image/jpeg', quality);
     if (blob.size <= TARGET_MAX_BYTES) {
@@ -87,7 +87,7 @@ async function prepareImageForVercelUpload(file: File): Promise<File> {
     }
   }
 
-  throw new Error('图片过大，请靠近一点重拍，或裁掉多余背景后再试。');
+  throw new Error('图片仍然过大，请靠近一点重拍，或裁掉多余背景后再试。');
 }
 
 export default function RegisterPage() {
@@ -491,7 +491,7 @@ export default function RegisterPage() {
               轻微倾斜、稍微歪一点通常也能识别；但仍建议尽量拍完整卡面，避免强反光和严重模糊。
             </p>
             <p className="text-xs text-gray-500 leading-6">
-              如果部署在 Vercel，系统会尽量自动压缩大图；单张图片仍建议控制在 4MB 以内。
+              系统会尽量自动压缩大图；如果你使用 OCR.space 免费版，建议单张图片压到 1MB 以内。
             </p>
           </div>
 
