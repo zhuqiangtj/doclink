@@ -8,7 +8,8 @@ const DEFAULT_OCR_MODEL = process.env.OCR_OPENAI_MODEL || 'gpt-5-mini';
 const DEFAULT_PASSWORD = '123456';
 const OCR_SPACE_ENDPOINT = 'https://api.ocr.space/parse/image';
 
-type ScanDocType = 'id_card' | 'medical_card';
+type ScanDocType = 'id_card' | 'medical_card' | 'auto';
+type DetectedDocumentType = 'id_card' | 'medical_card' | 'unknown';
 type OutputGender = 'Male' | 'Female' | 'Other' | null;
 type OcrProvider = 'ocrspace' | 'openai';
 
@@ -19,7 +20,7 @@ interface OcrModelResult {
   socialSecurityNumber: string | null;
   confidence: number | null;
   notes: string;
-  detectedDocumentType: 'id_card' | 'medical_card' | 'unknown';
+  detectedDocumentType: DetectedDocumentType;
 }
 
 interface ParsedOcrFields {
@@ -28,7 +29,7 @@ interface ParsedOcrFields {
   dateOfBirth: string | null;
   socialSecurityNumber: string | null;
   notes: string;
-  detectedDocumentType: 'id_card' | 'medical_card' | 'unknown';
+  detectedDocumentType: DetectedDocumentType;
   confidence: number | null;
 }
 
@@ -39,7 +40,7 @@ const ALLOWED_MIME_TYPES = new Set([
 ]);
 
 function isSupportedDocType(value: string): value is ScanDocType {
-  return value === 'id_card' || value === 'medical_card';
+  return value === 'id_card' || value === 'medical_card' || value === 'auto';
 }
 
 function getConfiguredProvider(): OcrProvider {
@@ -54,7 +55,9 @@ function buildPrompt(docType: ScanDocType): string {
   const targetDoc =
     docType === 'id_card'
       ? '中华人民共和国居民身份证正面'
-      : '天津地区医保卡/社会保障卡上包含个人信息的一面';
+      : docType === 'medical_card'
+        ? '天津地区医保卡/社会保障卡上包含个人信息的一面'
+        : '中华人民共和国居民身份证正面，或天津地区医保卡/社会保障卡上包含个人信息的一面';
 
   return [
     '你是医疗机构挂号登记 OCR 助手。',
@@ -77,6 +80,39 @@ function buildPrompt(docType: ScanDocType): string {
     '11. detectedDocumentType 根据图片判断为 id_card、medical_card 或 unknown。',
     '输出必须严格匹配 JSON Schema，不要输出额外文字。',
   ].join('\n');
+}
+
+function inferDocumentTypeFromText(
+  rawText: string,
+  docType: ScanDocType
+): DetectedDocumentType {
+  if (docType === 'id_card' || docType === 'medical_card') {
+    return docType;
+  }
+
+  const compact = compactText(rawText).toUpperCase();
+
+  if (
+    compact.includes('社会保障卡') ||
+    compact.includes('社会保障号码') ||
+    compact.includes('社会保障号') ||
+    compact.includes('医保') ||
+    compact.includes('医疗保险')
+  ) {
+    return 'medical_card';
+  }
+
+  if (
+    compact.includes('居民身份证') ||
+    compact.includes('中华人民共和国') ||
+    compact.includes('公民身份号码') ||
+    compact.includes('签发机关') ||
+    compact.includes('有效期限')
+  ) {
+    return 'id_card';
+  }
+
+  return 'unknown';
 }
 
 function extractResponseText(payload: unknown): string {
@@ -342,6 +378,7 @@ async function runOcrSpace(
   const socialSecurityNumber = extractGovernmentIdFromText(rawText);
   const textGender = extractGenderFromText(rawText);
   const textDob = extractDateOfBirthFromText(rawText);
+  const detectedDocumentType = inferDocumentTypeFromText(rawText, docType);
 
   return {
     name: extractNameFromText(rawText),
@@ -352,11 +389,13 @@ async function runOcrSpace(
     notes: [
       '已使用 OCR.space 识别文本，请人工核对。',
       socialSecurityNumber ? '已识别可用于推导字段的证件号码。' : '',
-      docType === 'medical_card' ? '医保卡/社保卡建议优先拍姓名和社会保障号清晰的一面。' : '',
+      detectedDocumentType === 'medical_card'
+        ? '医保卡/社保卡建议优先拍姓名和社会保障号清晰的一面。'
+        : '',
     ]
       .filter(Boolean)
       .join(' '),
-    detectedDocumentType: docType,
+    detectedDocumentType,
   };
 }
 

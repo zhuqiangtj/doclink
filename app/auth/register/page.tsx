@@ -5,14 +5,14 @@ import { signIn, getSession } from 'next-auth/react';
 import DatePicker, { registerLocale, setDefaultLocale } from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 import zhCN from 'date-fns/locale/zh-CN';
-import { CheckCircle2, XCircle, Loader2 } from 'lucide-react';
+import { CheckCircle2, XCircle, Loader2, ScanSearch } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import pinyin from 'pinyin';
 import { fetchWithTimeout, withTimeout } from '../../../utils/network';
 
 const DEFAULT_PASSWORD = '123456';
 
-type ScanDocType = 'id_card' | 'medical_card';
+type ScanDocType = 'id_card' | 'medical_card' | 'auto';
 
 interface ScanResponse {
   name: string;
@@ -119,7 +119,7 @@ export default function RegisterPage() {
   const [progress, setProgress] = useState(0);
   const [stage, setStage] = useState<string | null>(null);
   const [isScanning, setIsScanning] = useState(false);
-  const [scanDocType, setScanDocType] = useState<ScanDocType>('id_card');
+  const [scanDocType] = useState<ScanDocType>('auto');
 
   const router = useRouter();
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -169,8 +169,7 @@ export default function RegisterPage() {
     }
   };
 
-  const openScanPicker = (docType: ScanDocType) => {
-    setScanDocType(docType);
+  const openScanPicker = () => {
     setError(null);
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
@@ -466,25 +465,22 @@ export default function RegisterPage() {
 
   return (
     <div className="flex items-center justify-center min-h-screen bg-background">
-      <div className="fixed right-4 top-1/2 z-40 -translate-y-1/2">
-        <div className="flex flex-col gap-3 rounded-2xl border border-blue-200 bg-white/95 p-3 shadow-xl backdrop-blur">
+      <div className="fixed right-3 top-1/2 z-40 -translate-y-1/2 md:right-4">
+        <div className="rounded-3xl border border-slate-200 bg-white/92 p-2 shadow-xl backdrop-blur">
           <button
             type="button"
-            onClick={() => openScanPicker('id_card')}
+            onClick={openScanPicker}
             disabled={isScanning || submitting}
-            className="btn btn-primary text-sm whitespace-nowrap"
+            title="扫描身份证或社保卡"
+            aria-label="扫描身份证或社保卡"
+            className="flex h-14 w-14 flex-col items-center justify-center rounded-2xl bg-blue-600 text-white shadow-sm transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-gray-300"
           >
-            {isScanning && scanDocType === 'id_card' ? '正在识别身份证…' : '扫描身份证'}
-          </button>
-          <button
-            type="button"
-            onClick={() => openScanPicker('medical_card')}
-            disabled={isScanning || submitting}
-            className="btn btn-secondary text-sm whitespace-nowrap"
-          >
-            {isScanning && scanDocType === 'medical_card'
-              ? '正在识别医保卡…'
-              : '扫描天津医保卡/社保卡'}
+            {isScanning ? (
+              <Loader2 size={18} className="animate-spin" />
+            ) : (
+              <ScanSearch size={18} />
+            )}
+            <span className="mt-1 text-[10px] font-medium leading-none">扫描</span>
           </button>
         </div>
       </div>
