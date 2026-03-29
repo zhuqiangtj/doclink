@@ -19,8 +19,8 @@ import pinyin from 'pinyin';
 import { fetchWithTimeout, withTimeout } from '../../../utils/network';
 
 const DEFAULT_PASSWORD = '123456';
-const FRAME_WIDTH_RATIO = 0.92;
-const FRAME_HEIGHT_RATIO = 0.76;
+const FRAME_WIDTH_RATIO = 0.96;
+const FRAME_HEIGHT_RATIO = 0.84;
 const AUTO_CAPTURE_REQUIRED_STABLE_FRAMES = 2;
 const AUTO_CAPTURE_INTERVAL_MS = 450;
 const AUTO_CAPTURE_MIN_SHARPNESS = 6;
@@ -1039,8 +1039,8 @@ export default function RegisterPage() {
         )}
 
         {smartCameraOpen && (
-          <div className="fixed inset-0 z-50 bg-black/80 px-4 py-6">
-            <div className="mx-auto flex h-full w-full max-w-md flex-col overflow-hidden rounded-3xl bg-slate-950 shadow-2xl">
+          <div className="fixed inset-0 z-50 bg-black/80 px-2 py-3 sm:px-4 sm:py-6">
+            <div className="mx-auto flex h-full w-full max-w-lg flex-col overflow-hidden rounded-3xl bg-slate-950 shadow-2xl">
               <div className="flex items-center justify-between border-b border-white/10 px-4 py-3 text-white">
                 <div>
                   <h2 className="text-lg font-semibold">智能扫描</h2>
@@ -1056,7 +1056,7 @@ export default function RegisterPage() {
                 </button>
               </div>
 
-              <div className="flex flex-1 flex-col gap-4 p-4">
+              <div className="flex flex-1 flex-col gap-3 p-3 sm:gap-4 sm:p-4">
                 <div className="relative flex-1 overflow-hidden rounded-3xl bg-black">
                   <video
                     ref={smartVideoRef}
