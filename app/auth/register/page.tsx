@@ -5,12 +5,26 @@ import { signIn, getSession } from 'next-auth/react';
 import DatePicker, { registerLocale, setDefaultLocale } from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 import zhCN from 'date-fns/locale/zh-CN';
-import { CheckCircle2, XCircle, Loader2, ScanSearch } from 'lucide-react';
+import {
+  CheckCircle2,
+  XCircle,
+  Loader2,
+  ScanSearch,
+  ScanLine,
+  Camera,
+  X,
+} from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import pinyin from 'pinyin';
 import { fetchWithTimeout, withTimeout } from '../../../utils/network';
 
 const DEFAULT_PASSWORD = '123456';
+const FRAME_WIDTH_RATIO = 0.82;
+const FRAME_ASPECT_RATIO = 1.586;
+const AUTO_CAPTURE_REQUIRED_STABLE_FRAMES = 2;
+const AUTO_CAPTURE_INTERVAL_MS = 700;
+const AUTO_CAPTURE_MIN_SHARPNESS = 18;
+const AUTO_CAPTURE_MAX_MOTION = 12;
 
 type ScanDocType = 'id_card' | 'medical_card' | 'auto';
 
@@ -30,6 +44,11 @@ interface UsernameAvailabilityResponse {
   available?: boolean;
   message?: string;
   suggestedUsername?: string;
+}
+
+interface FrameMetrics {
+  motion: number;
+  sharpness: number;
 }
 
 async function loadImageFromFile(file: File): Promise<HTMLImageElement> {
@@ -120,10 +139,22 @@ export default function RegisterPage() {
   const [stage, setStage] = useState<string | null>(null);
   const [isScanning, setIsScanning] = useState(false);
   const [scanDocType] = useState<ScanDocType>('auto');
+  const [smartCameraOpen, setSmartCameraOpen] = useState(false);
+  const [cameraReady, setCameraReady] = useState(false);
+  const [cameraError, setCameraError] = useState<string | null>(null);
+  const [isAutoCapturing, setIsAutoCapturing] = useState(false);
+  const [cameraHint, setCameraHint] = useState('请把身份证或社保卡放进虚线框内');
+  const [stableFrameCount, setStableFrameCount] = useState(0);
 
   const router = useRouter();
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const smartVideoRef = useRef<HTMLVideoElement | null>(null);
+  const smartCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const smartStreamRef = useRef<MediaStream | null>(null);
+  const smartAutoCaptureTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const lastFrameRef = useRef<Uint8ClampedArray | null>(null);
+  const autoCapturedRef = useRef(false);
 
   const DateInput = forwardRef<HTMLInputElement, React.InputHTMLAttributes<HTMLInputElement>>(
     (props, ref) => (
@@ -177,10 +208,7 @@ export default function RegisterPage() {
     }
   };
 
-  const handleScanFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
+  const uploadScanFile = async (file: File) => {
     const currentDocType = scanDocType;
     setIsScanning(true);
     setError(null);
@@ -231,6 +259,156 @@ export default function RegisterPage() {
       if (fileInputRef.current) {
         fileInputRef.current.value = '';
       }
+    }
+  };
+
+  const handleScanFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    await uploadScanFile(file);
+  };
+
+  const stopSmartCameraStream = () => {
+    if (smartAutoCaptureTimerRef.current) {
+      clearInterval(smartAutoCaptureTimerRef.current);
+      smartAutoCaptureTimerRef.current = null;
+    }
+    if (smartStreamRef.current) {
+      for (const track of smartStreamRef.current.getTracks()) {
+        track.stop();
+      }
+      smartStreamRef.current = null;
+    }
+    if (smartVideoRef.current) {
+      smartVideoRef.current.srcObject = null;
+    }
+    lastFrameRef.current = null;
+    autoCapturedRef.current = false;
+    setStableFrameCount(0);
+    setCameraReady(false);
+    setIsAutoCapturing(false);
+  };
+
+  const closeSmartCamera = () => {
+    stopSmartCameraStream();
+    setSmartCameraOpen(false);
+    setCameraError(null);
+    setCameraHint('请把身份证或社保卡放进虚线框内');
+  };
+
+  const openSmartCamera = () => {
+    setError(null);
+    setSuccess(null);
+    setCameraError(null);
+    setCameraHint('请把身份证或社保卡放进虚线框内');
+    setSmartCameraOpen(true);
+  };
+
+  const getFrameCrop = (videoWidth: number, videoHeight: number) => {
+    const cropWidth = Math.floor(videoWidth * FRAME_WIDTH_RATIO);
+    const cropHeight = Math.floor(cropWidth / FRAME_ASPECT_RATIO);
+    const boundedCropHeight = Math.min(cropHeight, Math.floor(videoHeight * 0.72));
+    const boundedCropWidth = Math.floor(boundedCropHeight * FRAME_ASPECT_RATIO);
+
+    return {
+      sx: Math.max(0, Math.floor((videoWidth - boundedCropWidth) / 2)),
+      sy: Math.max(0, Math.floor((videoHeight - boundedCropHeight) / 2)),
+      sw: boundedCropWidth,
+      sh: boundedCropHeight,
+    };
+  };
+
+  const measureFrame = (
+    context: CanvasRenderingContext2D,
+    width: number,
+    height: number
+  ): FrameMetrics => {
+    const { data } = context.getImageData(0, 0, width, height);
+    const grayscale = new Uint8ClampedArray(width * height);
+    let sharpnessTotal = 0;
+
+    for (let i = 0, pixelIndex = 0; i < data.length; i += 4, pixelIndex += 1) {
+      grayscale[pixelIndex] = Math.round(
+        data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114
+      );
+    }
+
+    for (let y = 1; y < height - 1; y += 1) {
+      for (let x = 1; x < width - 1; x += 1) {
+        const center = grayscale[y * width + x];
+        const right = grayscale[y * width + x + 1];
+        const left = grayscale[y * width + x - 1];
+        const top = grayscale[(y - 1) * width + x];
+        const bottom = grayscale[(y + 1) * width + x];
+        sharpnessTotal += Math.abs(right - left) + Math.abs(bottom - top) + Math.abs(center - right);
+      }
+    }
+
+    let motionTotal = 0;
+    const previous = lastFrameRef.current;
+    if (previous && previous.length === grayscale.length) {
+      for (let i = 0; i < grayscale.length; i += 16) {
+        motionTotal += Math.abs(grayscale[i] - previous[i]);
+      }
+      motionTotal /= grayscale.length / 16;
+    }
+
+    lastFrameRef.current = grayscale;
+
+    return {
+      motion: motionTotal,
+      sharpness: sharpnessTotal / (width * height),
+    };
+  };
+
+  const captureSmartCameraFrame = async () => {
+    if (isScanning || isAutoCapturing) return;
+
+    const video = smartVideoRef.current;
+    const canvas = smartCanvasRef.current;
+    if (!video || !canvas || !video.videoWidth || !video.videoHeight) {
+      setCameraError('相机尚未准备好，请稍后再试。');
+      return;
+    }
+
+    setIsAutoCapturing(true);
+    setCameraHint('正在拍照识别…');
+
+    try {
+      const crop = getFrameCrop(video.videoWidth, video.videoHeight);
+      canvas.width = crop.sw;
+      canvas.height = crop.sh;
+      const context = canvas.getContext('2d');
+      if (!context) {
+        throw new Error('当前浏览器不支持相机画面处理。');
+      }
+
+      context.drawImage(
+        video,
+        crop.sx,
+        crop.sy,
+        crop.sw,
+        crop.sh,
+        0,
+        0,
+        crop.sw,
+        crop.sh
+      );
+
+      const blob = await canvasToBlob(canvas, 'image/jpeg', 0.9);
+      const file = new File([blob], `smart-scan-${Date.now()}.jpg`, {
+        type: 'image/jpeg',
+      });
+
+      await uploadScanFile(file);
+      closeSmartCamera();
+    } catch (err) {
+      setCameraError(
+        err instanceof Error ? err.message : '智能扫描失败，请改用普通扫描。'
+      );
+      setCameraHint('请重新对准证件，或改用普通扫描');
+    } finally {
+      setIsAutoCapturing(false);
     }
   };
 
@@ -303,8 +481,130 @@ export default function RegisterPage() {
         clearInterval(timerRef.current);
         timerRef.current = null;
       }
+      stopSmartCameraStream();
     };
   }, []);
+
+  useEffect(() => {
+    if (!smartCameraOpen) return;
+    if (typeof window === 'undefined' || !navigator.mediaDevices?.getUserMedia) {
+      setCameraError('当前浏览器不支持网页内相机，请改用普通扫描。');
+      return;
+    }
+
+    let cancelled = false;
+
+    const startSmartCamera = async () => {
+      setCameraError(null);
+      setCameraReady(false);
+      setCameraHint('正在打开相机…');
+
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          audio: false,
+          video: {
+            facingMode: { ideal: 'environment' },
+            width: { ideal: 1920 },
+            height: { ideal: 1080 },
+          },
+        });
+
+        if (cancelled) {
+          for (const track of stream.getTracks()) {
+            track.stop();
+          }
+          return;
+        }
+
+        smartStreamRef.current = stream;
+        if (smartVideoRef.current) {
+          smartVideoRef.current.srcObject = stream;
+          await smartVideoRef.current.play();
+        }
+        setCameraReady(true);
+        setCameraHint('请把身份证或社保卡放进虚线框内，稳定后会自动拍照');
+      } catch (err) {
+        console.error('[Smart Camera] Failed to start:', err);
+        setCameraError('无法打开相机，请检查权限，或改用普通扫描。');
+      }
+    };
+
+    startSmartCamera();
+
+    return () => {
+      cancelled = true;
+      stopSmartCameraStream();
+    };
+  }, [smartCameraOpen]);
+
+  useEffect(() => {
+    if (!smartCameraOpen || !cameraReady || cameraError) return;
+
+    const canvas = smartCanvasRef.current;
+    const video = smartVideoRef.current;
+    if (!canvas || !video) return;
+
+    const context = canvas.getContext('2d', { willReadFrequently: true });
+    if (!context) return;
+
+    smartAutoCaptureTimerRef.current = setInterval(() => {
+      if (
+        autoCapturedRef.current ||
+        isScanning ||
+        isAutoCapturing ||
+        !video.videoWidth ||
+        !video.videoHeight
+      ) {
+        return;
+      }
+
+      const crop = getFrameCrop(video.videoWidth, video.videoHeight);
+      const sampleWidth = 240;
+      const sampleHeight = Math.max(1, Math.round(sampleWidth / FRAME_ASPECT_RATIO));
+      canvas.width = sampleWidth;
+      canvas.height = sampleHeight;
+      context.drawImage(
+        video,
+        crop.sx,
+        crop.sy,
+        crop.sw,
+        crop.sh,
+        0,
+        0,
+        sampleWidth,
+        sampleHeight
+      );
+
+      const metrics = measureFrame(context, sampleWidth, sampleHeight);
+      const isStable =
+        metrics.sharpness >= AUTO_CAPTURE_MIN_SHARPNESS &&
+        metrics.motion <= AUTO_CAPTURE_MAX_MOTION;
+
+      setStableFrameCount((current) => {
+        const next = isStable ? current + 1 : 0;
+        if (isStable) {
+          setCameraHint(`证件已对准，稳定中… ${Math.min(next, AUTO_CAPTURE_REQUIRED_STABLE_FRAMES)}/${AUTO_CAPTURE_REQUIRED_STABLE_FRAMES}`);
+        } else if (metrics.sharpness < AUTO_CAPTURE_MIN_SHARPNESS) {
+          setCameraHint('请靠近一点或等对焦更清楚');
+        } else {
+          setCameraHint('请保持手机稳定');
+        }
+
+        if (next >= AUTO_CAPTURE_REQUIRED_STABLE_FRAMES && !autoCapturedRef.current) {
+          autoCapturedRef.current = true;
+          void captureSmartCameraFrame();
+        }
+        return next;
+      });
+    }, AUTO_CAPTURE_INTERVAL_MS);
+
+    return () => {
+      if (smartAutoCaptureTimerRef.current) {
+        clearInterval(smartAutoCaptureTimerRef.current);
+        smartAutoCaptureTimerRef.current = null;
+      }
+    };
+  }, [cameraError, cameraReady, isAutoCapturing, isScanning, smartCameraOpen]);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -466,7 +766,7 @@ export default function RegisterPage() {
   return (
     <div className="flex items-center justify-center min-h-screen bg-background">
       <div className="fixed right-3 top-1/2 z-40 -translate-y-1/2 md:right-4">
-        <div className="rounded-3xl border border-slate-200 bg-white/92 p-2 shadow-xl backdrop-blur">
+        <div className="flex flex-col gap-2 rounded-3xl border border-slate-200 bg-white/92 p-2 shadow-xl backdrop-blur">
           <button
             type="button"
             onClick={openScanPicker}
@@ -481,6 +781,21 @@ export default function RegisterPage() {
               <ScanSearch size={18} />
             )}
             <span className="mt-1 text-[10px] font-medium leading-none">扫描</span>
+          </button>
+          <button
+            type="button"
+            onClick={openSmartCamera}
+            disabled={isScanning || submitting}
+            title="智能扫描"
+            aria-label="智能扫描"
+            className="flex h-14 w-14 flex-col items-center justify-center rounded-2xl bg-emerald-600 text-white shadow-sm transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-gray-300"
+          >
+            {smartCameraOpen && (cameraReady || isAutoCapturing) ? (
+              <Loader2 size={18} className="animate-spin" />
+            ) : (
+              <ScanLine size={18} />
+            )}
+            <span className="mt-1 text-[10px] font-medium leading-none">智能</span>
           </button>
         </div>
       </div>
@@ -712,6 +1027,75 @@ export default function RegisterPage() {
                 {Math.min(100, Math.max(0, Math.floor(progress)))}%
               </div>
             </div>
+          </div>
+        )}
+
+        {smartCameraOpen && (
+          <div className="fixed inset-0 z-50 bg-black/80 px-4 py-6">
+            <div className="mx-auto flex h-full w-full max-w-md flex-col overflow-hidden rounded-3xl bg-slate-950 shadow-2xl">
+              <div className="flex items-center justify-between border-b border-white/10 px-4 py-3 text-white">
+                <div>
+                  <h2 className="text-lg font-semibold">智能扫描</h2>
+                  <p className="text-xs text-white/70">原有普通扫描入口仍然保留</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={closeSmartCamera}
+                  className="rounded-full p-2 text-white/80 transition hover:bg-white/10 hover:text-white"
+                  aria-label="关闭智能扫描"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+
+              <div className="flex flex-1 flex-col gap-4 p-4">
+                <div className="relative flex-1 overflow-hidden rounded-3xl bg-black">
+                  <video
+                    ref={smartVideoRef}
+                    className="h-full w-full object-cover"
+                    autoPlay
+                    muted
+                    playsInline
+                  />
+                  <div className="pointer-events-none absolute inset-0 bg-black/35" />
+                  <div
+                    className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-2xl border-2 border-dashed border-white shadow-[0_0_0_9999px_rgba(15,23,42,0.38)]"
+                    style={{
+                      width: `${FRAME_WIDTH_RATIO * 100}%`,
+                      aspectRatio: `${FRAME_ASPECT_RATIO}`,
+                    }}
+                  />
+                  <div className="pointer-events-none absolute inset-x-0 bottom-4 flex justify-center px-4">
+                    <div className="rounded-full bg-black/55 px-3 py-2 text-center text-sm text-white/95 backdrop-blur">
+                      {cameraError || cameraHint}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex gap-3">
+                  <button
+                    type="button"
+                    onClick={closeSmartCamera}
+                    className="flex-1 rounded-2xl bg-white/10 px-4 py-3 text-sm font-medium text-white transition hover:bg-white/15"
+                  >
+                    取消
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      autoCapturedRef.current = true;
+                      void captureSmartCameraFrame();
+                    }}
+                    disabled={!cameraReady || Boolean(cameraError) || isAutoCapturing || isScanning}
+                    className="flex flex-1 items-center justify-center gap-2 rounded-2xl bg-emerald-500 px-4 py-3 text-sm font-semibold text-white transition hover:bg-emerald-400 disabled:cursor-not-allowed disabled:bg-gray-500"
+                  >
+                    {isAutoCapturing ? <Loader2 size={16} className="animate-spin" /> : <Camera size={16} />}
+                    手动拍照
+                  </button>
+                </div>
+              </div>
+            </div>
+            <canvas ref={smartCanvasRef} className="hidden" />
           </div>
         )}
       </div>
