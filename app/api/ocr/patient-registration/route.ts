@@ -1,9 +1,11 @@
 import { NextResponse } from 'next/server';
+import sharp from 'sharp';
 
 export const runtime = 'nodejs';
 
 const MAX_FILE_SIZE = 4 * 1024 * 1024;
 const OCR_SPACE_FREE_MAX_FILE_SIZE = 1024 * 1024;
+const OCR_SPACE_RETRY_TARGET_BYTES = 900 * 1024;
 const DEFAULT_OCR_MODEL = process.env.OCR_OPENAI_MODEL || 'gpt-5-mini';
 const DEFAULT_PASSWORD = '123456';
 const OCR_SPACE_ENDPOINT = 'https://api.ocr.space/parse/image';
@@ -187,9 +189,48 @@ function compactText(value: string): string {
   return value.replace(/[\s:：]/g, '');
 }
 
+function getTextLines(rawText: string): string[] {
+  return rawText
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+}
+
+function cleanupNameCandidate(value: string | null | undefined): string | null {
+  if (!value) return null;
+
+  const cleaned = value
+    .replace(/^[姓名名\s:：]+/u, '')
+    .replace(
+      /(性别|民族|出生|出生日期|公民身份号码|身份证号码|身份证号|住址|有效期限|签发机关|社会保障号码|社会保障号).*$/u,
+      ''
+    )
+    .replace(/[^\u3400-\u9FFF·]/gu, '')
+    .trim();
+
+  if (!cleaned) return null;
+  if (/^(姓名|名|性别|民族|出生|住址)$/u.test(cleaned)) return null;
+  if (!/^[\u3400-\u9FFF·]{2,8}$/u.test(cleaned)) return null;
+  if ((cleaned.match(/·/g) || []).length > 1) return null;
+  return cleaned;
+}
+
+function scoreNameCandidate(candidate: string, context: string): number {
+  let score = 0;
+  const lengthWithoutDot = candidate.replace(/·/g, '').length;
+
+  if (lengthWithoutDot >= 2 && lengthWithoutDot <= 4) score += 4;
+  if (candidate.includes('·')) score += 1;
+  if (/姓名/u.test(context)) score += 6;
+  if (/(性别|民族|出生|公民身份号码|身份证号码|身份证号)/u.test(context)) score += 2;
+  if (/中华人民共和国|居民身份证/u.test(candidate)) score -= 8;
+
+  return score;
+}
+
 function extractNameFromText(rawText: string): string | null {
   const compact = compactText(rawText);
-  return firstMatch(
+  const directMatch = firstMatch(
     [rawText, compact],
     [
       /姓名[:：]?\s*([A-Za-z\u3400-\u9FFF·]{2,20})/u,
@@ -197,6 +238,67 @@ function extractNameFromText(rawText: string): string | null {
       /名[:：]?\s*([A-Za-z\u3400-\u9FFF·]{2,20})/u,
     ]
   );
+
+  const normalizedDirectMatch = cleanupNameCandidate(directMatch);
+  if (normalizedDirectMatch) {
+    return normalizedDirectMatch;
+  }
+
+  const lines = getTextLines(rawText);
+  const candidates: Array<{ value: string; score: number }> = [];
+
+  for (let index = 0; index < lines.length; index += 1) {
+    const line = lines[index];
+    const compactLine = compactText(line);
+
+    const inlineCandidate = cleanupNameCandidate(
+      compactLine.match(/姓名(.{1,10})/u)?.[1] ||
+        line.match(/姓名[:：]?\s*(.{1,10})/u)?.[1] ||
+        null
+    );
+    if (inlineCandidate) {
+      candidates.push({
+        value: inlineCandidate,
+        score: scoreNameCandidate(inlineCandidate, `${line}${lines[index + 1] || ''}`),
+      });
+    }
+
+    if (/^姓名$/u.test(compactLine) || /^姓$/u.test(compactLine)) {
+      for (let offset = 1; offset <= 2; offset += 1) {
+        const nextLine = lines[index + offset];
+        const nextCompactLine = nextLine ? compactText(nextLine) : '';
+        const nextCandidate = cleanupNameCandidate(nextCompactLine || nextLine || null);
+        if (nextCandidate) {
+          candidates.push({
+            value: nextCandidate,
+            score: scoreNameCandidate(
+              nextCandidate,
+              `${line}${nextLine || ''}${lines[index + offset + 1] || ''}`
+            ),
+          });
+        }
+      }
+    }
+
+    const standAloneCandidate = cleanupNameCandidate(line);
+    if (
+      standAloneCandidate &&
+      lines
+        .slice(Math.max(0, index - 2), Math.min(lines.length, index + 3))
+        .some((item) => /(性别|民族|出生|公民身份号码|身份证号码|身份证号)/u.test(item))
+    ) {
+      candidates.push({
+        value: standAloneCandidate,
+        score: scoreNameCandidate(
+          standAloneCandidate,
+          `${lines[index - 1] || ''}${line}${lines[index + 1] || ''}`
+        ),
+      });
+    }
+  }
+
+  candidates.sort((left, right) => right.score - left.score);
+  return candidates[0]?.value || null;
 }
 
 function extractGenderFromText(rawText: string): OutputGender {
@@ -319,84 +421,166 @@ function toDataUrl(buffer: Buffer, mimeType: string): string {
 }
 
 async function runOcrSpace(
-  imageUrl: string,
+  fileBuffer: Buffer,
+  mimeType: string,
   docType: ScanDocType
 ): Promise<ParsedOcrFields> {
   if (!process.env.OCR_SPACE_API_KEY) {
     throw new Error('服务器未配置 OCR.space 密钥，请先设置 OCR_SPACE_API_KEY。');
   }
 
-  const formData = new FormData();
-  formData.append('base64Image', imageUrl);
-  formData.append('language', 'chs');
-  formData.append('isOverlayRequired', 'false');
-  formData.append('OCREngine', '2');
-  formData.append('scale', 'true');
+  const parseImage = async (base64Image: string): Promise<string> => {
+    const formData = new FormData();
+    formData.append('base64Image', base64Image);
+    formData.append('language', 'chs');
+    formData.append('isOverlayRequired', 'false');
+    formData.append('OCREngine', '2');
+    formData.append('scale', 'true');
 
-  const response = await fetch(OCR_SPACE_ENDPOINT, {
-    method: 'POST',
-    headers: {
-      apikey: process.env.OCR_SPACE_API_KEY,
-    },
-    body: formData,
-  });
+    const response = await fetch(OCR_SPACE_ENDPOINT, {
+      method: 'POST',
+      headers: {
+        apikey: process.env.OCR_SPACE_API_KEY,
+      },
+      body: formData,
+    });
 
-  if (!response.ok) {
-    const text = await response.text();
-    console.error('[OCR.space] Upstream error:', text);
-    throw new Error('OCR.space 识别服务暂时不可用，请稍后重试。');
-  }
+    if (!response.ok) {
+      const text = await response.text();
+      console.error('[OCR.space] Upstream error:', text);
+      throw new Error('OCR.space 识别服务暂时不可用，请稍后重试。');
+    }
 
-  const payload = (await response.json()) as {
-    IsErroredOnProcessing?: boolean;
-    ErrorMessage?: string[] | string;
-    ErrorDetails?: string;
-    ParsedResults?: Array<{ ParsedText?: string }>;
+    const payload = (await response.json()) as {
+      IsErroredOnProcessing?: boolean;
+      ErrorMessage?: string[] | string;
+      ErrorDetails?: string;
+      ParsedResults?: Array<{ ParsedText?: string }>;
+    };
+
+    if (payload.IsErroredOnProcessing) {
+      const message = Array.isArray(payload.ErrorMessage)
+        ? payload.ErrorMessage.join(' ')
+        : payload.ErrorMessage || payload.ErrorDetails || '';
+      console.error('[OCR.space] Processing error:', payload);
+      throw new Error(
+        message.includes('1024 KB')
+          ? 'OCR.space 免费版单张图片不能超过 1MB，请重拍或缩小图片后再试。'
+          : 'OCR.space 未能完成识别，请更换清晰照片后重试。'
+      );
+    }
+
+    const rawText = (payload.ParsedResults || [])
+      .map((item) => item.ParsedText || '')
+      .join('\n')
+      .trim();
+
+    if (!rawText) {
+      throw new Error('OCR.space 未读到清晰文字，请重新拍照。');
+    }
+
+    return rawText;
   };
 
-  if (payload.IsErroredOnProcessing) {
-    const message = Array.isArray(payload.ErrorMessage)
-      ? payload.ErrorMessage.join(' ')
-      : payload.ErrorMessage || payload.ErrorDetails || '';
-    console.error('[OCR.space] Processing error:', payload);
-    throw new Error(
-      message.includes('1024 KB')
-        ? 'OCR.space 免费版单张图片不能超过 1MB，请重拍或缩小图片后再试。'
-        : 'OCR.space 未能完成识别，请更换清晰照片后重试。'
-    );
-  }
+  const buildEnhancedRetryImage = async (): Promise<Buffer | null> => {
+    try {
+      let quality = 82;
 
-  const rawText = (payload.ParsedResults || [])
-    .map((item) => item.ParsedText || '')
-    .join('\n')
-    .trim();
+      while (quality >= 56) {
+        const buffer = await sharp(fileBuffer)
+          .rotate()
+          .resize({
+            width: 2200,
+            height: 2200,
+            fit: 'inside',
+            withoutEnlargement: false,
+          })
+          .grayscale()
+          .normalize()
+          .sharpen({ sigma: 1.2 })
+          .jpeg({
+            quality,
+            mozjpeg: true,
+          })
+          .toBuffer();
 
-  if (!rawText) {
-    throw new Error('OCR.space 未读到清晰文字，请重新拍照。');
-  }
+        if (buffer.length <= OCR_SPACE_RETRY_TARGET_BYTES) {
+          return buffer;
+        }
 
-  const socialSecurityNumber = extractGovernmentIdFromText(rawText);
-  const textGender = extractGenderFromText(rawText);
-  const textDob = extractDateOfBirthFromText(rawText);
-  const detectedDocumentType = inferDocumentTypeFromText(rawText, docType);
+        quality -= 6;
+      }
+    } catch (error) {
+      console.error('[OCR.space] Failed to build retry image:', error);
+    }
 
-  return {
-    name: extractNameFromText(rawText),
-    gender: textGender,
-    dateOfBirth: textDob,
-    socialSecurityNumber,
-    confidence: null,
-    notes: [
-      '已使用 OCR.space 识别文本，请人工核对。',
-      socialSecurityNumber ? '已识别可用于推导字段的证件号码。' : '',
-      detectedDocumentType === 'medical_card'
-        ? '医保卡/社保卡建议优先拍姓名和社会保障号清晰的一面。'
-        : '',
-    ]
-      .filter(Boolean)
-      .join(' '),
-    detectedDocumentType,
+    return null;
   };
+
+  const parseFieldsFromRawText = (rawText: string, retryUsed = false): ParsedOcrFields => {
+    const socialSecurityNumber = extractGovernmentIdFromText(rawText);
+    const textGender = extractGenderFromText(rawText);
+    const textDob = extractDateOfBirthFromText(rawText);
+    const detectedDocumentType = inferDocumentTypeFromText(rawText, docType);
+
+    return {
+      name: extractNameFromText(rawText),
+      gender: textGender,
+      dateOfBirth: textDob,
+      socialSecurityNumber,
+      confidence: null,
+      notes: [
+        '已使用 OCR.space 识别文本，请人工核对。',
+        retryUsed ? '姓名已尝试通过增强图像二次识别。' : '',
+        socialSecurityNumber ? '已识别可用于推导字段的证件号码。' : '',
+        detectedDocumentType === 'medical_card'
+          ? '医保卡/社保卡建议优先拍姓名和社会保障号清晰的一面。'
+          : detectedDocumentType === 'id_card'
+            ? '身份证建议让姓名与头像一侧更靠近镜头中央。'
+            : '',
+      ]
+        .filter(Boolean)
+        .join(' '),
+      detectedDocumentType,
+    };
+  };
+
+  const imageUrl = toDataUrl(fileBuffer, mimeType);
+  const rawText = await parseImage(imageUrl);
+  const primaryResult = parseFieldsFromRawText(rawText);
+
+  if (primaryResult.name) {
+    return primaryResult;
+  }
+
+  const retryBuffer = await buildEnhancedRetryImage();
+  if (!retryBuffer) {
+    return primaryResult;
+  }
+
+  try {
+    const retryText = await parseImage(toDataUrl(retryBuffer, 'image/jpeg'));
+    const retryResult = parseFieldsFromRawText(retryText, true);
+
+    return {
+      name: retryResult.name || primaryResult.name,
+      gender: retryResult.gender || primaryResult.gender,
+      dateOfBirth: retryResult.dateOfBirth || primaryResult.dateOfBirth,
+      socialSecurityNumber:
+        retryResult.socialSecurityNumber || primaryResult.socialSecurityNumber,
+      confidence: primaryResult.confidence,
+      detectedDocumentType:
+        primaryResult.detectedDocumentType !== 'unknown'
+          ? primaryResult.detectedDocumentType
+          : retryResult.detectedDocumentType,
+      notes: [primaryResult.notes, retryResult.name ? '增强识别已补出姓名。' : retryResult.notes]
+        .filter(Boolean)
+        .join(' '),
+    };
+  } catch (error) {
+    console.error('[OCR.space] Retry OCR failed:', error);
+    return primaryResult;
+  }
 }
 
 async function runOpenAiOcr(
@@ -561,12 +745,10 @@ export async function POST(request: Request) {
     }
 
     const fileBuffer = Buffer.from(await file.arrayBuffer());
-    const imageUrl = toDataUrl(fileBuffer, file.type);
-
     const result =
       provider === 'ocrspace'
-        ? await runOcrSpace(imageUrl, docTypeEntry)
-        : await runOpenAiOcr(imageUrl, docTypeEntry);
+        ? await runOcrSpace(fileBuffer, file.type, docTypeEntry)
+        : await runOpenAiOcr(toDataUrl(fileBuffer, file.type), docTypeEntry);
 
     const normalizedName = normalizeName(result.name);
     const normalizedGenderFromText = normalizeGender(result.gender);

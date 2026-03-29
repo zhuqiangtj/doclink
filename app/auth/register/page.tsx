@@ -777,21 +777,6 @@ export default function RegisterPage() {
         <div className="flex flex-col gap-2 rounded-3xl border border-slate-200 bg-white/92 p-2 shadow-xl backdrop-blur">
           <button
             type="button"
-            onClick={openScanPicker}
-            disabled={isScanning || submitting}
-            title="扫描身份证或社保卡"
-            aria-label="扫描身份证或社保卡"
-            className="flex h-14 w-14 flex-col items-center justify-center rounded-2xl bg-blue-600 text-white shadow-sm transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-gray-300"
-          >
-            {isScanning ? (
-              <Loader2 size={18} className="animate-spin" />
-            ) : (
-              <ScanSearch size={18} />
-            )}
-            <span className="mt-1 text-[10px] font-medium leading-none">扫描</span>
-          </button>
-          <button
-            type="button"
             onClick={openSmartCamera}
             disabled={isScanning || submitting}
             title="智能扫描"
@@ -804,6 +789,21 @@ export default function RegisterPage() {
               <ScanLine size={18} />
             )}
             <span className="mt-1 text-[10px] font-medium leading-none">智能</span>
+          </button>
+          <button
+            type="button"
+            onClick={openScanPicker}
+            disabled={isScanning || submitting}
+            title="扫描身份证或社保卡"
+            aria-label="扫描身份证或社保卡"
+            className="flex h-14 w-14 flex-col items-center justify-center rounded-2xl bg-blue-600 text-white shadow-sm transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-gray-300"
+          >
+            {isScanning ? (
+              <Loader2 size={18} className="animate-spin" />
+            ) : (
+              <ScanSearch size={18} />
+            )}
+            <span className="mt-1 text-[10px] font-medium leading-none">扫描</span>
           </button>
         </div>
       </div>
