@@ -382,6 +382,50 @@ export default function RegisterPage() {
     return false;
   };
 
+  const tryNormalizeSmartCameraZoom = async () => {
+    const track = getSmartVideoTrack();
+    if (!track || typeof track.applyConstraints !== 'function') {
+      return false;
+    }
+
+    try {
+      const capabilities =
+        typeof track.getCapabilities === 'function'
+          ? (track.getCapabilities() as MediaTrackCapabilities & {
+              zoom?: { min?: number; max?: number };
+            })
+          : null;
+
+      const zoomCapability = capabilities?.zoom;
+      if (!zoomCapability || typeof zoomCapability !== 'object') {
+        return false;
+      }
+
+      const minZoom =
+        typeof zoomCapability.min === 'number' ? zoomCapability.min : undefined;
+      const maxZoom =
+        typeof zoomCapability.max === 'number' ? zoomCapability.max : undefined;
+
+      if (typeof minZoom !== 'number' || typeof maxZoom !== 'number') {
+        return false;
+      }
+
+      const targetZoom =
+        minZoom <= 1 && maxZoom >= 1
+          ? 1
+          : minZoom;
+
+      await track.applyConstraints({
+        advanced: [{ zoom: targetZoom } as MediaTrackConstraintSet],
+      });
+      return true;
+    } catch (error) {
+      console.warn('Unable to normalize smart camera zoom:', error);
+    }
+
+    return false;
+  };
+
   const openScanPicker = () => {
     resetRegistrationFieldsForScan();
     if (fileInputRef.current) {
@@ -834,6 +878,7 @@ export default function RegisterPage() {
           smartVideoRef.current.srcObject = stream;
           await smartVideoRef.current.play();
         }
+        await tryNormalizeSmartCameraZoom();
         await tryEnableContinuousFocus();
         autoCaptureReadyAtRef.current = Date.now() + AUTO_FOCUS_WARMUP_MS;
         detectTorchAvailability();
