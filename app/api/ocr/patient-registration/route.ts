@@ -196,6 +196,17 @@ function getTextLines(rawText: string): string[] {
     .filter(Boolean);
 }
 
+function containsAddressLikePattern(value: string): boolean {
+  if (!value) return false;
+  return /\d/u.test(value);
+}
+
+function hasAddressLabelNearby(lines: string[], index: number): boolean {
+  return lines
+    .slice(Math.max(0, index - 1), Math.min(lines.length, index + 2))
+    .some((item) => /住址/u.test(item));
+}
+
 function cleanupNameCandidate(value: string | null | undefined): string | null {
   if (!value) return null;
 
@@ -210,7 +221,12 @@ function cleanupNameCandidate(value: string | null | undefined): string | null {
 
   if (!cleaned) return null;
   if (/^(姓名|名|性别|民族|出生|住址)$/u.test(cleaned)) return null;
-  if (!/^[\u3400-\u9FFF·]{2,8}$/u.test(cleaned)) return null;
+  if (containsAddressLikePattern(cleaned)) return null;
+  if (cleaned.includes('·')) {
+    if (!/^[\u3400-\u9FFF·]{2,8}$/u.test(cleaned)) return null;
+  } else if (!/^[\u3400-\u9FFF]{2,4}$/u.test(cleaned)) {
+    return null;
+  }
   if ((cleaned.match(/·/g) || []).length > 1) return null;
   return cleaned;
 }
@@ -228,14 +244,17 @@ function scoreNameCandidate(candidate: string, context: string): number {
   return score;
 }
 
-function extractNameFromText(rawText: string): string | null {
+function extractNameFromText(
+  rawText: string,
+  detectedDocumentType: DetectedDocumentType = 'unknown'
+): string | null {
   const compact = compactText(rawText);
   const directMatch = firstMatch(
     [rawText, compact],
     [
-      /姓名[:：]?\s*([A-Za-z\u3400-\u9FFF·]{2,20})/u,
-      /姓名([A-Za-z\u3400-\u9FFF·]{2,20}?)(?=(?:性别|民族|社会保障号码|社会保障号|公民身份号码|身份证号码|身份证号|卡号|发卡日期|有效期限|有效期|$))/u,
-      /名[:：]?\s*([A-Za-z\u3400-\u9FFF·]{2,20})/u,
+      /姓名[:：]?\s*([A-Za-z\u3400-\u9FFF·]{2,10})/u,
+      /姓名([A-Za-z\u3400-\u9FFF·]{2,10}?)(?=(?:性别|民族|社会保障号码|社会保障号|公民身份号码|身份证号码|身份证号|卡号|发卡日期|有效期限|有效期|$))/u,
+      /名[:：]?\s*([A-Za-z\u3400-\u9FFF·]{2,10})/u,
     ]
   );
 
@@ -246,6 +265,7 @@ function extractNameFromText(rawText: string): string | null {
 
   const lines = getTextLines(rawText);
   const candidates: Array<{ value: string; score: number }> = [];
+  const strictIdCardMode = detectedDocumentType === 'id_card';
 
   for (let index = 0; index < lines.length; index += 1) {
     const line = lines[index];
@@ -268,7 +288,7 @@ function extractNameFromText(rawText: string): string | null {
         const nextLine = lines[index + offset];
         const nextCompactLine = nextLine ? compactText(nextLine) : '';
         const nextCandidate = cleanupNameCandidate(nextCompactLine || nextLine || null);
-        if (nextCandidate) {
+        if (nextCandidate && !hasAddressLabelNearby(lines, index + offset)) {
           candidates.push({
             value: nextCandidate,
             score: scoreNameCandidate(
@@ -280,9 +300,14 @@ function extractNameFromText(rawText: string): string | null {
       }
     }
 
+    if (strictIdCardMode) {
+      continue;
+    }
+
     const standAloneCandidate = cleanupNameCandidate(line);
     if (
       standAloneCandidate &&
+      !hasAddressLabelNearby(lines, index) &&
       lines
         .slice(Math.max(0, index - 2), Math.min(lines.length, index + 3))
         .some((item) => /(性别|民族|出生|公民身份号码|身份证号码|身份证号)/u.test(item))
@@ -524,7 +549,7 @@ async function runOcrSpace(
     const detectedDocumentType = inferDocumentTypeFromText(rawText, docType);
 
     return {
-      name: extractNameFromText(rawText),
+      name: extractNameFromText(rawText, detectedDocumentType),
       gender: textGender,
       dateOfBirth: textDob,
       socialSecurityNumber,
