@@ -60,6 +60,13 @@ interface FrameMetrics {
   borderEdgeCoverage: number;
 }
 
+interface PreviewLayout {
+  left: number;
+  top: number;
+  width: number;
+  height: number;
+}
+
 async function loadImageFromFile(file: File): Promise<HTMLImageElement> {
   const objectUrl = URL.createObjectURL(file);
   try {
@@ -158,10 +165,12 @@ export default function RegisterPage() {
   const [torchAvailable, setTorchAvailable] = useState(false);
   const [torchEnabled, setTorchEnabled] = useState(false);
   const [capturedPreviewUrl, setCapturedPreviewUrl] = useState<string | null>(null);
+  const [previewLayout, setPreviewLayout] = useState<PreviewLayout | null>(null);
 
   const router = useRouter();
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const smartViewportRef = useRef<HTMLDivElement | null>(null);
   const smartVideoRef = useRef<HTMLVideoElement | null>(null);
   const smartCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const smartStreamRef = useRef<MediaStream | null>(null);
@@ -518,6 +527,7 @@ export default function RegisterPage() {
     setTorchAvailable(false);
     setTorchEnabled(false);
     autoCaptureReadyAtRef.current = 0;
+    setPreviewLayout(null);
   };
 
   const stopSmartCameraStream = () => {
@@ -542,29 +552,60 @@ export default function RegisterPage() {
     setCameraHint('把证件放进大框里');
     setFrameFeedback('idle');
     setCapturedPreviewUrl(null);
+    setPreviewLayout(null);
     setSmartCameraOpen(true);
   };
 
-  const getFrameCrop = (video: HTMLVideoElement) => {
+  const computePreviewLayout = (video: HTMLVideoElement): PreviewLayout | null => {
     const videoWidth = video.videoWidth;
     const videoHeight = video.videoHeight;
-    const viewportWidth = video.clientWidth || videoWidth;
-    const viewportHeight = video.clientHeight || videoHeight;
-    const frameWidth = viewportWidth * FRAME_WIDTH_RATIO;
-    const frameHeight = viewportHeight * FRAME_HEIGHT_RATIO;
-    const frameLeft = (viewportWidth - frameWidth) / 2;
-    const frameTop = (viewportHeight - frameHeight) / 2;
+    const viewportWidth = smartViewportRef.current?.clientWidth || video.clientWidth || videoWidth;
+    const viewportHeight =
+      smartViewportRef.current?.clientHeight || video.clientHeight || videoHeight;
 
-    const coverScale = Math.max(viewportWidth / videoWidth, viewportHeight / videoHeight);
-    const renderedWidth = videoWidth * coverScale;
-    const renderedHeight = videoHeight * coverScale;
-    const overflowX = Math.max(0, (renderedWidth - viewportWidth) / 2);
-    const overflowY = Math.max(0, (renderedHeight - viewportHeight) / 2);
+    if (!viewportWidth || !viewportHeight || !videoWidth || !videoHeight) {
+      return null;
+    }
 
-    const sx = Math.max(0, Math.floor((frameLeft + overflowX) / coverScale));
-    const sy = Math.max(0, Math.floor((frameTop + overflowY) / coverScale));
-    const sw = Math.min(videoWidth - sx, Math.floor(frameWidth / coverScale));
-    const sh = Math.min(videoHeight - sy, Math.floor(frameHeight / coverScale));
+    const fitScale = Math.min(viewportWidth / videoWidth, viewportHeight / videoHeight);
+    const renderedWidth = Math.max(1, Math.floor(videoWidth * fitScale));
+    const renderedHeight = Math.max(1, Math.floor(videoHeight * fitScale));
+
+    return {
+      left: Math.floor((viewportWidth - renderedWidth) / 2),
+      top: Math.floor((viewportHeight - renderedHeight) / 2),
+      width: renderedWidth,
+      height: renderedHeight,
+    };
+  };
+
+  const updatePreviewLayout = () => {
+    const video = smartVideoRef.current;
+    if (!video || !video.videoWidth || !video.videoHeight) return;
+    setPreviewLayout(computePreviewLayout(video));
+  };
+
+  const getFrameCrop = (video: HTMLVideoElement) => {
+    const layout =
+      computePreviewLayout(video) || {
+        left: 0,
+        top: 0,
+        width: video.videoWidth,
+        height: video.videoHeight,
+      };
+    const frameWidth = layout.width * FRAME_WIDTH_RATIO;
+    const frameHeight = layout.height * FRAME_HEIGHT_RATIO;
+    const frameLeft = layout.left + (layout.width - frameWidth) / 2;
+    const frameTop = layout.top + (layout.height - frameHeight) / 2;
+    const relativeLeft = (frameLeft - layout.left) / layout.width;
+    const relativeTop = (frameTop - layout.top) / layout.height;
+    const relativeWidth = frameWidth / layout.width;
+    const relativeHeight = frameHeight / layout.height;
+
+    const sx = Math.max(0, Math.floor(video.videoWidth * relativeLeft));
+    const sy = Math.max(0, Math.floor(video.videoHeight * relativeTop));
+    const sw = Math.min(video.videoWidth - sx, Math.floor(video.videoWidth * relativeWidth));
+    const sh = Math.min(video.videoHeight - sy, Math.floor(video.videoHeight * relativeHeight));
 
     return {
       sx,
@@ -882,6 +923,7 @@ export default function RegisterPage() {
         await tryEnableContinuousFocus();
         autoCaptureReadyAtRef.current = Date.now() + AUTO_FOCUS_WARMUP_MS;
         detectTorchAvailability();
+        updatePreviewLayout();
         setCameraReady(true);
         setCameraHint('请稍等对焦，然后把证件完整放进框里');
         setFrameFeedback('idle');
@@ -1009,6 +1051,21 @@ export default function RegisterPage() {
       }
     };
   }, [cameraError, cameraReady, isAutoCapturing, isScanning, smartCameraOpen]);
+
+  useEffect(() => {
+    if (!smartCameraOpen || !cameraReady) return;
+
+    const handleResize = () => {
+      updatePreviewLayout();
+    };
+
+    window.addEventListener('resize', handleResize);
+    handleResize();
+
+    return () => {
+      window.removeEventListener('resize', handleResize);
+    };
+  }, [cameraReady, smartCameraOpen]);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -1472,13 +1529,27 @@ export default function RegisterPage() {
               </div>
 
               <div className="flex flex-1 flex-col gap-3 p-3 sm:gap-4 sm:p-4">
-                <div className="relative flex-1 overflow-hidden rounded-3xl bg-black">
+                <div
+                  ref={smartViewportRef}
+                  className="relative flex-1 overflow-hidden rounded-3xl bg-black"
+                >
                   <video
                     ref={smartVideoRef}
-                    className="h-full w-full object-cover"
+                    className="absolute h-full w-full object-fill"
                     autoPlay
                     muted
                     playsInline
+                    onLoadedMetadata={updatePreviewLayout}
+                    style={
+                      previewLayout
+                        ? {
+                            left: `${previewLayout.left}px`,
+                            top: `${previewLayout.top}px`,
+                            width: `${previewLayout.width}px`,
+                            height: `${previewLayout.height}px`,
+                          }
+                        : { inset: 0 }
+                    }
                   />
                   <div className="pointer-events-none absolute inset-0 bg-black/35" />
                   {capturedPreviewUrl && (
@@ -1486,21 +1557,32 @@ export default function RegisterPage() {
                   )}
                   {capturedPreviewUrl && (
                     <div
-                      className="pointer-events-none absolute left-1/2 top-1/2 z-[1] -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-2xl"
+                      className="pointer-events-none absolute z-[1] overflow-hidden rounded-2xl"
                       style={{
-                        width: `${FRAME_WIDTH_RATIO * 100}%`,
-                        height: `${FRAME_HEIGHT_RATIO * 100}%`,
+                        left: previewLayout
+                          ? `${previewLayout.left + (previewLayout.width * (1 - FRAME_WIDTH_RATIO)) / 2}px`
+                          : undefined,
+                        top: previewLayout
+                          ? `${previewLayout.top + (previewLayout.height * (1 - FRAME_HEIGHT_RATIO)) / 2}px`
+                          : undefined,
+                        width: previewLayout
+                          ? `${previewLayout.width * FRAME_WIDTH_RATIO}px`
+                          : `${FRAME_WIDTH_RATIO * 100}%`,
+                        height: previewLayout
+                          ? `${previewLayout.height * FRAME_HEIGHT_RATIO}px`
+                          : `${FRAME_HEIGHT_RATIO * 100}%`,
+                        transform: previewLayout ? 'none' : undefined,
                       }}
                     >
                       <img
                         src={capturedPreviewUrl}
                         alt="已拍摄的证件照片"
-                        className="h-full w-full object-cover"
+                        className="h-full w-full object-fill"
                       />
                     </div>
                   )}
                   <div
-                    className={`pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-2xl border-[3px] border-dashed shadow-[0_0_0_9999px_rgba(15,23,42,0.38)] transition-all duration-200 ${
+                    className={`pointer-events-none absolute rounded-2xl border-[3px] border-dashed shadow-[0_0_0_9999px_rgba(15,23,42,0.38)] transition-all duration-200 ${
                       frameFeedback === 'capturing'
                         ? 'animate-pulse border-amber-100 shadow-[0_0_0_9999px_rgba(15,23,42,0.14),0_0_0_14px_rgba(252,211,77,0.82)]'
                         : frameFeedback === 'steady'
@@ -1512,16 +1594,36 @@ export default function RegisterPage() {
                               : 'border-white'
                     }`}
                     style={{
-                      width: `${FRAME_WIDTH_RATIO * 100}%`,
-                      height: `${FRAME_HEIGHT_RATIO * 100}%`,
+                      left: previewLayout
+                        ? `${previewLayout.left + (previewLayout.width * (1 - FRAME_WIDTH_RATIO)) / 2}px`
+                        : `${((1 - FRAME_WIDTH_RATIO) / 2) * 100}%`,
+                      top: previewLayout
+                        ? `${previewLayout.top + (previewLayout.height * (1 - FRAME_HEIGHT_RATIO)) / 2}px`
+                        : `${((1 - FRAME_HEIGHT_RATIO) / 2) * 100}%`,
+                      width: previewLayout
+                        ? `${previewLayout.width * FRAME_WIDTH_RATIO}px`
+                        : `${FRAME_WIDTH_RATIO * 100}%`,
+                      height: previewLayout
+                        ? `${previewLayout.height * FRAME_HEIGHT_RATIO}px`
+                        : `${FRAME_HEIGHT_RATIO * 100}%`,
                     }}
                   />
                   {capturedPreviewUrl && (
                     <div
-                      className="pointer-events-none absolute left-1/2 top-1/2 z-10 -translate-x-1/2 -translate-y-1/2"
+                      className="pointer-events-none absolute z-10"
                       style={{
-                        width: `${FRAME_WIDTH_RATIO * 100}%`,
-                        height: `${FRAME_HEIGHT_RATIO * 100}%`,
+                        left: previewLayout
+                          ? `${previewLayout.left + (previewLayout.width * (1 - FRAME_WIDTH_RATIO)) / 2}px`
+                          : `${((1 - FRAME_WIDTH_RATIO) / 2) * 100}%`,
+                        top: previewLayout
+                          ? `${previewLayout.top + (previewLayout.height * (1 - FRAME_HEIGHT_RATIO)) / 2}px`
+                          : `${((1 - FRAME_HEIGHT_RATIO) / 2) * 100}%`,
+                        width: previewLayout
+                          ? `${previewLayout.width * FRAME_WIDTH_RATIO}px`
+                          : `${FRAME_WIDTH_RATIO * 100}%`,
+                        height: previewLayout
+                          ? `${previewLayout.height * FRAME_HEIGHT_RATIO}px`
+                          : `${FRAME_HEIGHT_RATIO * 100}%`,
                       }}
                     >
                       <div className="relative h-full overflow-hidden rounded-2xl border border-cyan-200/60 bg-cyan-200/10 shadow-[0_0_42px_rgba(34,211,238,0.28)]">
@@ -1532,7 +1634,7 @@ export default function RegisterPage() {
                     </div>
                   )}
                   <div
-                    className={`pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-[1.1rem] transition-opacity duration-200 ${
+                    className={`pointer-events-none absolute rounded-[1.1rem] transition-opacity duration-200 ${
                       frameFeedback === 'capturing'
                         ? 'animate-pulse bg-amber-200/30 opacity-100'
                         : frameFeedback === 'steady'
@@ -1540,8 +1642,18 @@ export default function RegisterPage() {
                           : 'opacity-0'
                     }`}
                     style={{
-                      width: `${FRAME_WIDTH_RATIO * 100}%`,
-                      height: `${FRAME_HEIGHT_RATIO * 100}%`,
+                      left: previewLayout
+                        ? `${previewLayout.left + (previewLayout.width * (1 - FRAME_WIDTH_RATIO)) / 2}px`
+                        : `${((1 - FRAME_WIDTH_RATIO) / 2) * 100}%`,
+                      top: previewLayout
+                        ? `${previewLayout.top + (previewLayout.height * (1 - FRAME_HEIGHT_RATIO)) / 2}px`
+                        : `${((1 - FRAME_HEIGHT_RATIO) / 2) * 100}%`,
+                      width: previewLayout
+                        ? `${previewLayout.width * FRAME_WIDTH_RATIO}px`
+                        : `${FRAME_WIDTH_RATIO * 100}%`,
+                      height: previewLayout
+                        ? `${previewLayout.height * FRAME_HEIGHT_RATIO}px`
+                        : `${FRAME_HEIGHT_RATIO * 100}%`,
                     }}
                   />
                   {torchEnabled && (
