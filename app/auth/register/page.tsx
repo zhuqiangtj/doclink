@@ -23,9 +23,11 @@ const FRAME_WIDTH_RATIO = 0.96;
 const FRAME_HEIGHT_RATIO = 0.84;
 const AUTO_CAPTURE_REQUIRED_STABLE_FRAMES = 2;
 const AUTO_CAPTURE_INTERVAL_MS = 450;
+const AUTO_FOCUS_WARMUP_MS = 900;
 const AUTO_CAPTURE_MIN_SHARPNESS = 6;
 const AUTO_CAPTURE_MAX_MOTION = 26;
 const AUTO_CAPTURE_MAX_BORDER_CLIPPING = 22;
+const AUTO_CAPTURE_MAX_BORDER_EDGE_COVERAGE = 0.18;
 const AUTO_TORCH_BRIGHTNESS_THRESHOLD = 72;
 const AUTO_TORCH_REQUIRED_DARK_FRAMES = 3;
 
@@ -55,6 +57,7 @@ interface FrameMetrics {
   sharpness: number;
   brightness: number;
   borderClipping: number;
+  borderEdgeCoverage: number;
 }
 
 async function loadImageFromFile(file: File): Promise<HTMLImageElement> {
@@ -169,6 +172,7 @@ export default function RegisterPage() {
   const lastStableSignalRef = useRef(false);
   const darkFrameCountRef = useRef(0);
   const torchAttemptedRef = useRef(false);
+  const autoCaptureReadyAtRef = useRef(0);
 
   const DateInput = forwardRef<HTMLInputElement, React.InputHTMLAttributes<HTMLInputElement>>(
     (props, ref) => (
@@ -212,6 +216,21 @@ export default function RegisterPage() {
       clearInterval(timerRef.current);
       timerRef.current = null;
     }
+  };
+
+  const resetRegistrationFieldsForScan = () => {
+    setName('');
+    setPhone('13930555555');
+    setGender('');
+    setDateOfBirth('');
+    setUsername('');
+    setDebouncedUsername('');
+    setPassword(DEFAULT_PASSWORD);
+    setConfirmPassword(DEFAULT_PASSWORD);
+    setIsUsernameManuallyEdited(false);
+    setUsernameAvailability({ status: 'idle', message: '' });
+    setError(null);
+    setSuccess(null);
   };
 
   const vibrateDevice = (pattern: number | number[]) => {
@@ -337,8 +356,34 @@ export default function RegisterPage() {
     }
   };
 
+  const tryEnableContinuousFocus = async () => {
+    const track = getSmartVideoTrack();
+    if (!track || typeof track.applyConstraints !== 'function') {
+      return false;
+    }
+
+    try {
+      const capabilities = typeof track.getCapabilities === 'function'
+        ? (track.getCapabilities() as MediaTrackCapabilities & {
+            focusMode?: string[];
+          })
+        : null;
+
+      if (Array.isArray(capabilities?.focusMode) && capabilities.focusMode.includes('continuous')) {
+        await track.applyConstraints({
+          advanced: [{ focusMode: 'continuous' } as MediaTrackConstraintSet],
+        });
+        return true;
+      }
+    } catch (error) {
+      console.warn('Unable to enable continuous focus:', error);
+    }
+
+    return false;
+  };
+
   const openScanPicker = () => {
-    setError(null);
+    resetRegistrationFieldsForScan();
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
       fileInputRef.current.click();
@@ -428,6 +473,7 @@ export default function RegisterPage() {
     setCameraReady(false);
     setTorchAvailable(false);
     setTorchEnabled(false);
+    autoCaptureReadyAtRef.current = 0;
   };
 
   const stopSmartCameraStream = () => {
@@ -447,8 +493,7 @@ export default function RegisterPage() {
   };
 
   const openSmartCamera = () => {
-    setError(null);
-    setSuccess(null);
+    resetRegistrationFieldsForScan();
     setCameraError(null);
     setCameraHint('把证件放进大框里');
     setFrameFeedback('idle');
@@ -456,21 +501,32 @@ export default function RegisterPage() {
     setSmartCameraOpen(true);
   };
 
-  const getFrameCrop = (videoWidth: number, videoHeight: number) => {
-    const boundedCropWidth = Math.min(
-      Math.floor(videoWidth * FRAME_WIDTH_RATIO),
-      videoWidth
-    );
-    const boundedCropHeight = Math.min(
-      Math.floor(videoHeight * FRAME_HEIGHT_RATIO),
-      videoHeight
-    );
+  const getFrameCrop = (video: HTMLVideoElement) => {
+    const videoWidth = video.videoWidth;
+    const videoHeight = video.videoHeight;
+    const viewportWidth = video.clientWidth || videoWidth;
+    const viewportHeight = video.clientHeight || videoHeight;
+    const frameWidth = viewportWidth * FRAME_WIDTH_RATIO;
+    const frameHeight = viewportHeight * FRAME_HEIGHT_RATIO;
+    const frameLeft = (viewportWidth - frameWidth) / 2;
+    const frameTop = (viewportHeight - frameHeight) / 2;
+
+    const coverScale = Math.max(viewportWidth / videoWidth, viewportHeight / videoHeight);
+    const renderedWidth = videoWidth * coverScale;
+    const renderedHeight = videoHeight * coverScale;
+    const overflowX = Math.max(0, (renderedWidth - viewportWidth) / 2);
+    const overflowY = Math.max(0, (renderedHeight - viewportHeight) / 2);
+
+    const sx = Math.max(0, Math.floor((frameLeft + overflowX) / coverScale));
+    const sy = Math.max(0, Math.floor((frameTop + overflowY) / coverScale));
+    const sw = Math.min(videoWidth - sx, Math.floor(frameWidth / coverScale));
+    const sh = Math.min(videoHeight - sy, Math.floor(frameHeight / coverScale));
 
     return {
-      sx: Math.max(0, Math.floor((videoWidth - boundedCropWidth) / 2)),
-      sy: Math.max(0, Math.floor((videoHeight - boundedCropHeight) / 2)),
-      sw: boundedCropWidth,
-      sh: boundedCropHeight,
+      sx,
+      sy,
+      sw: Math.max(1, sw),
+      sh: Math.max(1, sh),
     };
   };
 
@@ -497,38 +553,63 @@ export default function RegisterPage() {
     const borderBand = Math.max(6, Math.floor(Math.min(width, height) * 0.06));
     let borderClippingTotal = 0;
     let borderClippingSamples = 0;
+    const strongEdgeThreshold = 34;
+    let leftEdgeHits = 0;
+    let rightEdgeHits = 0;
+    let topEdgeHits = 0;
+    let bottomEdgeHits = 0;
+    let leftEdgeSamples = 0;
+    let rightEdgeSamples = 0;
+    let topEdgeSamples = 0;
+    let bottomEdgeSamples = 0;
 
     for (let y = 0; y < height; y += 1) {
       for (let x = 0; x < borderBand; x += 1) {
-        borderClippingTotal += Math.abs(
-          grayscale[y * width + x] - grayscale[y * width + x + 1]
-        );
+        const diff = Math.abs(grayscale[y * width + x] - grayscale[y * width + x + 1]);
+        borderClippingTotal += diff;
         borderClippingSamples += 1;
+        leftEdgeSamples += 1;
+        if (diff >= strongEdgeThreshold) {
+          leftEdgeHits += 1;
+        }
       }
 
       for (let x = width - borderBand; x < width; x += 1) {
-        borderClippingTotal += Math.abs(
-          grayscale[y * width + x] - grayscale[y * width + x - 1]
-        );
+        const diff = Math.abs(grayscale[y * width + x] - grayscale[y * width + x - 1]);
+        borderClippingTotal += diff;
         borderClippingSamples += 1;
+        rightEdgeSamples += 1;
+        if (diff >= strongEdgeThreshold) {
+          rightEdgeHits += 1;
+        }
       }
     }
 
     for (let y = 0; y < borderBand; y += 1) {
       for (let x = 0; x < width; x += 1) {
-        borderClippingTotal += Math.abs(
+        const diff = Math.abs(
           grayscale[y * width + x] - grayscale[(y + 1) * width + x]
         );
+        borderClippingTotal += diff;
         borderClippingSamples += 1;
+        topEdgeSamples += 1;
+        if (diff >= strongEdgeThreshold) {
+          topEdgeHits += 1;
+        }
       }
     }
 
     for (let y = height - borderBand; y < height; y += 1) {
       for (let x = 0; x < width; x += 1) {
-        borderClippingTotal += Math.abs(
+        const diff = Math.abs(
           grayscale[y * width + x] - grayscale[(y - 1) * width + x]
         );
+        borderClippingTotal += diff;
         borderClippingSamples += 1;
+        bottomEdgeSamples += 1;
+        if (diff >= strongEdgeThreshold) {
+          bottomEdgeHits += 1;
+        }
       }
     }
 
@@ -562,6 +643,12 @@ export default function RegisterPage() {
         borderClippingSamples > 0
           ? borderClippingTotal / borderClippingSamples
           : 0,
+      borderEdgeCoverage: Math.max(
+        leftEdgeSamples > 0 ? leftEdgeHits / leftEdgeSamples : 0,
+        rightEdgeSamples > 0 ? rightEdgeHits / rightEdgeSamples : 0,
+        topEdgeSamples > 0 ? topEdgeHits / topEdgeSamples : 0,
+        bottomEdgeSamples > 0 ? bottomEdgeHits / bottomEdgeSamples : 0
+      ),
     };
   };
 
@@ -581,7 +668,7 @@ export default function RegisterPage() {
     triggerFeedback('capturing');
 
     try {
-      const crop = getFrameCrop(video.videoWidth, video.videoHeight);
+      const crop = getFrameCrop(video);
       canvas.width = crop.sw;
       canvas.height = crop.sh;
       const context = canvas.getContext('2d');
@@ -747,9 +834,11 @@ export default function RegisterPage() {
           smartVideoRef.current.srcObject = stream;
           await smartVideoRef.current.play();
         }
+        await tryEnableContinuousFocus();
+        autoCaptureReadyAtRef.current = Date.now() + AUTO_FOCUS_WARMUP_MS;
         detectTorchAvailability();
         setCameraReady(true);
-        setCameraHint('把证件放进大框里，稳定后会自动拍');
+        setCameraHint('请稍等对焦，然后把证件完整放进框里');
         setFrameFeedback('idle');
       } catch (err) {
         console.error('[Smart Camera] Failed to start:', err);
@@ -782,12 +871,13 @@ export default function RegisterPage() {
         isScanning ||
         isAutoCapturing ||
         !video.videoWidth ||
-        !video.videoHeight
+        !video.videoHeight ||
+        Date.now() < autoCaptureReadyAtRef.current
       ) {
         return;
       }
 
-      const crop = getFrameCrop(video.videoWidth, video.videoHeight);
+      const crop = getFrameCrop(video);
       const sampleWidth = 160;
       const sampleHeight = 220;
       canvas.width = sampleWidth;
@@ -808,7 +898,8 @@ export default function RegisterPage() {
       const isStable =
         metrics.sharpness >= AUTO_CAPTURE_MIN_SHARPNESS &&
         metrics.motion <= AUTO_CAPTURE_MAX_MOTION &&
-        metrics.borderClipping <= AUTO_CAPTURE_MAX_BORDER_CLIPPING;
+        metrics.borderClipping <= AUTO_CAPTURE_MAX_BORDER_CLIPPING &&
+        metrics.borderEdgeCoverage <= AUTO_CAPTURE_MAX_BORDER_EDGE_COVERAGE;
       const isDark = metrics.brightness <= AUTO_TORCH_BRIGHTNESS_THRESHOLD;
 
       if (torchAvailable && !torchEnabled && !torchAttemptedRef.current) {
@@ -837,10 +928,13 @@ export default function RegisterPage() {
           setCameraHint(
             `已进入框内，保持不动 ${Math.min(next, AUTO_CAPTURE_REQUIRED_STABLE_FRAMES)}/${AUTO_CAPTURE_REQUIRED_STABLE_FRAMES}`
           );
-        } else if (metrics.borderClipping > AUTO_CAPTURE_MAX_BORDER_CLIPPING) {
+        } else if (
+          metrics.borderClipping > AUTO_CAPTURE_MAX_BORDER_CLIPPING ||
+          metrics.borderEdgeCoverage > AUTO_CAPTURE_MAX_BORDER_EDGE_COVERAGE
+        ) {
           lastStableSignalRef.current = false;
           setFrameFeedback('idle');
-          setCameraHint('证件还没完全进框，再往框中央放一点');
+          setCameraHint('证件还没完全进框，先把四边都收进虚框里');
         } else if (metrics.motion > AUTO_CAPTURE_MAX_MOTION) {
           lastStableSignalRef.current = false;
           setFrameFeedback('idle');
