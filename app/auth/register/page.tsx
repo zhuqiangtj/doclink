@@ -25,6 +25,8 @@ const AUTO_CAPTURE_REQUIRED_STABLE_FRAMES = 2;
 const AUTO_CAPTURE_INTERVAL_MS = 450;
 const AUTO_CAPTURE_MIN_SHARPNESS = 6;
 const AUTO_CAPTURE_MAX_MOTION = 26;
+const AUTO_TORCH_BRIGHTNESS_THRESHOLD = 72;
+const AUTO_TORCH_REQUIRED_DARK_FRAMES = 3;
 
 type ScanDocType = 'id_card' | 'medical_card' | 'auto';
 type SmartFrameFeedback = 'idle' | 'steady' | 'capturing' | 'success' | 'error';
@@ -50,6 +52,7 @@ interface UsernameAvailabilityResponse {
 interface FrameMetrics {
   motion: number;
   sharpness: number;
+  brightness: number;
 }
 
 async function loadImageFromFile(file: File): Promise<HTMLImageElement> {
@@ -147,6 +150,9 @@ export default function RegisterPage() {
   const [cameraHint, setCameraHint] = useState('把证件放进大框里');
   const [stableFrameCount, setStableFrameCount] = useState(0);
   const [frameFeedback, setFrameFeedback] = useState<SmartFrameFeedback>('idle');
+  const [torchAvailable, setTorchAvailable] = useState(false);
+  const [torchEnabled, setTorchEnabled] = useState(false);
+  const [capturedPreviewUrl, setCapturedPreviewUrl] = useState<string | null>(null);
 
   const router = useRouter();
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -159,6 +165,8 @@ export default function RegisterPage() {
   const autoCapturedRef = useRef(false);
   const audioContextRef = useRef<AudioContext | null>(null);
   const lastStableSignalRef = useRef(false);
+  const darkFrameCountRef = useRef(0);
+  const torchAttemptedRef = useRef(false);
 
   const DateInput = forwardRef<HTMLInputElement, React.InputHTMLAttributes<HTMLInputElement>>(
     (props, ref) => (
@@ -254,28 +262,76 @@ export default function RegisterPage() {
 
   const triggerFeedback = (kind: SmartFrameFeedback) => {
     if (kind === 'steady') {
-      vibrateDevice(20);
-      playTone(920, 90, 0.04, 'triangle');
+      vibrateDevice([85, 30, 95]);
+      playTone(1020, 170, 0.11, 'triangle');
+      window.setTimeout(() => playTone(1240, 150, 0.09, 'triangle'), 120);
       return;
     }
 
     if (kind === 'capturing') {
-      vibrateDevice([35, 30, 45]);
-      playTone(1240, 120, 0.05, 'triangle');
-      window.setTimeout(() => playTone(1480, 100, 0.04, 'triangle'), 90);
+      vibrateDevice([130, 45, 150, 40, 180]);
+      playTone(1420, 190, 0.13, 'triangle');
+      window.setTimeout(() => playTone(1760, 180, 0.12, 'triangle'), 120);
+      window.setTimeout(() => playTone(2120, 180, 0.1, 'triangle'), 250);
       return;
     }
 
     if (kind === 'success') {
-      vibrateDevice([40, 35, 70]);
-      playTone(1320, 110, 0.05, 'sine');
-      window.setTimeout(() => playTone(1760, 140, 0.04, 'sine'), 100);
+      vibrateDevice([120, 40, 150, 40, 220]);
+      playTone(1560, 190, 0.12, 'sine');
+      window.setTimeout(() => playTone(1980, 200, 0.11, 'sine'), 120);
+      window.setTimeout(() => playTone(2280, 220, 0.1, 'sine'), 280);
       return;
     }
 
     if (kind === 'error') {
-      vibrateDevice([80, 50, 80]);
-      playTone(280, 180, 0.05, 'sawtooth');
+      vibrateDevice([160, 55, 170, 55, 180]);
+      playTone(240, 260, 0.1, 'sawtooth');
+      window.setTimeout(() => playTone(200, 240, 0.09, 'sawtooth'), 180);
+    }
+  };
+
+  const getSmartVideoTrack = () => smartStreamRef.current?.getVideoTracks?.()[0] || null;
+
+  const detectTorchAvailability = () => {
+    const track = getSmartVideoTrack();
+    if (!track || typeof track.getCapabilities !== 'function') {
+      setTorchAvailable(false);
+      return false;
+    }
+
+    try {
+      const capabilities = track.getCapabilities() as MediaTrackCapabilities & {
+        torch?: boolean | boolean[];
+      };
+      const torchCapability = capabilities.torch;
+      const available = Array.isArray(torchCapability)
+        ? torchCapability.includes(true)
+        : Boolean(torchCapability);
+      setTorchAvailable(available);
+      return available;
+    } catch (error) {
+      console.warn('Unable to detect torch capability:', error);
+      setTorchAvailable(false);
+      return false;
+    }
+  };
+
+  const setTorchMode = async (enabled: boolean) => {
+    const track = getSmartVideoTrack();
+    if (!track || typeof track.applyConstraints !== 'function') {
+      return false;
+    }
+
+    try {
+      await track.applyConstraints({
+        advanced: [{ torch: enabled } as MediaTrackConstraintSet],
+      });
+      setTorchEnabled(enabled);
+      return true;
+    } catch (error) {
+      console.warn(`Unable to ${enabled ? 'enable' : 'disable'} torch:`, error);
+      return false;
     }
   };
 
@@ -364,10 +420,15 @@ export default function RegisterPage() {
     lastFrameRef.current = null;
     autoCapturedRef.current = false;
     lastStableSignalRef.current = false;
+    darkFrameCountRef.current = 0;
+    torchAttemptedRef.current = false;
     setStableFrameCount(0);
     setCameraReady(false);
     setIsAutoCapturing(false);
     setFrameFeedback('idle');
+    setTorchAvailable(false);
+    setTorchEnabled(false);
+    setCapturedPreviewUrl(null);
   };
 
   const closeSmartCamera = () => {
@@ -376,6 +437,7 @@ export default function RegisterPage() {
     setCameraError(null);
     setCameraHint('把证件放进大框里');
     setFrameFeedback('idle');
+    setCapturedPreviewUrl(null);
   };
 
   const openSmartCamera = () => {
@@ -384,6 +446,7 @@ export default function RegisterPage() {
     setCameraError(null);
     setCameraHint('把证件放进大框里');
     setFrameFeedback('idle');
+    setCapturedPreviewUrl(null);
     setSmartCameraOpen(true);
   };
 
@@ -420,6 +483,11 @@ export default function RegisterPage() {
       );
     }
 
+    let brightnessTotal = 0;
+    for (let i = 0; i < grayscale.length; i += 1) {
+      brightnessTotal += grayscale[i];
+    }
+
     for (let y = 1; y < height - 1; y += 1) {
       for (let x = 1; x < width - 1; x += 1) {
         const center = grayscale[y * width + x];
@@ -445,6 +513,7 @@ export default function RegisterPage() {
     return {
       motion: motionTotal,
       sharpness: sharpnessTotal / (width * height),
+      brightness: brightnessTotal / grayscale.length,
     };
   };
 
@@ -484,6 +553,12 @@ export default function RegisterPage() {
         crop.sh
       );
 
+      setCapturedPreviewUrl(canvas.toDataURL('image/jpeg', 0.9));
+      setCameraHint('照片已拍好，正在识别，可放下手机等待');
+      if (torchEnabled) {
+        void setTorchMode(false);
+      }
+
       const blob = await canvasToBlob(canvas, 'image/jpeg', 0.9);
       const file = new File([blob], `smart-scan-${Date.now()}.jpg`, {
         type: 'image/jpeg',
@@ -499,6 +574,7 @@ export default function RegisterPage() {
       );
       setCameraHint('请重新对准后再试');
       setFrameFeedback('error');
+      setCapturedPreviewUrl(null);
       triggerFeedback('error');
       autoCapturedRef.current = false;
       lastStableSignalRef.current = false;
@@ -625,6 +701,7 @@ export default function RegisterPage() {
           smartVideoRef.current.srcObject = stream;
           await smartVideoRef.current.play();
         }
+        detectTorchAvailability();
         setCameraReady(true);
         setCameraHint('把证件放进大框里，稳定后会自动拍');
         setFrameFeedback('idle');
@@ -685,6 +762,22 @@ export default function RegisterPage() {
       const isStable =
         metrics.sharpness >= AUTO_CAPTURE_MIN_SHARPNESS &&
         metrics.motion <= AUTO_CAPTURE_MAX_MOTION;
+      const isDark = metrics.brightness <= AUTO_TORCH_BRIGHTNESS_THRESHOLD;
+
+      if (torchAvailable && !torchEnabled && !torchAttemptedRef.current) {
+        darkFrameCountRef.current = isDark ? darkFrameCountRef.current + 1 : 0;
+
+        if (darkFrameCountRef.current >= AUTO_TORCH_REQUIRED_DARK_FRAMES) {
+          torchAttemptedRef.current = true;
+          void setTorchMode(true).then((enabled) => {
+            if (enabled) {
+              setCameraHint('光线较暗，已自动打开补光');
+            }
+          });
+        }
+      } else if (!isDark) {
+        darkFrameCountRef.current = 0;
+      }
 
       setStableFrameCount((current) => {
         const next = isStable ? current + 1 : 0;
@@ -886,6 +979,25 @@ export default function RegisterPage() {
 
   return (
     <div className="flex items-center justify-center min-h-screen bg-background">
+      <style jsx global>{`
+        @keyframes smart-scan-line {
+          0% {
+            transform: translateY(0);
+            opacity: 0.55;
+          }
+          50% {
+            opacity: 1;
+          }
+          100% {
+            transform: translateY(calc(100% - 1.5rem));
+            opacity: 0.75;
+          }
+        }
+
+        .smart-scan-line {
+          animation: smart-scan-line 1s ease-in-out infinite alternate;
+        }
+      `}</style>
       <div className="fixed right-3 top-1/2 z-40 -translate-y-1/2 md:right-4">
         <div className="flex flex-col gap-2 rounded-3xl border border-slate-200 bg-white/92 p-2 shadow-xl backdrop-blur">
           <button
@@ -1171,24 +1283,35 @@ export default function RegisterPage() {
 
               <div className="flex flex-1 flex-col gap-3 p-3 sm:gap-4 sm:p-4">
                 <div className="relative flex-1 overflow-hidden rounded-3xl bg-black">
-                  <video
-                    ref={smartVideoRef}
-                    className="h-full w-full object-cover"
-                    autoPlay
-                    muted
-                    playsInline
-                  />
+                  {capturedPreviewUrl ? (
+                    <img
+                      src={capturedPreviewUrl}
+                      alt="已拍摄的证件照片"
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    <video
+                      ref={smartVideoRef}
+                      className="h-full w-full object-cover"
+                      autoPlay
+                      muted
+                      playsInline
+                    />
+                  )}
                   <div className="pointer-events-none absolute inset-0 bg-black/35" />
+                  {capturedPreviewUrl && (
+                    <div className="pointer-events-none absolute inset-0 bg-slate-950/22" />
+                  )}
                   <div
-                    className={`pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-2xl border-2 border-dashed shadow-[0_0_0_9999px_rgba(15,23,42,0.38)] transition-all duration-200 ${
+                    className={`pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-2xl border-[3px] border-dashed shadow-[0_0_0_9999px_rgba(15,23,42,0.38)] transition-all duration-200 ${
                       frameFeedback === 'capturing'
-                        ? 'animate-pulse border-amber-300 shadow-[0_0_0_9999px_rgba(15,23,42,0.28),0_0_0_4px_rgba(252,211,77,0.4)]'
+                        ? 'animate-pulse border-amber-100 shadow-[0_0_0_9999px_rgba(15,23,42,0.14),0_0_0_14px_rgba(252,211,77,0.82)]'
                         : frameFeedback === 'steady'
-                          ? 'animate-pulse border-emerald-300 shadow-[0_0_0_9999px_rgba(15,23,42,0.3),0_0_0_4px_rgba(110,231,183,0.35)]'
+                          ? 'animate-pulse border-emerald-100 shadow-[0_0_0_9999px_rgba(15,23,42,0.16),0_0_0_14px_rgba(110,231,183,0.8)]'
                           : frameFeedback === 'success'
-                            ? 'border-sky-300 shadow-[0_0_0_9999px_rgba(15,23,42,0.22),0_0_0_5px_rgba(125,211,252,0.45)]'
+                            ? 'border-sky-100 shadow-[0_0_0_9999px_rgba(15,23,42,0.1),0_0_0_16px_rgba(125,211,252,0.88)]'
                             : frameFeedback === 'error'
-                              ? 'border-rose-300 shadow-[0_0_0_9999px_rgba(15,23,42,0.32),0_0_0_4px_rgba(253,164,175,0.35)]'
+                              ? 'animate-pulse border-rose-100 shadow-[0_0_0_9999px_rgba(15,23,42,0.18),0_0_0_14px_rgba(253,164,175,0.82)]'
                               : 'border-white'
                     }`}
                     style={{
@@ -1196,12 +1319,24 @@ export default function RegisterPage() {
                       height: `${FRAME_HEIGHT_RATIO * 100}%`,
                     }}
                   />
+                  {capturedPreviewUrl && (
+                    <div
+                      className="pointer-events-none absolute left-1/2 top-1/2 z-10 w-[88%] max-w-sm -translate-x-1/2 -translate-y-1/2"
+                      style={{ height: `${FRAME_HEIGHT_RATIO * 82}%` }}
+                    >
+                      <div className="relative h-full overflow-hidden rounded-2xl border border-cyan-200/60 bg-cyan-200/10 shadow-[0_0_42px_rgba(34,211,238,0.28)]">
+                        <div className="absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-cyan-300/25 to-transparent" />
+                        <div className="smart-scan-line absolute inset-x-3 top-5 h-1.5 rounded-full bg-cyan-200 shadow-[0_0_24px_rgba(103,232,249,1)]" />
+                        <div className="absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-cyan-300/20 to-transparent" />
+                      </div>
+                    </div>
+                  )}
                   <div
                     className={`pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-[1.1rem] transition-opacity duration-200 ${
                       frameFeedback === 'capturing'
-                        ? 'animate-pulse bg-amber-200/10 opacity-100'
+                        ? 'animate-pulse bg-amber-200/30 opacity-100'
                         : frameFeedback === 'steady'
-                          ? 'bg-emerald-200/10 opacity-100'
+                          ? 'animate-pulse bg-emerald-200/28 opacity-100'
                           : 'opacity-0'
                     }`}
                     style={{
@@ -1209,6 +1344,19 @@ export default function RegisterPage() {
                       height: `${FRAME_HEIGHT_RATIO * 100}%`,
                     }}
                   />
+                  {torchEnabled && (
+                    <div className="pointer-events-none absolute right-4 top-4 rounded-full bg-amber-300/90 px-3 py-1 text-xs font-semibold text-slate-950 shadow-lg">
+                      补光已开启
+                    </div>
+                  )}
+                  {capturedPreviewUrl && (
+                    <div className="pointer-events-none absolute inset-x-0 top-5 flex justify-center px-5">
+                      <div className="flex items-center gap-3 rounded-full bg-slate-950/82 px-5 py-3 text-base font-semibold text-white shadow-xl backdrop-blur">
+                        <Loader2 size={18} className="animate-spin text-cyan-300" />
+                        <span>照片已固定，正在扫码识别，现在可以放下手机</span>
+                      </div>
+                    </div>
+                  )}
                   <div className="pointer-events-none absolute inset-x-0 bottom-4 flex justify-center px-4">
                     <div className="rounded-full bg-black/55 px-3 py-2 text-center text-sm text-white/95 backdrop-blur">
                       {cameraError || cameraHint}
