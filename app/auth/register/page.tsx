@@ -67,6 +67,39 @@ interface PreviewLayout {
   height: number;
 }
 
+function scoreRearCameraDevice(device: MediaDeviceInfo): number {
+  const label = device.label.toLowerCase();
+  let score = 0;
+
+  if (
+    /front|user|前置|前摄|自拍|facetime/i.test(label)
+  ) {
+    return -1000;
+  }
+
+  if (/back|rear|environment|后置|后摄/i.test(label)) {
+    score += 80;
+  }
+
+  if (/wide|main|standard|normal|广角|主摄|标准/i.test(label)) {
+    score += 35;
+  }
+
+  if (/tele|telephoto|长焦|macro|微距|depth|景深|bokeh/i.test(label)) {
+    score -= 45;
+  }
+
+  if (/ultra|超广/i.test(label)) {
+    score -= 18;
+  }
+
+  if (/0,\s*facing\s*back|camera0|cam0/i.test(label)) {
+    score += 20;
+  }
+
+  return score;
+}
+
 async function loadImageFromFile(file: File): Promise<HTMLImageElement> {
   const objectUrl = URL.createObjectURL(file);
   try {
@@ -433,6 +466,46 @@ export default function RegisterPage() {
     }
 
     return false;
+  };
+
+  const buildSmartCameraConstraints = (deviceId?: string): MediaStreamConstraints => ({
+    audio: false,
+    video: deviceId
+      ? {
+          deviceId: { exact: deviceId },
+          width: { ideal: 1280 },
+          height: { ideal: 960 },
+          aspectRatio: { ideal: 4 / 3 },
+        }
+      : {
+          facingMode: { ideal: 'environment' },
+          width: { ideal: 1280 },
+          height: { ideal: 960 },
+          aspectRatio: { ideal: 4 / 3 },
+        },
+  });
+
+  const pickPreferredRearCamera = async (): Promise<string | null> => {
+    if (!navigator.mediaDevices?.enumerateDevices) {
+      return null;
+    }
+
+    try {
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      const videoInputs = devices.filter((device) => device.kind === 'videoinput');
+      if (videoInputs.length === 0) {
+        return null;
+      }
+
+      const sorted = [...videoInputs].sort(
+        (left, right) => scoreRearCameraDevice(right) - scoreRearCameraDevice(left)
+      );
+      const best = sorted[0];
+      return scoreRearCameraDevice(best) > 0 ? best.deviceId : null;
+    } catch (error) {
+      console.warn('Unable to enumerate video devices:', error);
+      return null;
+    }
   };
 
   const openScanPicker = () => {
@@ -898,14 +971,25 @@ export default function RegisterPage() {
       setCameraHint('正在打开相机…');
 
       try {
-        const stream = await navigator.mediaDevices.getUserMedia({
-          audio: false,
-          video: {
-            facingMode: { ideal: 'environment' },
-            width: { ideal: 1920 },
-            height: { ideal: 1080 },
-          },
-        });
+        let stream = await navigator.mediaDevices.getUserMedia(
+          buildSmartCameraConstraints()
+        );
+
+        const preferredRearCameraId = await pickPreferredRearCamera();
+        const currentTrack = stream.getVideoTracks()[0];
+        const currentDeviceId = currentTrack?.getSettings().deviceId;
+
+        if (
+          preferredRearCameraId &&
+          preferredRearCameraId !== currentDeviceId
+        ) {
+          for (const track of stream.getTracks()) {
+            track.stop();
+          }
+          stream = await navigator.mediaDevices.getUserMedia(
+            buildSmartCameraConstraints(preferredRearCameraId)
+          );
+        }
 
         if (cancelled) {
           for (const track of stream.getTracks()) {
