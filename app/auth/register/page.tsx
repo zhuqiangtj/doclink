@@ -982,20 +982,20 @@ export default function RegisterPage() {
       <style jsx global>{`
         @keyframes smart-scan-line {
           0% {
-            transform: translateY(0);
+            top: 0;
             opacity: 0.55;
           }
           50% {
             opacity: 1;
           }
           100% {
-            transform: translateY(calc(100% - 1.5rem));
+            top: calc(100% - 0.375rem);
             opacity: 0.75;
           }
         }
 
         .smart-scan-line {
-          animation: smart-scan-line 1s ease-in-out infinite alternate;
+          animation: smart-scan-line 1s linear infinite alternate;
         }
       `}</style>
       <div className="fixed right-3 top-1/2 z-40 -translate-y-1/2 md:right-4">
@@ -1283,24 +1283,31 @@ export default function RegisterPage() {
 
               <div className="flex flex-1 flex-col gap-3 p-3 sm:gap-4 sm:p-4">
                 <div className="relative flex-1 overflow-hidden rounded-3xl bg-black">
-                  {capturedPreviewUrl ? (
-                    <img
-                      src={capturedPreviewUrl}
-                      alt="已拍摄的证件照片"
-                      className="h-full w-full object-cover"
-                    />
-                  ) : (
-                    <video
-                      ref={smartVideoRef}
-                      className="h-full w-full object-cover"
-                      autoPlay
-                      muted
-                      playsInline
-                    />
-                  )}
+                  <video
+                    ref={smartVideoRef}
+                    className="h-full w-full object-cover"
+                    autoPlay
+                    muted
+                    playsInline
+                  />
                   <div className="pointer-events-none absolute inset-0 bg-black/35" />
                   {capturedPreviewUrl && (
                     <div className="pointer-events-none absolute inset-0 bg-slate-950/22" />
+                  )}
+                  {capturedPreviewUrl && (
+                    <div
+                      className="pointer-events-none absolute left-1/2 top-1/2 z-[1] -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-2xl"
+                      style={{
+                        width: `${FRAME_WIDTH_RATIO * 100}%`,
+                        height: `${FRAME_HEIGHT_RATIO * 100}%`,
+                      }}
+                    >
+                      <img
+                        src={capturedPreviewUrl}
+                        alt="已拍摄的证件照片"
+                        className="h-full w-full object-cover"
+                      />
+                    </div>
                   )}
                   <div
                     className={`pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-2xl border-[3px] border-dashed shadow-[0_0_0_9999px_rgba(15,23,42,0.38)] transition-all duration-200 ${
@@ -1321,12 +1328,15 @@ export default function RegisterPage() {
                   />
                   {capturedPreviewUrl && (
                     <div
-                      className="pointer-events-none absolute left-1/2 top-1/2 z-10 w-[88%] max-w-sm -translate-x-1/2 -translate-y-1/2"
-                      style={{ height: `${FRAME_HEIGHT_RATIO * 82}%` }}
+                      className="pointer-events-none absolute left-1/2 top-1/2 z-10 -translate-x-1/2 -translate-y-1/2"
+                      style={{
+                        width: `${FRAME_WIDTH_RATIO * 100}%`,
+                        height: `${FRAME_HEIGHT_RATIO * 100}%`,
+                      }}
                     >
                       <div className="relative h-full overflow-hidden rounded-2xl border border-cyan-200/60 bg-cyan-200/10 shadow-[0_0_42px_rgba(34,211,238,0.28)]">
                         <div className="absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-cyan-300/25 to-transparent" />
-                        <div className="smart-scan-line absolute inset-x-3 top-5 h-1.5 rounded-full bg-cyan-200 shadow-[0_0_24px_rgba(103,232,249,1)]" />
+                        <div className="smart-scan-line absolute inset-x-3 h-1.5 rounded-full bg-cyan-200 shadow-[0_0_24px_rgba(103,232,249,1)]" />
                         <div className="absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-cyan-300/20 to-transparent" />
                       </div>
                     </div>
