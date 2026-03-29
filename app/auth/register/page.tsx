@@ -19,12 +19,12 @@ import pinyin from 'pinyin';
 import { fetchWithTimeout, withTimeout } from '../../../utils/network';
 
 const DEFAULT_PASSWORD = '123456';
-const FRAME_WIDTH_RATIO = 0.82;
-const FRAME_ASPECT_RATIO = 1.586;
-const AUTO_CAPTURE_REQUIRED_STABLE_FRAMES = 3;
-const AUTO_CAPTURE_INTERVAL_MS = 650;
-const AUTO_CAPTURE_MIN_SHARPNESS = 22;
-const AUTO_CAPTURE_MAX_MOTION = 9;
+const FRAME_WIDTH_RATIO = 0.92;
+const FRAME_HEIGHT_RATIO = 0.76;
+const AUTO_CAPTURE_REQUIRED_STABLE_FRAMES = 2;
+const AUTO_CAPTURE_INTERVAL_MS = 450;
+const AUTO_CAPTURE_MIN_SHARPNESS = 6;
+const AUTO_CAPTURE_MAX_MOTION = 26;
 
 type ScanDocType = 'id_card' | 'medical_card' | 'auto';
 
@@ -143,7 +143,7 @@ export default function RegisterPage() {
   const [cameraReady, setCameraReady] = useState(false);
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [isAutoCapturing, setIsAutoCapturing] = useState(false);
-  const [cameraHint, setCameraHint] = useState('把证件放进框里');
+  const [cameraHint, setCameraHint] = useState('把证件放进大框里');
   const [stableFrameCount, setStableFrameCount] = useState(0);
 
   const router = useRouter();
@@ -293,22 +293,26 @@ export default function RegisterPage() {
     stopSmartCameraStream();
     setSmartCameraOpen(false);
     setCameraError(null);
-    setCameraHint('把证件放进框里');
+    setCameraHint('把证件放进大框里');
   };
 
   const openSmartCamera = () => {
     setError(null);
     setSuccess(null);
     setCameraError(null);
-    setCameraHint('把证件放进框里');
+    setCameraHint('把证件放进大框里');
     setSmartCameraOpen(true);
   };
 
   const getFrameCrop = (videoWidth: number, videoHeight: number) => {
-    const cropWidth = Math.floor(videoWidth * FRAME_WIDTH_RATIO);
-    const cropHeight = Math.floor(cropWidth / FRAME_ASPECT_RATIO);
-    const boundedCropHeight = Math.min(cropHeight, Math.floor(videoHeight * 0.72));
-    const boundedCropWidth = Math.floor(boundedCropHeight * FRAME_ASPECT_RATIO);
+    const boundedCropWidth = Math.min(
+      Math.floor(videoWidth * FRAME_WIDTH_RATIO),
+      videoWidth
+    );
+    const boundedCropHeight = Math.min(
+      Math.floor(videoHeight * FRAME_HEIGHT_RATIO),
+      videoHeight
+    );
 
     return {
       sx: Math.max(0, Math.floor((videoWidth - boundedCropWidth) / 2)),
@@ -522,7 +526,7 @@ export default function RegisterPage() {
           await smartVideoRef.current.play();
         }
         setCameraReady(true);
-        setCameraHint('把证件放进框里，稳定后会自动拍');
+        setCameraHint('把证件放进大框里，稳定后会自动拍');
       } catch (err) {
         console.error('[Smart Camera] Failed to start:', err);
         setCameraError('无法打开相机，请检查权限，或改用普通扫描。');
@@ -559,8 +563,8 @@ export default function RegisterPage() {
       }
 
       const crop = getFrameCrop(video.videoWidth, video.videoHeight);
-      const sampleWidth = 240;
-      const sampleHeight = Math.max(1, Math.round(sampleWidth / FRAME_ASPECT_RATIO));
+      const sampleWidth = 160;
+      const sampleHeight = 220;
       canvas.width = sampleWidth;
       canvas.height = sampleHeight;
       context.drawImage(
@@ -584,12 +588,14 @@ export default function RegisterPage() {
         const next = isStable ? current + 1 : 0;
         if (isStable) {
           setCameraHint(
-            `已对准，保持稳定 ${Math.min(next, AUTO_CAPTURE_REQUIRED_STABLE_FRAMES)}/${AUTO_CAPTURE_REQUIRED_STABLE_FRAMES}`
+            `已进入框内，保持不动 ${Math.min(next, AUTO_CAPTURE_REQUIRED_STABLE_FRAMES)}/${AUTO_CAPTURE_REQUIRED_STABLE_FRAMES}`
           );
+        } else if (metrics.motion > AUTO_CAPTURE_MAX_MOTION) {
+          setCameraHint('把证件放进大框里并保持不动');
         } else if (metrics.sharpness < AUTO_CAPTURE_MIN_SHARPNESS) {
-          setCameraHint('靠近一点，等画面更清楚');
+          setCameraHint('稍微靠近一点就会自动拍');
         } else {
-          setCameraHint('请保持稳定');
+          setCameraHint('保持不动，马上自动拍');
         }
 
         if (next >= AUTO_CAPTURE_REQUIRED_STABLE_FRAMES && !autoCapturedRef.current) {
@@ -1064,7 +1070,7 @@ export default function RegisterPage() {
                     className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-2xl border-2 border-dashed border-white shadow-[0_0_0_9999px_rgba(15,23,42,0.38)]"
                     style={{
                       width: `${FRAME_WIDTH_RATIO * 100}%`,
-                      aspectRatio: `${FRAME_ASPECT_RATIO}`,
+                      height: `${FRAME_HEIGHT_RATIO * 100}%`,
                     }}
                   />
                   <div className="pointer-events-none absolute inset-x-0 bottom-4 flex justify-center px-4">
