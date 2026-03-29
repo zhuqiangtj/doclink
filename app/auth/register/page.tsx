@@ -27,6 +27,7 @@ const AUTO_CAPTURE_MIN_SHARPNESS = 6;
 const AUTO_CAPTURE_MAX_MOTION = 26;
 
 type ScanDocType = 'id_card' | 'medical_card' | 'auto';
+type SmartFrameFeedback = 'idle' | 'steady' | 'capturing' | 'success' | 'error';
 
 interface ScanResponse {
   name: string;
@@ -145,6 +146,7 @@ export default function RegisterPage() {
   const [isAutoCapturing, setIsAutoCapturing] = useState(false);
   const [cameraHint, setCameraHint] = useState('把证件放进大框里');
   const [stableFrameCount, setStableFrameCount] = useState(0);
+  const [frameFeedback, setFrameFeedback] = useState<SmartFrameFeedback>('idle');
 
   const router = useRouter();
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -155,6 +157,8 @@ export default function RegisterPage() {
   const smartAutoCaptureTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const lastFrameRef = useRef<Uint8ClampedArray | null>(null);
   const autoCapturedRef = useRef(false);
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const lastStableSignalRef = useRef(false);
 
   const DateInput = forwardRef<HTMLInputElement, React.InputHTMLAttributes<HTMLInputElement>>(
     (props, ref) => (
@@ -197,6 +201,81 @@ export default function RegisterPage() {
     if (timerRef.current) {
       clearInterval(timerRef.current);
       timerRef.current = null;
+    }
+  };
+
+  const vibrateDevice = (pattern: number | number[]) => {
+    if (typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function') {
+      navigator.vibrate(pattern);
+    }
+  };
+
+  const playTone = (
+    frequency: number,
+    durationMs: number,
+    volume = 0.05,
+    type: OscillatorType = 'sine'
+  ) => {
+    if (typeof window === 'undefined') return;
+
+    const AudioContextCtor =
+      window.AudioContext ||
+      (window as typeof window & { webkitAudioContext?: typeof AudioContext })
+        .webkitAudioContext;
+
+    if (!AudioContextCtor) return;
+
+    try {
+      const context = audioContextRef.current || new AudioContextCtor();
+      audioContextRef.current = context;
+      if (context.state === 'suspended') {
+        void context.resume();
+      }
+
+      const oscillator = context.createOscillator();
+      const gainNode = context.createGain();
+      const startAt = context.currentTime;
+      const endAt = startAt + durationMs / 1000;
+
+      oscillator.type = type;
+      oscillator.frequency.setValueAtTime(frequency, startAt);
+      gainNode.gain.setValueAtTime(0.0001, startAt);
+      gainNode.gain.exponentialRampToValueAtTime(volume, startAt + 0.02);
+      gainNode.gain.exponentialRampToValueAtTime(0.0001, endAt);
+
+      oscillator.connect(gainNode);
+      gainNode.connect(context.destination);
+      oscillator.start(startAt);
+      oscillator.stop(endAt);
+    } catch (error) {
+      console.warn('Unable to play camera feedback tone:', error);
+    }
+  };
+
+  const triggerFeedback = (kind: SmartFrameFeedback) => {
+    if (kind === 'steady') {
+      vibrateDevice(20);
+      playTone(920, 90, 0.04, 'triangle');
+      return;
+    }
+
+    if (kind === 'capturing') {
+      vibrateDevice([35, 30, 45]);
+      playTone(1240, 120, 0.05, 'triangle');
+      window.setTimeout(() => playTone(1480, 100, 0.04, 'triangle'), 90);
+      return;
+    }
+
+    if (kind === 'success') {
+      vibrateDevice([40, 35, 70]);
+      playTone(1320, 110, 0.05, 'sine');
+      window.setTimeout(() => playTone(1760, 140, 0.04, 'sine'), 100);
+      return;
+    }
+
+    if (kind === 'error') {
+      vibrateDevice([80, 50, 80]);
+      playTone(280, 180, 0.05, 'sawtooth');
     }
   };
 
@@ -284,9 +363,11 @@ export default function RegisterPage() {
     }
     lastFrameRef.current = null;
     autoCapturedRef.current = false;
+    lastStableSignalRef.current = false;
     setStableFrameCount(0);
     setCameraReady(false);
     setIsAutoCapturing(false);
+    setFrameFeedback('idle');
   };
 
   const closeSmartCamera = () => {
@@ -294,6 +375,7 @@ export default function RegisterPage() {
     setSmartCameraOpen(false);
     setCameraError(null);
     setCameraHint('把证件放进大框里');
+    setFrameFeedback('idle');
   };
 
   const openSmartCamera = () => {
@@ -301,6 +383,7 @@ export default function RegisterPage() {
     setSuccess(null);
     setCameraError(null);
     setCameraHint('把证件放进大框里');
+    setFrameFeedback('idle');
     setSmartCameraOpen(true);
   };
 
@@ -377,6 +460,8 @@ export default function RegisterPage() {
 
     setIsAutoCapturing(true);
     setCameraHint('正在拍照…');
+    setFrameFeedback('capturing');
+    triggerFeedback('capturing');
 
     try {
       const crop = getFrameCrop(video.videoWidth, video.videoHeight);
@@ -405,12 +490,18 @@ export default function RegisterPage() {
       });
 
       await uploadScanFile(file);
+      setFrameFeedback('success');
+      triggerFeedback('success');
       closeSmartCamera();
     } catch (err) {
       setCameraError(
         err instanceof Error ? err.message : '智能扫描失败，请改用普通扫描。'
       );
       setCameraHint('请重新对准后再试');
+      setFrameFeedback('error');
+      triggerFeedback('error');
+      autoCapturedRef.current = false;
+      lastStableSignalRef.current = false;
     } finally {
       setIsAutoCapturing(false);
     }
@@ -490,6 +581,15 @@ export default function RegisterPage() {
   }, []);
 
   useEffect(() => {
+    return () => {
+      if (audioContextRef.current) {
+        void audioContextRef.current.close().catch(() => undefined);
+        audioContextRef.current = null;
+      }
+    };
+  }, []);
+
+  useEffect(() => {
     if (!smartCameraOpen) return;
     if (typeof window === 'undefined' || !navigator.mediaDevices?.getUserMedia) {
       setCameraError('当前浏览器不支持网页内相机，请改用普通扫描。');
@@ -527,9 +627,11 @@ export default function RegisterPage() {
         }
         setCameraReady(true);
         setCameraHint('把证件放进大框里，稳定后会自动拍');
+        setFrameFeedback('idle');
       } catch (err) {
         console.error('[Smart Camera] Failed to start:', err);
         setCameraError('无法打开相机，请检查权限，或改用普通扫描。');
+        setFrameFeedback('error');
       }
     };
 
@@ -587,14 +689,25 @@ export default function RegisterPage() {
       setStableFrameCount((current) => {
         const next = isStable ? current + 1 : 0;
         if (isStable) {
+          setFrameFeedback(next >= AUTO_CAPTURE_REQUIRED_STABLE_FRAMES ? 'capturing' : 'steady');
+          if (!lastStableSignalRef.current) {
+            lastStableSignalRef.current = true;
+            triggerFeedback('steady');
+          }
           setCameraHint(
             `已进入框内，保持不动 ${Math.min(next, AUTO_CAPTURE_REQUIRED_STABLE_FRAMES)}/${AUTO_CAPTURE_REQUIRED_STABLE_FRAMES}`
           );
         } else if (metrics.motion > AUTO_CAPTURE_MAX_MOTION) {
+          lastStableSignalRef.current = false;
+          setFrameFeedback('idle');
           setCameraHint('把证件放进大框里并保持不动');
         } else if (metrics.sharpness < AUTO_CAPTURE_MIN_SHARPNESS) {
+          lastStableSignalRef.current = false;
+          setFrameFeedback('idle');
           setCameraHint('稍微靠近一点就会自动拍');
         } else {
+          lastStableSignalRef.current = false;
+          setFrameFeedback('idle');
           setCameraHint('保持不动，马上自动拍');
         }
 
@@ -1067,7 +1180,30 @@ export default function RegisterPage() {
                   />
                   <div className="pointer-events-none absolute inset-0 bg-black/35" />
                   <div
-                    className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-2xl border-2 border-dashed border-white shadow-[0_0_0_9999px_rgba(15,23,42,0.38)]"
+                    className={`pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-2xl border-2 border-dashed shadow-[0_0_0_9999px_rgba(15,23,42,0.38)] transition-all duration-200 ${
+                      frameFeedback === 'capturing'
+                        ? 'animate-pulse border-amber-300 shadow-[0_0_0_9999px_rgba(15,23,42,0.28),0_0_0_4px_rgba(252,211,77,0.4)]'
+                        : frameFeedback === 'steady'
+                          ? 'animate-pulse border-emerald-300 shadow-[0_0_0_9999px_rgba(15,23,42,0.3),0_0_0_4px_rgba(110,231,183,0.35)]'
+                          : frameFeedback === 'success'
+                            ? 'border-sky-300 shadow-[0_0_0_9999px_rgba(15,23,42,0.22),0_0_0_5px_rgba(125,211,252,0.45)]'
+                            : frameFeedback === 'error'
+                              ? 'border-rose-300 shadow-[0_0_0_9999px_rgba(15,23,42,0.32),0_0_0_4px_rgba(253,164,175,0.35)]'
+                              : 'border-white'
+                    }`}
+                    style={{
+                      width: `${FRAME_WIDTH_RATIO * 100}%`,
+                      height: `${FRAME_HEIGHT_RATIO * 100}%`,
+                    }}
+                  />
+                  <div
+                    className={`pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-[1.1rem] transition-opacity duration-200 ${
+                      frameFeedback === 'capturing'
+                        ? 'animate-pulse bg-amber-200/10 opacity-100'
+                        : frameFeedback === 'steady'
+                          ? 'bg-emerald-200/10 opacity-100'
+                          : 'opacity-0'
+                    }`}
                     style={{
                       width: `${FRAME_WIDTH_RATIO * 100}%`,
                       height: `${FRAME_HEIGHT_RATIO * 100}%`,
