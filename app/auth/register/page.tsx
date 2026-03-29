@@ -21,10 +21,10 @@ import { fetchWithTimeout, withTimeout } from '../../../utils/network';
 const DEFAULT_PASSWORD = '123456';
 const FRAME_WIDTH_RATIO = 0.82;
 const FRAME_ASPECT_RATIO = 1.586;
-const AUTO_CAPTURE_REQUIRED_STABLE_FRAMES = 2;
-const AUTO_CAPTURE_INTERVAL_MS = 700;
-const AUTO_CAPTURE_MIN_SHARPNESS = 18;
-const AUTO_CAPTURE_MAX_MOTION = 12;
+const AUTO_CAPTURE_REQUIRED_STABLE_FRAMES = 3;
+const AUTO_CAPTURE_INTERVAL_MS = 650;
+const AUTO_CAPTURE_MIN_SHARPNESS = 22;
+const AUTO_CAPTURE_MAX_MOTION = 9;
 
 type ScanDocType = 'id_card' | 'medical_card' | 'auto';
 
@@ -143,7 +143,7 @@ export default function RegisterPage() {
   const [cameraReady, setCameraReady] = useState(false);
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [isAutoCapturing, setIsAutoCapturing] = useState(false);
-  const [cameraHint, setCameraHint] = useState('请把身份证或社保卡放进虚线框内');
+  const [cameraHint, setCameraHint] = useState('把证件放进框里');
   const [stableFrameCount, setStableFrameCount] = useState(0);
 
   const router = useRouter();
@@ -293,14 +293,14 @@ export default function RegisterPage() {
     stopSmartCameraStream();
     setSmartCameraOpen(false);
     setCameraError(null);
-    setCameraHint('请把身份证或社保卡放进虚线框内');
+    setCameraHint('把证件放进框里');
   };
 
   const openSmartCamera = () => {
     setError(null);
     setSuccess(null);
     setCameraError(null);
-    setCameraHint('请把身份证或社保卡放进虚线框内');
+    setCameraHint('把证件放进框里');
     setSmartCameraOpen(true);
   };
 
@@ -372,7 +372,7 @@ export default function RegisterPage() {
     }
 
     setIsAutoCapturing(true);
-    setCameraHint('正在拍照识别…');
+    setCameraHint('正在拍照…');
 
     try {
       const crop = getFrameCrop(video.videoWidth, video.videoHeight);
@@ -406,7 +406,7 @@ export default function RegisterPage() {
       setCameraError(
         err instanceof Error ? err.message : '智能扫描失败，请改用普通扫描。'
       );
-      setCameraHint('请重新对准证件，或改用普通扫描');
+      setCameraHint('请重新对准后再试');
     } finally {
       setIsAutoCapturing(false);
     }
@@ -522,7 +522,7 @@ export default function RegisterPage() {
           await smartVideoRef.current.play();
         }
         setCameraReady(true);
-        setCameraHint('请把身份证或社保卡放进虚线框内，稳定后会自动拍照');
+        setCameraHint('把证件放进框里，稳定后会自动拍');
       } catch (err) {
         console.error('[Smart Camera] Failed to start:', err);
         setCameraError('无法打开相机，请检查权限，或改用普通扫描。');
@@ -583,11 +583,13 @@ export default function RegisterPage() {
       setStableFrameCount((current) => {
         const next = isStable ? current + 1 : 0;
         if (isStable) {
-          setCameraHint(`证件已对准，稳定中… ${Math.min(next, AUTO_CAPTURE_REQUIRED_STABLE_FRAMES)}/${AUTO_CAPTURE_REQUIRED_STABLE_FRAMES}`);
+          setCameraHint(
+            `已对准，保持稳定 ${Math.min(next, AUTO_CAPTURE_REQUIRED_STABLE_FRAMES)}/${AUTO_CAPTURE_REQUIRED_STABLE_FRAMES}`
+          );
         } else if (metrics.sharpness < AUTO_CAPTURE_MIN_SHARPNESS) {
-          setCameraHint('请靠近一点或等对焦更清楚');
+          setCameraHint('靠近一点，等画面更清楚');
         } else {
-          setCameraHint('请保持手机稳定');
+          setCameraHint('请保持稳定');
         }
 
         if (next >= AUTO_CAPTURE_REQUIRED_STABLE_FRAMES && !autoCapturedRef.current) {
@@ -1093,6 +1095,9 @@ export default function RegisterPage() {
                     手动拍照
                   </button>
                 </div>
+                <p className="text-center text-xs text-white/65">
+                  自动拍照不理想时，可直接点“手动拍照”
+                </p>
               </div>
             </div>
             <canvas ref={smartCanvasRef} className="hidden" />
