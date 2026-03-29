@@ -25,6 +25,7 @@ const AUTO_CAPTURE_REQUIRED_STABLE_FRAMES = 2;
 const AUTO_CAPTURE_INTERVAL_MS = 450;
 const AUTO_CAPTURE_MIN_SHARPNESS = 6;
 const AUTO_CAPTURE_MAX_MOTION = 26;
+const AUTO_CAPTURE_MAX_BORDER_CLIPPING = 22;
 const AUTO_TORCH_BRIGHTNESS_THRESHOLD = 72;
 const AUTO_TORCH_REQUIRED_DARK_FRAMES = 3;
 
@@ -53,6 +54,7 @@ interface FrameMetrics {
   motion: number;
   sharpness: number;
   brightness: number;
+  borderClipping: number;
 }
 
 async function loadImageFromFile(file: File): Promise<HTMLImageElement> {
@@ -403,7 +405,7 @@ export default function RegisterPage() {
     await uploadScanFile(file);
   };
 
-  const stopSmartCameraStream = () => {
+  const stopSmartCameraFeed = () => {
     if (smartAutoCaptureTimerRef.current) {
       clearInterval(smartAutoCaptureTimerRef.current);
       smartAutoCaptureTimerRef.current = null;
@@ -424,10 +426,14 @@ export default function RegisterPage() {
     torchAttemptedRef.current = false;
     setStableFrameCount(0);
     setCameraReady(false);
-    setIsAutoCapturing(false);
-    setFrameFeedback('idle');
     setTorchAvailable(false);
     setTorchEnabled(false);
+  };
+
+  const stopSmartCameraStream = () => {
+    stopSmartCameraFeed();
+    setIsAutoCapturing(false);
+    setFrameFeedback('idle');
     setCapturedPreviewUrl(null);
   };
 
@@ -488,6 +494,44 @@ export default function RegisterPage() {
       brightnessTotal += grayscale[i];
     }
 
+    const borderBand = Math.max(6, Math.floor(Math.min(width, height) * 0.06));
+    let borderClippingTotal = 0;
+    let borderClippingSamples = 0;
+
+    for (let y = 0; y < height; y += 1) {
+      for (let x = 0; x < borderBand; x += 1) {
+        borderClippingTotal += Math.abs(
+          grayscale[y * width + x] - grayscale[y * width + x + 1]
+        );
+        borderClippingSamples += 1;
+      }
+
+      for (let x = width - borderBand; x < width; x += 1) {
+        borderClippingTotal += Math.abs(
+          grayscale[y * width + x] - grayscale[y * width + x - 1]
+        );
+        borderClippingSamples += 1;
+      }
+    }
+
+    for (let y = 0; y < borderBand; y += 1) {
+      for (let x = 0; x < width; x += 1) {
+        borderClippingTotal += Math.abs(
+          grayscale[y * width + x] - grayscale[(y + 1) * width + x]
+        );
+        borderClippingSamples += 1;
+      }
+    }
+
+    for (let y = height - borderBand; y < height; y += 1) {
+      for (let x = 0; x < width; x += 1) {
+        borderClippingTotal += Math.abs(
+          grayscale[y * width + x] - grayscale[(y - 1) * width + x]
+        );
+        borderClippingSamples += 1;
+      }
+    }
+
     for (let y = 1; y < height - 1; y += 1) {
       for (let x = 1; x < width - 1; x += 1) {
         const center = grayscale[y * width + x];
@@ -514,6 +558,10 @@ export default function RegisterPage() {
       motion: motionTotal,
       sharpness: sharpnessTotal / (width * height),
       brightness: brightnessTotal / grayscale.length,
+      borderClipping:
+        borderClippingSamples > 0
+          ? borderClippingTotal / borderClippingSamples
+          : 0,
     };
   };
 
@@ -555,9 +603,7 @@ export default function RegisterPage() {
 
       setCapturedPreviewUrl(canvas.toDataURL('image/jpeg', 0.9));
       setCameraHint('照片已拍好，正在识别，可放下手机等待');
-      if (torchEnabled) {
-        void setTorchMode(false);
-      }
+      stopSmartCameraFeed();
 
       const blob = await canvasToBlob(canvas, 'image/jpeg', 0.9);
       const file = new File([blob], `smart-scan-${Date.now()}.jpg`, {
@@ -761,7 +807,8 @@ export default function RegisterPage() {
       const metrics = measureFrame(context, sampleWidth, sampleHeight);
       const isStable =
         metrics.sharpness >= AUTO_CAPTURE_MIN_SHARPNESS &&
-        metrics.motion <= AUTO_CAPTURE_MAX_MOTION;
+        metrics.motion <= AUTO_CAPTURE_MAX_MOTION &&
+        metrics.borderClipping <= AUTO_CAPTURE_MAX_BORDER_CLIPPING;
       const isDark = metrics.brightness <= AUTO_TORCH_BRIGHTNESS_THRESHOLD;
 
       if (torchAvailable && !torchEnabled && !torchAttemptedRef.current) {
@@ -790,6 +837,10 @@ export default function RegisterPage() {
           setCameraHint(
             `已进入框内，保持不动 ${Math.min(next, AUTO_CAPTURE_REQUIRED_STABLE_FRAMES)}/${AUTO_CAPTURE_REQUIRED_STABLE_FRAMES}`
           );
+        } else if (metrics.borderClipping > AUTO_CAPTURE_MAX_BORDER_CLIPPING) {
+          lastStableSignalRef.current = false;
+          setFrameFeedback('idle');
+          setCameraHint('证件还没完全进框，再往框中央放一点');
         } else if (metrics.motion > AUTO_CAPTURE_MAX_MOTION) {
           lastStableSignalRef.current = false;
           setFrameFeedback('idle');
