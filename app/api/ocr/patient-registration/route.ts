@@ -196,6 +196,127 @@ function getTextLines(rawText: string): string[] {
     .filter(Boolean);
 }
 
+function compactLabel(label: string): string {
+  return label.replace(/[\s:：]/g, '');
+}
+
+function lineHasAnyLabel(line: string, labels: string[]): boolean {
+  const compactLine = compactText(line);
+  return labels.some((label) => compactLine.includes(compactLabel(label)));
+}
+
+function getDocumentFieldLabels(
+  detectedDocumentType: DetectedDocumentType
+): string[] {
+  if (detectedDocumentType === 'id_card') {
+    return [
+      '姓名',
+      '名',
+      '性别',
+      '民族',
+      '出生',
+      '出生日期',
+      '公民身份号码',
+      '身份证号码',
+      '身份证号',
+      '住址',
+      '有效期限',
+      '有效期',
+      '签发机关',
+    ];
+  }
+
+  if (detectedDocumentType === 'medical_card') {
+    return ['姓名', '名', '社会保障号码', '社会保障号', '卡号', '发卡日期'];
+  }
+
+  return [
+    '姓名',
+    '名',
+    '性别',
+    '民族',
+    '出生',
+    '出生日期',
+    '公民身份号码',
+    '身份证号码',
+    '身份证号',
+    '住址',
+    '有效期限',
+    '有效期',
+    '签发机关',
+    '社会保障号码',
+    '社会保障号',
+    '卡号',
+    '发卡日期',
+  ];
+}
+
+function getCompetingFieldLabels(
+  detectedDocumentType: DetectedDocumentType,
+  targetLabels: string[]
+): string[] {
+  const targetSet = new Set(targetLabels.map((label) => compactLabel(label)));
+  return getDocumentFieldLabels(detectedDocumentType).filter(
+    (label) => !targetSet.has(compactLabel(label))
+  );
+}
+
+function getInlineTextAfterLabel(line: string, label: string): string | null {
+  const compactLine = compactText(line);
+  const compactedLabel = compactLabel(label);
+  const compactIndex = compactLine.indexOf(compactedLabel);
+  if (compactIndex >= 0) {
+    const candidate = compactLine.slice(compactIndex + compactedLabel.length).trim();
+    if (candidate) return candidate;
+  }
+
+  const normalizedLabel = label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const rawMatch = line.match(new RegExp(`${normalizedLabel}[\\s:：]*(.+)$`, 'u'));
+  return rawMatch?.[1]?.trim() || null;
+}
+
+function extractFieldFromLabeledLines<T>(
+  rawText: string,
+  targetLabels: string[],
+  detectedDocumentType: DetectedDocumentType,
+  parser: (value: string) => T | null,
+  options?: { nextLineLimit?: number; skipAddressLines?: boolean }
+): T | null {
+  const lines = getTextLines(rawText);
+  const competingLabels = getCompetingFieldLabels(detectedDocumentType, targetLabels);
+  const nextLineLimit = options?.nextLineLimit ?? 2;
+
+  for (let index = 0; index < lines.length; index += 1) {
+    const line = lines[index];
+    if (!lineHasAnyLabel(line, targetLabels)) continue;
+
+    for (const label of targetLabels) {
+      const inlineText = getInlineTextAfterLabel(line, label);
+      if (!inlineText) continue;
+      const parsed = parser(inlineText);
+      if (parsed !== null) {
+        return parsed;
+      }
+    }
+
+    for (let offset = 1; offset <= nextLineLimit; offset += 1) {
+      const nextLine = lines[index + offset];
+      if (!nextLine) break;
+      if (lineHasAnyLabel(nextLine, competingLabels)) break;
+      if (options?.skipAddressLines && hasAddressLabelNearby(lines, index + offset)) {
+        continue;
+      }
+
+      const parsed = parser(nextLine) ?? parser(compactText(nextLine));
+      if (parsed !== null) {
+        return parsed;
+      }
+    }
+  }
+
+  return null;
+}
+
 function containsAddressLikePattern(value: string): boolean {
   if (!value) return false;
   return /\d/u.test(value);
@@ -220,7 +341,13 @@ function cleanupNameCandidate(value: string | null | undefined): string | null {
     .trim();
 
   if (!cleaned) return null;
-  if (/^(姓名|名|性别|民族|出生|住址)$/u.test(cleaned)) return null;
+  if (
+    /^(姓名|名|性别|民族|出生|出生日期|住址|卡号|发卡日期|社会保障号码|社会保障号|公民身份号码|身份证号码|身份证号|有效期限|有效期|签发机关)$/u.test(
+      cleaned
+    )
+  ) {
+    return null;
+  }
   if (containsAddressLikePattern(cleaned)) return null;
   if (cleaned.includes('·')) {
     if (!/^[\u3400-\u9FFF·]{2,8}$/u.test(cleaned)) return null;
@@ -248,59 +375,26 @@ function extractNameFromText(
   rawText: string,
   detectedDocumentType: DetectedDocumentType = 'unknown'
 ): string | null {
-  const compact = compactText(rawText);
-  const directMatch = firstMatch(
-    [rawText, compact],
-    [
-      /姓名[:：]?\s*([A-Za-z\u3400-\u9FFF·]{2,10})/u,
-      /姓名([A-Za-z\u3400-\u9FFF·]{2,10}?)(?=(?:性别|民族|社会保障号码|社会保障号|公民身份号码|身份证号码|身份证号|卡号|发卡日期|有效期限|有效期|$))/u,
-      /名[:：]?\s*([A-Za-z\u3400-\u9FFF·]{2,10})/u,
-    ]
+  const labeledCandidate = extractFieldFromLabeledLines(
+    rawText,
+    ['姓名', '名'],
+    detectedDocumentType,
+    cleanupNameCandidate,
+    { skipAddressLines: true }
   );
-
-  const normalizedDirectMatch = cleanupNameCandidate(directMatch);
-  if (normalizedDirectMatch) {
-    return normalizedDirectMatch;
+  if (labeledCandidate) {
+    return labeledCandidate;
   }
 
   const lines = getTextLines(rawText);
   const candidates: Array<{ value: string; score: number }> = [];
-  const strictIdCardMode = detectedDocumentType === 'id_card';
+  const strictLabeledMode =
+    detectedDocumentType === 'id_card' || detectedDocumentType === 'medical_card';
 
   for (let index = 0; index < lines.length; index += 1) {
     const line = lines[index];
-    const compactLine = compactText(line);
 
-    const inlineCandidate = cleanupNameCandidate(
-      compactLine.match(/姓名(.{1,10})/u)?.[1] ||
-        line.match(/姓名[:：]?\s*(.{1,10})/u)?.[1] ||
-        null
-    );
-    if (inlineCandidate) {
-      candidates.push({
-        value: inlineCandidate,
-        score: scoreNameCandidate(inlineCandidate, `${line}${lines[index + 1] || ''}`),
-      });
-    }
-
-    if (/^姓名$/u.test(compactLine) || /^姓$/u.test(compactLine)) {
-      for (let offset = 1; offset <= 2; offset += 1) {
-        const nextLine = lines[index + offset];
-        const nextCompactLine = nextLine ? compactText(nextLine) : '';
-        const nextCandidate = cleanupNameCandidate(nextCompactLine || nextLine || null);
-        if (nextCandidate && !hasAddressLabelNearby(lines, index + offset)) {
-          candidates.push({
-            value: nextCandidate,
-            score: scoreNameCandidate(
-              nextCandidate,
-              `${line}${nextLine || ''}${lines[index + offset + 1] || ''}`
-            ),
-          });
-        }
-      }
-    }
-
-    if (strictIdCardMode) {
+    if (strictLabeledMode) {
       continue;
     }
 
@@ -326,7 +420,33 @@ function extractNameFromText(
   return candidates[0]?.value || null;
 }
 
-function extractGenderFromText(rawText: string): OutputGender {
+function parseGenderCandidate(value: string): OutputGender {
+  const match = value.match(/(男|女|男性|女性|Male|Female|Other|其他)/iu);
+  return normalizeGender(match?.[1] || null);
+}
+
+function extractGenderFromText(
+  rawText: string,
+  detectedDocumentType: DetectedDocumentType = 'unknown'
+): OutputGender {
+  if (detectedDocumentType === 'medical_card') {
+    return null;
+  }
+
+  const labeledValue = extractFieldFromLabeledLines(
+    rawText,
+    ['性别'],
+    detectedDocumentType,
+    parseGenderCandidate
+  );
+  if (labeledValue) {
+    return labeledValue;
+  }
+
+  if (detectedDocumentType === 'id_card') {
+    return null;
+  }
+
   const compact = compactText(rawText);
   const value = firstMatch(
     [rawText, compact],
@@ -338,7 +458,37 @@ function extractGenderFromText(rawText: string): OutputGender {
   return normalizeGender(value);
 }
 
-function extractDateOfBirthFromText(rawText: string): string | null {
+function parseDateCandidate(value: string): string | null {
+  const compact = compactText(value);
+  const candidate = firstMatch(
+    [value, compact],
+    [/([0-9]{4}[年./-]?[0-9]{1,2}[月./-]?[0-9]{1,2}日?)/u]
+  );
+  return normalizeDate(candidate);
+}
+
+function extractDateOfBirthFromText(
+  rawText: string,
+  detectedDocumentType: DetectedDocumentType = 'unknown'
+): string | null {
+  if (detectedDocumentType === 'medical_card') {
+    return null;
+  }
+
+  const labeledValue = extractFieldFromLabeledLines(
+    rawText,
+    ['出生日期', '出生', '生日'],
+    detectedDocumentType,
+    parseDateCandidate
+  );
+  if (labeledValue) {
+    return labeledValue;
+  }
+
+  if (detectedDocumentType === 'id_card') {
+    return null;
+  }
+
   const compact = compactText(rawText);
   const value = firstMatch(
     [rawText, compact],
@@ -378,7 +528,36 @@ function normalizeDate(dateOfBirth: string | null | undefined): string | null {
   return isValidDate(candidate) ? candidate : null;
 }
 
-function extractGovernmentIdFromText(rawText: string): string | null {
+function parseGovernmentIdCandidate(value: string): string | null {
+  const compact = compactText(value).toUpperCase();
+  return normalizeGovernmentId(compact.match(/[0-9]{17}[0-9X]/)?.[0] || null);
+}
+
+function extractGovernmentIdFromText(
+  rawText: string,
+  detectedDocumentType: DetectedDocumentType = 'unknown'
+): string | null {
+  const targetLabels =
+    detectedDocumentType === 'medical_card'
+      ? ['社会保障号码', '社会保障号']
+      : detectedDocumentType === 'id_card'
+        ? ['公民身份号码', '身份证号码', '身份证号']
+        : ['社会保障号码', '社会保障号', '公民身份号码', '身份证号码', '身份证号'];
+
+  const labeledValue = extractFieldFromLabeledLines(
+    rawText,
+    targetLabels,
+    detectedDocumentType,
+    parseGovernmentIdCandidate
+  );
+  if (labeledValue) {
+    return labeledValue;
+  }
+
+  if (detectedDocumentType === 'id_card' || detectedDocumentType === 'medical_card') {
+    return null;
+  }
+
   const compact = compactText(rawText).toUpperCase();
   const labeled = firstMatch(
     [compact, rawText.toUpperCase()],
@@ -543,10 +722,10 @@ async function runOcrSpace(
   };
 
   const parseFieldsFromRawText = (rawText: string, retryUsed = false): ParsedOcrFields => {
-    const socialSecurityNumber = extractGovernmentIdFromText(rawText);
-    const textGender = extractGenderFromText(rawText);
-    const textDob = extractDateOfBirthFromText(rawText);
     const detectedDocumentType = inferDocumentTypeFromText(rawText, docType);
+    const socialSecurityNumber = extractGovernmentIdFromText(rawText, detectedDocumentType);
+    const textGender = extractGenderFromText(rawText, detectedDocumentType);
+    const textDob = extractDateOfBirthFromText(rawText, detectedDocumentType);
 
     return {
       name: extractNameFromText(rawText, detectedDocumentType),
