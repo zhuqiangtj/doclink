@@ -28,8 +28,14 @@ const AUTO_CAPTURE_MIN_SHARPNESS = 6;
 const AUTO_CAPTURE_MAX_MOTION = 26;
 const AUTO_CAPTURE_MAX_BORDER_CLIPPING = 22;
 const AUTO_CAPTURE_MAX_BORDER_EDGE_COVERAGE = 0.18;
+const AUTO_CAPTURE_MIN_RECTANGLE_SCORE = 0.68;
+const AUTO_CAPTURE_MIN_RECTANGLE_EDGE_COVERAGE = 0.56;
+const AUTO_CAPTURE_MIN_RECTANGLE_AREA_RATIO = 0.18;
+const AUTO_CAPTURE_MIN_RECTANGLE_MARGIN_RATIO = 0.025;
 const AUTO_TORCH_BRIGHTNESS_THRESHOLD = 72;
 const AUTO_TORCH_REQUIRED_DARK_FRAMES = 3;
+const CARD_LANDSCAPE_ASPECT = 1.586;
+const CARD_PORTRAIT_ASPECT = 1 / CARD_LANDSCAPE_ASPECT;
 
 type ScanDocType = 'id_card' | 'medical_card' | 'auto';
 type SmartFrameFeedback = 'idle' | 'steady' | 'capturing' | 'success' | 'error';
@@ -58,6 +64,7 @@ interface FrameMetrics {
   brightness: number;
   borderClipping: number;
   borderEdgeCoverage: number;
+  rectangle: RectangleDetection;
 }
 
 interface PreviewLayout {
@@ -65,6 +72,387 @@ interface PreviewLayout {
   top: number;
   width: number;
   height: number;
+}
+
+interface RectangleDetection {
+  detected: boolean;
+  score: number;
+  edgeCoverage: number;
+  edgeStrength: number;
+  areaRatio: number;
+  aspectRatio: number;
+  marginRatio: number;
+}
+
+interface EdgePeak {
+  index: number;
+  score: number;
+}
+
+function smoothScores(
+  scores: ArrayLike<number>,
+  radius = 2
+): Float32Array {
+  const smoothed = new Float32Array(scores.length);
+
+  for (let index = 0; index < scores.length; index += 1) {
+    let total = 0;
+    let count = 0;
+    for (
+      let cursor = Math.max(0, index - radius);
+      cursor <= Math.min(scores.length - 1, index + radius);
+      cursor += 1
+    ) {
+      total += scores[cursor];
+      count += 1;
+    }
+    smoothed[index] = count > 0 ? total / count : 0;
+  }
+
+  return smoothed;
+}
+
+function findTopPeaks(
+  scores: ArrayLike<number>,
+  start: number,
+  end: number,
+  count: number,
+  minDistance: number
+): EdgePeak[] {
+  const candidates: EdgePeak[] = [];
+
+  for (
+    let index = Math.max(0, start);
+    index < Math.min(scores.length, end);
+    index += 1
+  ) {
+    candidates.push({ index, score: scores[index] });
+  }
+
+  candidates.sort((left, right) => right.score - left.score);
+
+  const selected: EdgePeak[] = [];
+  for (const candidate of candidates) {
+    if (
+      selected.every(
+        (existing) => Math.abs(existing.index - candidate.index) >= minDistance
+      )
+    ) {
+      selected.push(candidate);
+      if (selected.length >= count) break;
+    }
+  }
+
+  return selected;
+}
+
+function getCardAspectScore(aspectRatio: number): number {
+  if (!Number.isFinite(aspectRatio) || aspectRatio <= 0) return 0;
+
+  const distanceToLandscape = Math.abs(aspectRatio - CARD_LANDSCAPE_ASPECT);
+  const distanceToPortrait = Math.abs(aspectRatio - CARD_PORTRAIT_ASPECT);
+
+  return Math.max(
+    Math.max(0, 1 - distanceToLandscape / 0.55),
+    Math.max(0, 1 - distanceToPortrait / 0.28)
+  );
+}
+
+function getVerticalLineStats(
+  gradient: Float32Array,
+  width: number,
+  height: number,
+  x: number,
+  top: number,
+  bottom: number,
+  threshold: number,
+  bandRadius = 2
+): { coverage: number; strength: number } {
+  let hits = 0;
+  let samples = 0;
+  let totalStrength = 0;
+
+  for (
+    let y = Math.max(1, top + 1);
+    y < Math.min(height - 1, bottom);
+    y += 1
+  ) {
+    let strongest = 0;
+    for (
+      let cursorX = Math.max(1, x - bandRadius);
+      cursorX <= Math.min(width - 2, x + bandRadius);
+      cursorX += 1
+    ) {
+      const value = gradient[y * width + cursorX];
+      if (value > strongest) strongest = value;
+    }
+
+    totalStrength += strongest;
+    samples += 1;
+    if (strongest >= threshold) hits += 1;
+  }
+
+  return {
+    coverage: samples > 0 ? hits / samples : 0,
+    strength: samples > 0 ? totalStrength / samples : 0,
+  };
+}
+
+function getHorizontalLineStats(
+  gradient: Float32Array,
+  width: number,
+  height: number,
+  y: number,
+  left: number,
+  right: number,
+  threshold: number,
+  bandRadius = 2
+): { coverage: number; strength: number } {
+  let hits = 0;
+  let samples = 0;
+  let totalStrength = 0;
+
+  for (
+    let x = Math.max(1, left + 1);
+    x < Math.min(width - 1, right);
+    x += 1
+  ) {
+    let strongest = 0;
+    for (
+      let cursorY = Math.max(1, y - bandRadius);
+      cursorY <= Math.min(height - 2, y + bandRadius);
+      cursorY += 1
+    ) {
+      const value = gradient[cursorY * width + x];
+      if (value > strongest) strongest = value;
+    }
+
+    totalStrength += strongest;
+    samples += 1;
+    if (strongest >= threshold) hits += 1;
+  }
+
+  return {
+    coverage: samples > 0 ? hits / samples : 0,
+    strength: samples > 0 ? totalStrength / samples : 0,
+  };
+}
+
+function detectRectangleCandidate(
+  grayscale: Uint8ClampedArray,
+  width: number,
+  height: number
+): RectangleDetection {
+  const emptyResult: RectangleDetection = {
+    detected: false,
+    score: 0,
+    edgeCoverage: 0,
+    edgeStrength: 0,
+    areaRatio: 0,
+    aspectRatio: 0,
+    marginRatio: 0,
+  };
+
+  if (width < 48 || height < 48) {
+    return emptyResult;
+  }
+
+  const verticalGradient = new Float32Array(width * height);
+  const horizontalGradient = new Float32Array(width * height);
+  const columnScores = new Float32Array(width);
+  const rowScores = new Float32Array(height);
+
+  for (let y = 1; y < height - 1; y += 1) {
+    for (let x = 1; x < width - 1; x += 1) {
+      const index = y * width + x;
+      const verticalDiff = Math.abs(grayscale[index + 1] - grayscale[index - 1]);
+      const horizontalDiff = Math.abs(
+        grayscale[index + width] - grayscale[index - width]
+      );
+      verticalGradient[index] = verticalDiff;
+      horizontalGradient[index] = horizontalDiff;
+      columnScores[x] += verticalDiff;
+      rowScores[y] += horizontalDiff;
+    }
+  }
+
+  for (let x = 1; x < width - 1; x += 1) {
+    columnScores[x] /= Math.max(1, height - 2);
+  }
+  for (let y = 1; y < height - 1; y += 1) {
+    rowScores[y] /= Math.max(1, width - 2);
+  }
+
+  const smoothedColumns = smoothScores(columnScores, 3);
+  const smoothedRows = smoothScores(rowScores, 3);
+  const innerMargin = Math.max(8, Math.floor(Math.min(width, height) * 0.05));
+  const peakSpacing = Math.max(8, Math.floor(Math.min(width, height) * 0.06));
+  const leftPeaks = findTopPeaks(
+    smoothedColumns,
+    innerMargin,
+    Math.floor(width * 0.48),
+    4,
+    peakSpacing
+  );
+  const rightPeaks = findTopPeaks(
+    smoothedColumns,
+    Math.floor(width * 0.52),
+    width - innerMargin,
+    4,
+    peakSpacing
+  );
+  const topPeaks = findTopPeaks(
+    smoothedRows,
+    innerMargin,
+    Math.floor(height * 0.48),
+    4,
+    peakSpacing
+  );
+  const bottomPeaks = findTopPeaks(
+    smoothedRows,
+    Math.floor(height * 0.52),
+    height - innerMargin,
+    4,
+    peakSpacing
+  );
+
+  if (
+    leftPeaks.length === 0 ||
+    rightPeaks.length === 0 ||
+    topPeaks.length === 0 ||
+    bottomPeaks.length === 0
+  ) {
+    return emptyResult;
+  }
+
+  const meanColumnScore =
+    smoothedColumns.reduce((total, value) => total + value, 0) /
+    Math.max(1, smoothedColumns.length);
+  const meanRowScore =
+    smoothedRows.reduce((total, value) => total + value, 0) /
+    Math.max(1, smoothedRows.length);
+  const baseThreshold = Math.max(
+    18,
+    Math.min(46, (meanColumnScore + meanRowScore) * 1.12)
+  );
+
+  let bestResult = emptyResult;
+
+  for (const left of leftPeaks) {
+    for (const right of rightPeaks) {
+      const rectWidth = right.index - left.index;
+      if (rectWidth < width * 0.28 || rectWidth > width * 0.94) continue;
+
+      for (const top of topPeaks) {
+        for (const bottom of bottomPeaks) {
+          const rectHeight = bottom.index - top.index;
+          if (rectHeight < height * 0.18 || rectHeight > height * 0.82) continue;
+
+          const aspectRatio = rectWidth / rectHeight;
+          const aspectScore = getCardAspectScore(aspectRatio);
+          if (aspectScore <= 0.1) continue;
+
+          const areaRatio = (rectWidth * rectHeight) / (width * height);
+          if (areaRatio < 0.14 || areaRatio > 0.88) continue;
+
+          const minMargin = Math.min(
+            left.index,
+            width - right.index,
+            top.index,
+            height - bottom.index
+          );
+          const marginRatio = minMargin / Math.min(width, height);
+          if (marginRatio < 0.015) continue;
+
+          const lineThreshold = Math.max(
+            baseThreshold,
+            ((left.score + right.score + top.score + bottom.score) / 4) * 0.78
+          );
+          const leftStats = getVerticalLineStats(
+            verticalGradient,
+            width,
+            height,
+            left.index,
+            top.index,
+            bottom.index,
+            lineThreshold
+          );
+          const rightStats = getVerticalLineStats(
+            verticalGradient,
+            width,
+            height,
+            right.index,
+            top.index,
+            bottom.index,
+            lineThreshold
+          );
+          const topStats = getHorizontalLineStats(
+            horizontalGradient,
+            width,
+            height,
+            top.index,
+            left.index,
+            right.index,
+            lineThreshold
+          );
+          const bottomStats = getHorizontalLineStats(
+            horizontalGradient,
+            width,
+            height,
+            bottom.index,
+            left.index,
+            right.index,
+            lineThreshold
+          );
+
+          const minCoverage = Math.min(
+            leftStats.coverage,
+            rightStats.coverage,
+            topStats.coverage,
+            bottomStats.coverage
+          );
+          const averageCoverage =
+            (leftStats.coverage +
+              rightStats.coverage +
+              topStats.coverage +
+              bottomStats.coverage) /
+            4;
+          if (minCoverage < 0.4 || averageCoverage < 0.5) continue;
+
+          const edgeStrength =
+            (leftStats.strength +
+              rightStats.strength +
+              topStats.strength +
+              bottomStats.strength) /
+            4;
+          const strengthScore = Math.min(1, edgeStrength / 44);
+          const areaScore = Math.min(1, areaRatio / 0.32);
+          const marginScore = Math.min(1, marginRatio / 0.08);
+          const score =
+            averageCoverage * 0.34 +
+            minCoverage * 0.22 +
+            aspectScore * 0.18 +
+            strengthScore * 0.14 +
+            areaScore * 0.07 +
+            marginScore * 0.05;
+
+          if (score > bestResult.score) {
+            bestResult = {
+              detected: score >= AUTO_CAPTURE_MIN_RECTANGLE_SCORE,
+              score,
+              edgeCoverage: averageCoverage,
+              edgeStrength,
+              areaRatio,
+              aspectRatio,
+              marginRatio,
+            };
+          }
+        }
+      }
+    }
+  }
+
+  return bestResult;
 }
 
 function scoreRearCameraDevice(device: MediaDeviceInfo): number {
@@ -792,6 +1180,7 @@ export default function RegisterPage() {
     }
 
     lastFrameRef.current = grayscale;
+    const rectangle = detectRectangleCandidate(grayscale, width, height);
 
     return {
       motion: motionTotal,
@@ -807,6 +1196,7 @@ export default function RegisterPage() {
         topEdgeSamples > 0 ? topEdgeHits / topEdgeSamples : 0,
         bottomEdgeSamples > 0 ? bottomEdgeHits / bottomEdgeSamples : 0
       ),
+      rectangle,
     };
   };
 
@@ -1066,7 +1456,13 @@ export default function RegisterPage() {
       );
 
       const metrics = measureFrame(context, sampleWidth, sampleHeight);
+      const hasRectangleCandidate =
+        metrics.rectangle.detected &&
+        metrics.rectangle.edgeCoverage >= AUTO_CAPTURE_MIN_RECTANGLE_EDGE_COVERAGE &&
+        metrics.rectangle.areaRatio >= AUTO_CAPTURE_MIN_RECTANGLE_AREA_RATIO &&
+        metrics.rectangle.marginRatio >= AUTO_CAPTURE_MIN_RECTANGLE_MARGIN_RATIO;
       const isStable =
+        hasRectangleCandidate &&
         metrics.sharpness >= AUTO_CAPTURE_MIN_SHARPNESS &&
         metrics.motion <= AUTO_CAPTURE_MAX_MOTION &&
         metrics.borderClipping <= AUTO_CAPTURE_MAX_BORDER_CLIPPING &&
@@ -1106,6 +1502,23 @@ export default function RegisterPage() {
           lastStableSignalRef.current = false;
           setFrameFeedback('idle');
           setCameraHint('证件还没完全进框，先把四边都收进虚框里');
+        } else if (!metrics.rectangle.detected) {
+          lastStableSignalRef.current = false;
+          setFrameFeedback('idle');
+          setCameraHint('先把完整矩形证件放进框里，露出四条边');
+        } else if (
+          metrics.rectangle.areaRatio < AUTO_CAPTURE_MIN_RECTANGLE_AREA_RATIO ||
+          metrics.rectangle.marginRatio < AUTO_CAPTURE_MIN_RECTANGLE_MARGIN_RATIO
+        ) {
+          lastStableSignalRef.current = false;
+          setFrameFeedback('idle');
+          setCameraHint('证件要完整入框并再靠近一点');
+        } else if (
+          metrics.rectangle.edgeCoverage < AUTO_CAPTURE_MIN_RECTANGLE_EDGE_COVERAGE
+        ) {
+          lastStableSignalRef.current = false;
+          setFrameFeedback('idle');
+          setCameraHint('请让证件四条边更完整、更平直地落在框里');
         } else if (metrics.motion > AUTO_CAPTURE_MAX_MOTION) {
           lastStableSignalRef.current = false;
           setFrameFeedback('idle');
