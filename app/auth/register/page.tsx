@@ -32,6 +32,7 @@ const AUTO_CAPTURE_MIN_RECTANGLE_SCORE = 0.68;
 const AUTO_CAPTURE_MIN_RECTANGLE_EDGE_COVERAGE = 0.56;
 const AUTO_CAPTURE_MIN_RECTANGLE_AREA_RATIO = 0.18;
 const AUTO_CAPTURE_MIN_RECTANGLE_MARGIN_RATIO = 0.025;
+const AUTO_CAPTURE_MIN_CORNER_ROUNDNESS = 0.52;
 const AUTO_TORCH_BRIGHTNESS_THRESHOLD = 72;
 const AUTO_TORCH_REQUIRED_DARK_FRAMES = 3;
 const CARD_LANDSCAPE_ASPECT = 1.586;
@@ -82,6 +83,7 @@ interface RectangleDetection {
   areaRatio: number;
   aspectRatio: number;
   marginRatio: number;
+  cornerRoundness: number;
 }
 
 interface EdgePeak {
@@ -238,6 +240,273 @@ function getHorizontalLineStats(
   };
 }
 
+function getCombinedGradientAverage(
+  verticalGradient: Float32Array,
+  horizontalGradient: Float32Array,
+  width: number,
+  height: number,
+  left: number,
+  top: number,
+  right: number,
+  bottom: number
+): number {
+  const safeLeft = Math.max(1, Math.min(width - 2, Math.floor(left)));
+  const safeTop = Math.max(1, Math.min(height - 2, Math.floor(top)));
+  const safeRight = Math.max(safeLeft + 1, Math.min(width - 1, Math.ceil(right)));
+  const safeBottom = Math.max(safeTop + 1, Math.min(height - 1, Math.ceil(bottom)));
+
+  let total = 0;
+  let samples = 0;
+
+  for (let y = safeTop; y < safeBottom; y += 1) {
+    for (let x = safeLeft; x < safeRight; x += 1) {
+      const index = y * width + x;
+      total += Math.max(verticalGradient[index], horizontalGradient[index]);
+      samples += 1;
+    }
+  }
+
+  return samples > 0 ? total / samples : 0;
+}
+
+function getCornerRoundnessScore(
+  verticalGradient: Float32Array,
+  horizontalGradient: Float32Array,
+  width: number,
+  height: number,
+  left: number,
+  right: number,
+  top: number,
+  bottom: number,
+  lineThreshold: number
+): number {
+  const rectWidth = right - left;
+  const rectHeight = bottom - top;
+  const cornerWindow = Math.max(
+    4,
+    Math.min(14, Math.round(Math.min(rectWidth, rectHeight) * 0.08))
+  );
+
+  const verticalMidStart = top + cornerWindow;
+  const verticalMidEnd = bottom - cornerWindow;
+  const horizontalMidStart = left + cornerWindow;
+  const horizontalMidEnd = right - cornerWindow;
+
+  if (
+    verticalMidEnd - verticalMidStart < cornerWindow * 1.2 ||
+    horizontalMidEnd - horizontalMidStart < cornerWindow * 1.2
+  ) {
+    return 0.55;
+  }
+
+  const leftMidStats = getVerticalLineStats(
+    verticalGradient,
+    width,
+    height,
+    left,
+    verticalMidStart,
+    verticalMidEnd,
+    lineThreshold
+  );
+  const rightMidStats = getVerticalLineStats(
+    verticalGradient,
+    width,
+    height,
+    right,
+    verticalMidStart,
+    verticalMidEnd,
+    lineThreshold
+  );
+  const topMidStats = getHorizontalLineStats(
+    horizontalGradient,
+    width,
+    height,
+    top,
+    horizontalMidStart,
+    horizontalMidEnd,
+    lineThreshold
+  );
+  const bottomMidStats = getHorizontalLineStats(
+    horizontalGradient,
+    width,
+    height,
+    bottom,
+    horizontalMidStart,
+    horizontalMidEnd,
+    lineThreshold
+  );
+
+  const evaluateCorner = (
+    verticalNear: { coverage: number; strength: number },
+    verticalMid: { coverage: number; strength: number },
+    horizontalNear: { coverage: number; strength: number },
+    horizontalMid: { coverage: number; strength: number },
+    cornerBoxStrength: number
+  ) => {
+    const averageMidCoverage = (verticalMid.coverage + horizontalMid.coverage) / 2;
+    const averageNearCoverage = (verticalNear.coverage + horizontalNear.coverage) / 2;
+    const averageMidStrength = (verticalMid.strength + horizontalMid.strength) / 2;
+    const dropScore = Math.max(
+      0,
+      Math.min(1, (averageMidCoverage - averageNearCoverage) / 0.38)
+    );
+    const reliefScore = Math.max(
+      0,
+      Math.min(
+        1,
+        1 - cornerBoxStrength / Math.max(averageMidStrength * 1.02, lineThreshold)
+      )
+    );
+    const edgeSupport = Math.max(
+      0,
+      Math.min(
+        1,
+        averageMidCoverage * 0.55 +
+          Math.min(1, averageMidStrength / Math.max(lineThreshold * 1.12, 1)) * 0.45
+      )
+    );
+
+    const rawRoundness = dropScore * 0.6 + reliefScore * 0.4;
+    return 0.45 + rawRoundness * edgeSupport * 0.55;
+  };
+
+  const topLeftScore = evaluateCorner(
+    getVerticalLineStats(
+      verticalGradient,
+      width,
+      height,
+      left,
+      top,
+      top + cornerWindow * 2.2,
+      lineThreshold
+    ),
+    leftMidStats,
+    getHorizontalLineStats(
+      horizontalGradient,
+      width,
+      height,
+      top,
+      left,
+      left + cornerWindow * 2.2,
+      lineThreshold
+    ),
+    topMidStats,
+    getCombinedGradientAverage(
+      verticalGradient,
+      horizontalGradient,
+      width,
+      height,
+      left - cornerWindow * 0.3,
+      top - cornerWindow * 0.3,
+      left + cornerWindow * 1.15,
+      top + cornerWindow * 1.15
+    )
+  );
+
+  const topRightScore = evaluateCorner(
+    getVerticalLineStats(
+      verticalGradient,
+      width,
+      height,
+      right,
+      top,
+      top + cornerWindow * 2.2,
+      lineThreshold
+    ),
+    rightMidStats,
+    getHorizontalLineStats(
+      horizontalGradient,
+      width,
+      height,
+      top,
+      right - cornerWindow * 2.2,
+      right,
+      lineThreshold
+    ),
+    topMidStats,
+    getCombinedGradientAverage(
+      verticalGradient,
+      horizontalGradient,
+      width,
+      height,
+      right - cornerWindow * 1.15,
+      top - cornerWindow * 0.3,
+      right + cornerWindow * 0.3,
+      top + cornerWindow * 1.15
+    )
+  );
+
+  const bottomLeftScore = evaluateCorner(
+    getVerticalLineStats(
+      verticalGradient,
+      width,
+      height,
+      left,
+      bottom - cornerWindow * 2.2,
+      bottom,
+      lineThreshold
+    ),
+    leftMidStats,
+    getHorizontalLineStats(
+      horizontalGradient,
+      width,
+      height,
+      bottom,
+      left,
+      left + cornerWindow * 2.2,
+      lineThreshold
+    ),
+    bottomMidStats,
+    getCombinedGradientAverage(
+      verticalGradient,
+      horizontalGradient,
+      width,
+      height,
+      left - cornerWindow * 0.3,
+      bottom - cornerWindow * 1.15,
+      left + cornerWindow * 1.15,
+      bottom + cornerWindow * 0.3
+    )
+  );
+
+  const bottomRightScore = evaluateCorner(
+    getVerticalLineStats(
+      verticalGradient,
+      width,
+      height,
+      right,
+      bottom - cornerWindow * 2.2,
+      bottom,
+      lineThreshold
+    ),
+    rightMidStats,
+    getHorizontalLineStats(
+      horizontalGradient,
+      width,
+      height,
+      bottom,
+      right - cornerWindow * 2.2,
+      right,
+      lineThreshold
+    ),
+    bottomMidStats,
+    getCombinedGradientAverage(
+      verticalGradient,
+      horizontalGradient,
+      width,
+      height,
+      right - cornerWindow * 1.15,
+      bottom - cornerWindow * 1.15,
+      right + cornerWindow * 0.3,
+      bottom + cornerWindow * 0.3
+    )
+  );
+
+  return (
+    topLeftScore + topRightScore + bottomLeftScore + bottomRightScore
+  ) / 4;
+}
+
 function detectRectangleCandidate(
   grayscale: Uint8ClampedArray,
   width: number,
@@ -251,6 +520,7 @@ function detectRectangleCandidate(
     areaRatio: 0,
     aspectRatio: 0,
     marginRatio: 0,
+    cornerRoundness: 0,
   };
 
   if (width < 48 || height < 48) {
@@ -425,16 +695,28 @@ function detectRectangleCandidate(
               topStats.strength +
               bottomStats.strength) /
             4;
+          const cornerRoundness = getCornerRoundnessScore(
+            verticalGradient,
+            horizontalGradient,
+            width,
+            height,
+            left.index,
+            right.index,
+            top.index,
+            bottom.index,
+            lineThreshold
+          );
           const strengthScore = Math.min(1, edgeStrength / 44);
           const areaScore = Math.min(1, areaRatio / 0.32);
           const marginScore = Math.min(1, marginRatio / 0.08);
-          const score =
+          const baseScore =
             averageCoverage * 0.34 +
             minCoverage * 0.22 +
             aspectScore * 0.18 +
             strengthScore * 0.14 +
             areaScore * 0.07 +
             marginScore * 0.05;
+          const score = baseScore * 0.85 + cornerRoundness * 0.15;
 
           if (score > bestResult.score) {
             bestResult = {
@@ -445,6 +727,7 @@ function detectRectangleCandidate(
               areaRatio,
               aspectRatio,
               marginRatio,
+              cornerRoundness,
             };
           }
         }
@@ -1460,7 +1743,8 @@ export default function RegisterPage() {
         metrics.rectangle.detected &&
         metrics.rectangle.edgeCoverage >= AUTO_CAPTURE_MIN_RECTANGLE_EDGE_COVERAGE &&
         metrics.rectangle.areaRatio >= AUTO_CAPTURE_MIN_RECTANGLE_AREA_RATIO &&
-        metrics.rectangle.marginRatio >= AUTO_CAPTURE_MIN_RECTANGLE_MARGIN_RATIO;
+        metrics.rectangle.marginRatio >= AUTO_CAPTURE_MIN_RECTANGLE_MARGIN_RATIO &&
+        metrics.rectangle.cornerRoundness >= AUTO_CAPTURE_MIN_CORNER_ROUNDNESS;
       const isStable =
         hasRectangleCandidate &&
         metrics.sharpness >= AUTO_CAPTURE_MIN_SHARPNESS &&
@@ -1519,6 +1803,12 @@ export default function RegisterPage() {
           lastStableSignalRef.current = false;
           setFrameFeedback('idle');
           setCameraHint('请让证件四条边更完整、更平直地落在框里');
+        } else if (
+          metrics.rectangle.cornerRoundness < AUTO_CAPTURE_MIN_CORNER_ROUNDNESS
+        ) {
+          lastStableSignalRef.current = false;
+          setFrameFeedback('idle');
+          setCameraHint('请把证件正对镜头，四角完整露出来');
         } else if (metrics.motion > AUTO_CAPTURE_MAX_MOTION) {
           lastStableSignalRef.current = false;
           setFrameFeedback('idle');
