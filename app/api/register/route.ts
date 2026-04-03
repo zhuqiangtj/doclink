@@ -72,6 +72,7 @@ export async function POST(request: Request) {
       select: {
         id: true,
         name: true,
+        username: true,
       },
     });
 
@@ -82,7 +83,8 @@ export async function POST(request: Request) {
     if (duplicatedUser) {
       return NextResponse.json(
         {
-          error: '该病人已存在，姓名、性别和出生日期与已有用户完全一致，请勿重复注册。',
+          error: `该病人已存在，用户名是 ${duplicatedUser.username}，请勿重复注册。`,
+          existingUsername: duplicatedUser.username,
         },
         { status: 409 }
       );
