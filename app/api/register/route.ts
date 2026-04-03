@@ -4,6 +4,16 @@ import { NextResponse } from 'next/server';
 import bcrypt from 'bcrypt';
 import { createAuditLog } from '@/lib/audit'; // Adjust path as needed
 
+function normalizePatientName(name: string): string {
+  return name.trim().replace(/\s+/g, '');
+}
+
+function getUtcDayRange(dateString: string) {
+  const start = new Date(`${dateString}T00:00:00.000Z`);
+  const end = new Date(start);
+  end.setUTCDate(end.getUTCDate() + 1);
+  return { start, end };
+}
 
 export async function POST(request: Request) {
   try {
@@ -33,6 +43,12 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: '请输入有效的11位手机号码。' }, { status: 400 });
     }
 
+    const trimmedName = name.trim();
+    const normalizedName = normalizePatientName(trimmedName);
+    if (normalizedName.length < 2) {
+      return NextResponse.json({ error: '姓名至少需要2个字符。' }, { status: 400 });
+    }
+
     const dob = new Date(dateOfBirth);
     if (Number.isNaN(dob.getTime())) {
       return NextResponse.json({ error: '出生日期格式无效。' }, { status: 400 });
@@ -41,6 +57,35 @@ export async function POST(request: Request) {
     const age = today.getFullYear() - dob.getFullYear();
     if (age < 0 || age > 150) {
       return NextResponse.json({ error: '请输入有效的出生日期。' }, { status: 400 });
+    }
+
+    const { start, end } = getUtcDayRange(dateOfBirth);
+    const duplicateCandidates = await prisma.user.findMany({
+      where: {
+        role: Role.PATIENT,
+        gender,
+        dateOfBirth: {
+          gte: start,
+          lt: end,
+        },
+      },
+      select: {
+        id: true,
+        name: true,
+      },
+    });
+
+    const duplicatedUser = duplicateCandidates.find(
+      (user) => normalizePatientName(user.name) === normalizedName
+    );
+
+    if (duplicatedUser) {
+      return NextResponse.json(
+        {
+          error: '该病人已存在，姓名、性别和出生日期与已有用户完全一致，请勿重复注册。',
+        },
+        { status: 409 }
+      );
     }
 
     let finalUsername = initialUsername;
@@ -56,7 +101,7 @@ export async function POST(request: Request) {
       const newUser = await tx.user.create({
         data: {
           username: finalUsername,
-          name,
+          name: trimmedName,
           phone,
           dateOfBirth: new Date(dateOfBirth),
           gender,
