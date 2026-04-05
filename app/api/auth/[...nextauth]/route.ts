@@ -9,7 +9,10 @@ import type { JWT } from 'next-auth/jwt';
 import CredentialsProvider from 'next-auth/providers/credentials';
 import bcrypt from 'bcrypt';
 import { prisma } from '@/lib/prisma';
-import { resolvePatientFromScan } from '@/lib/patient-scan-auth';
+import {
+  resolveExistingPatientFromScan,
+  resolvePatientFromScan,
+} from '@/lib/patient-scan-auth';
 
 function toAuthUser(user: {
   id: string;
@@ -68,6 +71,37 @@ const authOptions: NextAuthOptions = {
           }
         } catch (error) {
           console.error('[AUTH] Database error:', error);
+          return null;
+        }
+      }
+    }),
+    CredentialsProvider({
+      id: 'patient-card-login',
+      name: 'Patient Card Login',
+      credentials: {
+        socialSecurityNumber: { label: 'Social Security Number', type: 'text' },
+        name: { label: 'Name', type: 'text' },
+        gender: { label: 'Gender', type: 'text' },
+        dateOfBirth: { label: 'Date of Birth', type: 'text' },
+      },
+      async authorize(credentials, _req) {
+        console.log(
+          '[AUTH] Patient card login attempt for socialSecurityNumber:',
+          credentials?.socialSecurityNumber
+        );
+
+        try {
+          const user = await resolveExistingPatientFromScan({
+            socialSecurityNumber: credentials?.socialSecurityNumber,
+            name: credentials?.name,
+            gender: credentials?.gender,
+            dateOfBirth: credentials?.dateOfBirth,
+          });
+
+          console.log(`[AUTH] Patient card login success for: ${user.username}`);
+          return toAuthUser(user);
+        } catch (error) {
+          console.error('[AUTH] Patient card login failed:', error);
           return null;
         }
       }

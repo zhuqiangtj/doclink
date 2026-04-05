@@ -195,9 +195,7 @@ function isSameUtcDay(date: Date | null, dateString: string | null | undefined):
   return date >= start && date < end;
 }
 
-export async function resolvePatientFromScan(
-  input: PatientScanInput
-): Promise<PatientScanResult> {
+function getValidatedSocialSecurityNumber(input: PatientScanInput): string {
   const residentIdValidation = validateChineseResidentId(input.socialSecurityNumber);
   if (!residentIdValidation.isValid || !residentIdValidation.normalized) {
     throw new Error(residentIdValidation.error || '未识别到有效的社保号，请重新扫描。');
@@ -213,7 +211,59 @@ export async function resolvePatientFromScan(
       consistency.message || '识别到的社保号与出生日期或性别不一致，请重新扫描或人工核对。'
     );
   }
-  const socialSecurityNumber = residentIdValidation.normalized;
+
+  return residentIdValidation.normalized;
+}
+
+function assertScannedIdentityMatchesUser(user: User, input: PatientScanInput) {
+  if (
+    input.name &&
+    normalizePatientName(input.name) !== normalizePatientName(user.name)
+  ) {
+    throw new Error('识别到的姓名与系统档案不一致，请重新扫描或人工核对。');
+  }
+
+  if (
+    isSupportedGender(input.gender) &&
+    user.gender &&
+    user.gender !== input.gender
+  ) {
+    throw new Error('识别到的性别与系统档案不一致，请重新扫描或人工核对。');
+  }
+
+  if (
+    input.dateOfBirth &&
+    user.dateOfBirth &&
+    !isSameUtcDay(user.dateOfBirth, input.dateOfBirth)
+  ) {
+    throw new Error('识别到的出生日期与系统档案不一致，请重新扫描或人工核对。');
+  }
+}
+
+export async function resolveExistingPatientFromScan(
+  input: PatientScanInput
+): Promise<User> {
+  const socialSecurityNumber = getValidatedSocialSecurityNumber(input);
+
+  const existingPatient = await prisma.user.findFirst({
+    where: {
+      role: Role.PATIENT,
+      socialSecurityNumber,
+    },
+  });
+
+  if (!existingPatient) {
+    throw new Error('未找到已绑定该社保号的病人账户，请先联系医护人员建档或补录社保号。');
+  }
+
+  assertScannedIdentityMatchesUser(existingPatient, input);
+  return existingPatient;
+}
+
+export async function resolvePatientFromScan(
+  input: PatientScanInput
+): Promise<PatientScanResult> {
+  const socialSecurityNumber = getValidatedSocialSecurityNumber(input);
 
   const existingBySocialSecurity = await prisma.user.findFirst({
     where: {
@@ -223,28 +273,7 @@ export async function resolvePatientFromScan(
   });
 
   if (existingBySocialSecurity) {
-    if (
-      input.name &&
-      normalizePatientName(input.name) !== normalizePatientName(existingBySocialSecurity.name)
-    ) {
-      throw new Error('识别到的姓名与系统档案不一致，请重新扫描或人工核对。');
-    }
-
-    if (
-      isSupportedGender(input.gender) &&
-      existingBySocialSecurity.gender &&
-      existingBySocialSecurity.gender !== input.gender
-    ) {
-      throw new Error('识别到的性别与系统档案不一致，请重新扫描或人工核对。');
-    }
-
-    if (
-      input.dateOfBirth &&
-      existingBySocialSecurity.dateOfBirth &&
-      !isSameUtcDay(existingBySocialSecurity.dateOfBirth, input.dateOfBirth)
-    ) {
-      throw new Error('识别到的出生日期与系统档案不一致，请重新扫描或人工核对。');
-    }
+    assertScannedIdentityMatchesUser(existingBySocialSecurity, input);
 
     return {
       user: existingBySocialSecurity,

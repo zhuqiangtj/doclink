@@ -34,6 +34,7 @@ const CARD_PORTRAIT_ASPECT = 1 / CARD_LANDSCAPE_ASPECT;
 type ScanDocType = 'id_card' | 'medical_card' | 'auto';
 type SmartFrameFeedback = 'idle' | 'steady' | 'capturing' | 'success' | 'error';
 type ScannerNoticeTone = 'success' | 'warning' | 'error';
+type PatientDocumentScannerVariant = 'card' | 'floating';
 
 export interface PatientDocumentScanResult {
   name: string;
@@ -84,6 +85,9 @@ interface PatientDocumentScannerProps {
   disabled?: boolean;
   onScanResult: (result: PatientDocumentScanResult) => void | Promise<void>;
   onBusyChange?: (busy: boolean) => void;
+  variant?: PatientDocumentScannerVariant;
+  floatingLabel?: string;
+  cameraSubtitle?: string;
 }
 
 function smoothScores(scores: ArrayLike<number>, radius = 2): Float32Array {
@@ -811,6 +815,9 @@ export default function PatientDocumentScanner({
   disabled = false,
   onScanResult,
   onBusyChange,
+  variant = 'card',
+  floatingLabel = '扫描',
+  cameraSubtitle = '对准社保卡或身份证，自动对焦后拍照识别',
 }: PatientDocumentScannerProps) {
   const [notice, setNotice] = useState<string | null>(null);
   const [noticeTone, setNoticeTone] = useState<ScannerNoticeTone>('success');
@@ -841,6 +848,7 @@ export default function PatientDocumentScanner({
   const darkFrameCountRef = useRef(0);
   const torchAttemptedRef = useRef(false);
   const autoCaptureReadyAtRef = useRef(0);
+  const isFloatingVariant = variant === 'floating';
 
   useEffect(() => {
     onBusyChange?.(isScanning || isAutoCapturing);
@@ -1683,57 +1691,90 @@ export default function PatientDocumentScanner({
         onChange={handleScanFileChange}
       />
 
-      <div className="rounded-2xl border border-slate-200 bg-slate-50/80 p-3">
-        <div className="flex items-center justify-between gap-3">
-          <div>
-            <p className="text-sm font-semibold text-slate-800">证件识别补录</p>
-          </div>
-          <div className="flex gap-2">
-            <button
-              type="button"
-              onClick={openSmartCamera}
-              disabled={disabled || isScanning}
-              className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-3 py-2 text-xs font-semibold text-white transition hover:bg-emerald-500 disabled:cursor-not-allowed disabled:bg-slate-300"
+      {isFloatingVariant ? (
+        <div className="fixed right-3 top-1/2 z-40 flex -translate-y-1/2 flex-col items-end gap-3">
+          {notice && (
+            <div
+              className={`max-w-[15rem] rounded-2xl border px-3 py-2 text-xs shadow-lg ${
+                noticeTone === 'error'
+                  ? 'border-red-200 bg-red-50 text-red-700'
+                  : noticeTone === 'warning'
+                    ? 'border-amber-200 bg-amber-50 text-amber-700'
+                    : 'border-emerald-200 bg-emerald-50 text-emerald-700'
+              }`}
             >
-              {smartCameraOpen && (cameraReady || isAutoCapturing) ? (
-                <Loader2 size={16} className="animate-spin" />
-              ) : (
-                <ScanLine size={16} />
-              )}
-              扫描
-            </button>
-            {SHOW_STANDARD_SCAN_UI ? (
+              {notice}
+            </div>
+          )}
+          <button
+            type="button"
+            onClick={openSmartCamera}
+            disabled={disabled || isScanning}
+            className="inline-flex items-center gap-2 rounded-full bg-emerald-600 px-4 py-3 text-sm font-semibold text-white shadow-2xl transition hover:bg-emerald-500 disabled:cursor-not-allowed disabled:bg-slate-300"
+            title={floatingLabel}
+            aria-label={floatingLabel}
+          >
+            {smartCameraOpen && (cameraReady || isAutoCapturing) ? (
+              <Loader2 size={18} className="animate-spin" />
+            ) : (
+              <ScanLine size={18} />
+            )}
+            <span className="whitespace-nowrap">{floatingLabel}</span>
+          </button>
+        </div>
+      ) : (
+        <div className="rounded-2xl border border-slate-200 bg-slate-50/80 p-3">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <p className="text-sm font-semibold text-slate-800">证件识别补录</p>
+            </div>
+            <div className="flex gap-2">
               <button
                 type="button"
-                onClick={openScanPicker}
+                onClick={openSmartCamera}
                 disabled={disabled || isScanning}
-                className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-3 py-2 text-xs font-semibold text-white transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:bg-slate-300"
+                className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-3 py-2 text-xs font-semibold text-white transition hover:bg-emerald-500 disabled:cursor-not-allowed disabled:bg-slate-300"
               >
-                {isScanning ? (
+                {smartCameraOpen && (cameraReady || isAutoCapturing) ? (
                   <Loader2 size={16} className="animate-spin" />
                 ) : (
-                  <ScanSearch size={16} />
+                  <ScanLine size={16} />
                 )}
-                普通扫描
+                扫描
               </button>
-            ) : null}
+              {SHOW_STANDARD_SCAN_UI ? (
+                <button
+                  type="button"
+                  onClick={openScanPicker}
+                  disabled={disabled || isScanning}
+                  className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-3 py-2 text-xs font-semibold text-white transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:bg-slate-300"
+                >
+                  {isScanning ? (
+                    <Loader2 size={16} className="animate-spin" />
+                  ) : (
+                    <ScanSearch size={16} />
+                  )}
+                  普通扫描
+                </button>
+              ) : null}
+            </div>
           </div>
-        </div>
 
-        {notice && (
-          <div
-            className={`mt-3 rounded-xl px-3 py-2 text-xs ${
-              noticeTone === 'error'
-                ? 'bg-red-50 text-red-700'
-                : noticeTone === 'warning'
-                  ? 'bg-amber-50 text-amber-700'
-                  : 'bg-emerald-50 text-emerald-700'
-            }`}
-          >
-            {notice}
-          </div>
-        )}
-      </div>
+          {notice && (
+            <div
+              className={`mt-3 rounded-xl px-3 py-2 text-xs ${
+                noticeTone === 'error'
+                  ? 'bg-red-50 text-red-700'
+                  : noticeTone === 'warning'
+                    ? 'bg-amber-50 text-amber-700'
+                    : 'bg-emerald-50 text-emerald-700'
+              }`}
+            >
+              {notice}
+            </div>
+          )}
+        </div>
+      )}
 
       {smartCameraOpen && (
         <div className="fixed inset-0 z-[1200] bg-black/80 px-2 py-3 sm:px-4 sm:py-6">
@@ -1741,7 +1782,7 @@ export default function PatientDocumentScanner({
             <div className="flex items-center justify-between border-b border-white/10 px-4 py-3 text-white">
               <div>
                 <h2 className="text-lg font-semibold">智能扫描</h2>
-                <p className="text-xs text-white/70">对准社保卡或身份证，自动对焦后拍照识别</p>
+                <p className="text-xs text-white/70">{cameraSubtitle}</p>
               </div>
               <button
                 type="button"
