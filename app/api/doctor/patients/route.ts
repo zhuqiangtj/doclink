@@ -18,6 +18,15 @@ import {
 import { prisma } from '@/lib/prisma';
 
 type SupportedGender = 'Male' | 'Female' | 'Other';
+type PatientSortOption =
+  | 'latest'
+  | 'oldest'
+  | 'name_asc'
+  | 'name_desc'
+  | 'score_desc'
+  | 'score_asc'
+  | 'age_desc'
+  | 'age_asc';
 
 function formatDateOnly(date: Date | null | undefined): string | null {
   if (!date) return null;
@@ -76,6 +85,41 @@ function formatPatientSummary(patient: {
     noShowCount,
     totalAppointments: patient.appointments.length,
   };
+}
+
+function isPatientSortOption(value: string): value is PatientSortOption {
+  return [
+    'latest',
+    'oldest',
+    'name_asc',
+    'name_desc',
+    'score_desc',
+    'score_asc',
+    'age_desc',
+    'age_asc',
+  ].includes(value);
+}
+
+function getPatientOrderBy(sort: PatientSortOption): Prisma.PatientOrderByWithRelationInput[] {
+  switch (sort) {
+    case 'oldest':
+      return [{ id: 'asc' }];
+    case 'name_asc':
+      return [{ user: { name: 'asc' } }, { id: 'desc' }];
+    case 'name_desc':
+      return [{ user: { name: 'desc' } }, { id: 'desc' }];
+    case 'score_desc':
+      return [{ credibilityScore: 'desc' }, { id: 'desc' }];
+    case 'score_asc':
+      return [{ credibilityScore: 'asc' }, { id: 'desc' }];
+    case 'age_desc':
+      return [{ user: { dateOfBirth: 'asc' } }, { id: 'desc' }];
+    case 'age_asc':
+      return [{ user: { dateOfBirth: 'desc' } }, { id: 'desc' }];
+    case 'latest':
+    default:
+      return [{ id: 'desc' }];
+  }
 }
 
 function isUniqueConstraintError(
@@ -191,6 +235,8 @@ export async function GET(request: Request) {
   const page = Math.max(1, parseInt(searchParams.get('page') || '1', 10));
   const limit = Math.max(1, parseInt(searchParams.get('limit') || '50', 10));
   const search = searchParams.get('search') || '';
+  const sortParam = searchParams.get('sort') || 'name_asc';
+  const sort = isPatientSortOption(sortParam) ? sortParam : 'name_asc';
   const skip = (page - 1) * limit;
 
   try {
@@ -210,9 +256,7 @@ export async function GET(request: Request) {
         where,
         skip,
         take: limit,
-        orderBy: {
-          id: 'desc',
-        },
+        orderBy: getPatientOrderBy(sort),
         include: {
           user: {
             select: {
@@ -238,6 +282,7 @@ export async function GET(request: Request) {
       patients: patients.map(formatPatientSummary),
       total,
       page,
+      sort,
       totalPages: Math.ceil(total / limit),
     });
   } catch (error) {

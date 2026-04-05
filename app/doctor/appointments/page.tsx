@@ -32,7 +32,27 @@ interface PatientListItem {
   totalAppointments: number;
 }
 
+type PatientSortOption =
+  | 'latest'
+  | 'oldest'
+  | 'name_asc'
+  | 'name_desc'
+  | 'score_desc'
+  | 'score_asc'
+  | 'age_desc'
+  | 'age_asc';
+
 const PATIENTS_PAGE_SIZE = 50;
+const PATIENT_SORT_OPTIONS: Array<{ value: PatientSortOption; label: string }> = [
+  { value: 'latest', label: '最新建档' },
+  { value: 'oldest', label: '最早建档' },
+  { value: 'name_asc', label: '姓名 A-Z' },
+  { value: 'name_desc', label: '姓名 Z-A' },
+  { value: 'score_desc', label: '积分从高到低' },
+  { value: 'score_asc', label: '积分从低到高' },
+  { value: 'age_desc', label: '年龄从大到小' },
+  { value: 'age_asc', label: '年龄从小到大' },
+];
 
 const CREATE_PATIENT_TEMPLATE: EditablePatientData = {
   id: '',
@@ -176,6 +196,7 @@ export default function DoctorAppointmentsPage() {
   const [patientLoading, setPatientLoading] = useState(false);
   const [patientTotal, setPatientTotal] = useState(0);
   const [patientPage, setPatientPage] = useState(1);
+  const [patientSort, setPatientSort] = useState<PatientSortOption>('name_asc');
   const [selectedPatient, setSelectedPatient] = useState<PatientListItem | null>(null);
   const [showPatientModal, setShowPatientModal] = useState(false);
   const [showEditPatientModal, setShowEditPatientModal] = useState(false);
@@ -563,11 +584,11 @@ export default function DoctorAppointmentsPage() {
     }
   };
 
-  const fetchPatients = async (page = 1) => {
+  const fetchPatients = async (page = 1, sort = patientSort) => {
     setPatientLoading(true);
     try {
       const res = await fetchWithTimeout(
-        `/api/doctor/patients?page=${page}&limit=${PATIENTS_PAGE_SIZE}`
+        `/api/doctor/patients?page=${page}&limit=${PATIENTS_PAGE_SIZE}&sort=${sort}`
       );
       if (!res.ok) throw new Error('Failed to fetch patients');
       const data = await res.json();
@@ -583,9 +604,9 @@ export default function DoctorAppointmentsPage() {
 
   useEffect(() => {
     if (activeTab === 'patients') {
-      fetchPatients(patientPage);
+      fetchPatients(patientPage, patientSort);
     }
-  }, [activeTab, patientPage]);
+  }, [activeTab, patientPage, patientSort]);
 
   // 移除自動標記為已讀的機制：僅在手動點擊「我知道了」時變更狀態
 
@@ -871,6 +892,9 @@ export default function DoctorAppointmentsPage() {
 
       setSelectedPatientForEdit(updatedPatient);
       setShowEditPatientModal(false);
+      if (patientSort !== 'latest') {
+        await fetchPatients(patientPage, patientSort);
+      }
       setSuccess(
         passwordUpdated
           ? `已更新 ${updatedPatient.name} 的病人信息，并修改密码`
@@ -972,14 +996,12 @@ export default function DoctorAppointmentsPage() {
       }
 
       setPatientTotal((prev) => prev + 1);
-      setPatients((prev) =>
-        patientPage === 1
-          ? [createdPatient, ...prev].slice(0, PATIENTS_PAGE_SIZE)
-          : prev
-      );
-
-      if (patientPage !== 1) {
+      if (patientSort === 'latest' && patientPage === 1) {
+        setPatients((prev) => [createdPatient, ...prev].slice(0, PATIENTS_PAGE_SIZE));
+      } else if (patientSort === 'latest' && patientPage !== 1) {
         setPatientPage(1);
+      } else {
+        await fetchPatients(patientPage, patientSort);
       }
 
       setShowCreatePatientModal(false);
@@ -1297,15 +1319,35 @@ export default function DoctorAppointmentsPage() {
                 共 {patientTotal} 位病人，可手填建档，也可扫描社保卡快速创建
               </p>
             </div>
-            <button
-              type="button"
-              onClick={openCreatePatientDialog}
-              disabled={createPatientLoading}
-              className="inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-500 disabled:cursor-not-allowed disabled:bg-emerald-300"
-            >
-              <FaPlus className="text-xs" />
-              {createPatientLoading ? '创建中...' : '添加病人'}
-            </button>
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+              <label className="flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm text-gray-600 shadow-sm">
+                <span className="shrink-0 font-medium text-gray-700">排序</span>
+                <select
+                  value={patientSort}
+                  onChange={(event) => {
+                    const nextSort = event.target.value as PatientSortOption;
+                    setPatientSort(nextSort);
+                    setPatientPage(1);
+                  }}
+                  className="min-w-[9rem] bg-transparent text-sm font-medium text-gray-900 outline-none"
+                >
+                  {PATIENT_SORT_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <button
+                type="button"
+                onClick={openCreatePatientDialog}
+                disabled={createPatientLoading}
+                className="inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-500 disabled:cursor-not-allowed disabled:bg-emerald-300"
+              >
+                <FaPlus className="text-xs" />
+                {createPatientLoading ? '创建中...' : '添加病人'}
+              </button>
+            </div>
           </div>
 
           <div className="relative min-h-[34rem] overflow-x-auto">
