@@ -2135,16 +2135,16 @@ export default function RegisterPage() {
             type="button"
             onClick={openSmartCamera}
             disabled={isScanning || submitting}
-            title="智能扫描"
-            aria-label="智能扫描"
-            className="flex h-14 w-14 flex-col items-center justify-center rounded-2xl bg-emerald-600 text-white shadow-sm transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-gray-300"
+            title="扫描"
+            aria-label="扫描"
+            className="flex h-12 min-w-[4.5rem] items-center justify-center gap-1.5 rounded-2xl bg-emerald-600 px-3 text-white shadow-sm transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-gray-300"
           >
             {smartCameraOpen && (cameraReady || isAutoCapturing) ? (
               <Loader2 size={18} className="animate-spin" />
             ) : (
               <ScanLine size={18} />
             )}
-            <span className="mt-1 text-[10px] font-medium leading-none">智能</span>
+            <span className="text-[11px] font-medium leading-none">扫描</span>
           </button>
           {SHOW_STANDARD_SCAN_UI ? (
             <button

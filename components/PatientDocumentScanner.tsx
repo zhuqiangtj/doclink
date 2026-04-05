@@ -1705,7 +1705,7 @@ export default function PatientDocumentScanner({
               ) : (
                 <ScanLine size={16} />
               )}
-              智能扫描
+              扫描
             </button>
             {SHOW_STANDARD_SCAN_UI ? (
               <button
