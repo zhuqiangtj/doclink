@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import * as OpenCC from 'opencc-js';
 import sharp from 'sharp';
 import {
   checkResidentIdConsistency,
@@ -14,6 +15,7 @@ const OCR_SPACE_RETRY_TARGET_BYTES = 900 * 1024;
 const DEFAULT_OCR_MODEL = process.env.OCR_OPENAI_MODEL || 'gpt-5-mini';
 const DEFAULT_PASSWORD = '123456';
 const OCR_SPACE_ENDPOINT = 'https://api.ocr.space/parse/image';
+const traditionalToSimplified = OpenCC.Converter({ from: 'hk', to: 'cn' });
 
 type ScanDocType = 'id_card' | 'medical_card' | 'auto';
 type DetectedDocumentType = 'id_card' | 'medical_card' | 'unknown';
@@ -94,6 +96,7 @@ function buildPrompt(docType: ScanDocType): string {
     '11. detectedDocumentType 根据图片判断为 id_card、medical_card 或 unknown。',
     '12. 天津社保卡/居民服务一卡通常见特征包括：社会保障号码、卡号、发卡日期、居民服务一卡通、医保、银行名称、银联或 UnionPay、芯片、人像卡面。看到这类特征时，应优先判断为 medical_card。',
     '13. 居民身份证正面常见特征包括：姓名、性别、民族、出生、住址、公民身份号码、中华人民共和国居民身份证。看到这类特征时，应优先判断为 id_card。',
+    '14. 所有中文输出必须使用中国大陆简体字，绝对不要输出繁体字。',
     '输出必须严格匹配 JSON Schema，不要输出额外文字。',
   ].join('\n');
 }
@@ -249,9 +252,14 @@ function firstMatch(texts: string[], patterns: RegExp[]): string | null {
   return null;
 }
 
+function toSimplifiedChinese(value: string | null | undefined): string {
+  if (!value) return '';
+  return traditionalToSimplified(value);
+}
+
 function normalizeName(name: string | null | undefined): string {
   if (!name) return '';
-  const trimmed = name.trim();
+  const trimmed = toSimplifiedChinese(name).trim();
   if (/[\u3400-\u9FFF]/.test(trimmed)) {
     return trimmed.replace(/\s+/g, '');
   }
@@ -271,11 +279,11 @@ function normalizeGender(gender: unknown): OutputGender {
 }
 
 function compactText(value: string): string {
-  return value.replace(/[\s:：]/g, '');
+  return toSimplifiedChinese(value).replace(/[\s:：]/g, '');
 }
 
 function getTextLines(rawText: string): string[] {
-  return rawText
+  return toSimplifiedChinese(rawText)
     .split(/\r?\n/)
     .map((line) => line.trim())
     .filter(Boolean);
@@ -416,7 +424,7 @@ function hasAddressLabelNearby(lines: string[], index: number): boolean {
 function cleanupNameCandidate(value: string | null | undefined): string | null {
   if (!value) return null;
 
-  const cleaned = value
+  const cleaned = toSimplifiedChinese(value)
     .replace(/^[姓名名\s:：]+/u, '')
     .replace(
       /(性别|民族|出生|出生日期|公民身份号码|身份证号码|身份证号|住址|有效期限|签发机关|社会保障号码|社会保障号).*$/u,
@@ -797,19 +805,23 @@ async function runOcrSpace(
   };
 
   const parseFieldsFromRawText = (rawText: string, retryUsed = false): ParsedOcrFields => {
-    const typeInference = inferDocumentTypeFromTextDetailed(rawText, docType);
+    const simplifiedRawText = toSimplifiedChinese(rawText);
+    const typeInference = inferDocumentTypeFromTextDetailed(simplifiedRawText, docType);
     const detectedDocumentType = typeInference.detectedDocumentType;
-    const socialSecurityNumber = extractGovernmentIdFromText(rawText, detectedDocumentType);
-    const textGender = extractGenderFromText(rawText, detectedDocumentType);
-    const textDob = extractDateOfBirthFromText(rawText, detectedDocumentType);
+    const socialSecurityNumber = extractGovernmentIdFromText(
+      simplifiedRawText,
+      detectedDocumentType
+    );
+    const textGender = extractGenderFromText(simplifiedRawText, detectedDocumentType);
+    const textDob = extractDateOfBirthFromText(simplifiedRawText, detectedDocumentType);
 
     return {
-      name: extractNameFromText(rawText, detectedDocumentType),
+      name: extractNameFromText(simplifiedRawText, detectedDocumentType),
       gender: textGender,
       dateOfBirth: textDob,
       socialSecurityNumber,
       confidence: null,
-      notes: [
+      notes: toSimplifiedChinese([
         '已使用 OCR.space 识别文本，请人工核对。',
         retryUsed ? '姓名已尝试通过增强图像二次识别。' : '',
         detectedDocumentType === 'medical_card'
@@ -825,7 +837,7 @@ async function runOcrSpace(
             : '',
       ]
         .filter(Boolean)
-        .join(' '),
+        .join(' ')),
       detectedDocumentType,
     };
   };
@@ -858,9 +870,11 @@ async function runOcrSpace(
         primaryResult.detectedDocumentType !== 'unknown'
           ? primaryResult.detectedDocumentType
           : retryResult.detectedDocumentType,
-      notes: [primaryResult.notes, retryResult.name ? '增强识别已补出姓名。' : retryResult.notes]
-        .filter(Boolean)
-        .join(' '),
+      notes: toSimplifiedChinese(
+        [primaryResult.notes, retryResult.name ? '增强识别已补出姓名。' : retryResult.notes]
+          .filter(Boolean)
+          .join(' ')
+      ),
     };
   } catch (error) {
     console.error('[OCR.space] Retry OCR failed:', error);
@@ -972,12 +986,12 @@ async function runOpenAiOcr(
 
   const result = parseJsonFromModel(rawText);
   return {
-    name: result.name,
+    name: normalizeName(result.name),
     gender: result.gender,
     dateOfBirth: result.dateOfBirth,
     socialSecurityNumber: result.socialSecurityNumber,
     confidence: result.confidence,
-    notes: result.notes,
+    notes: toSimplifiedChinese(result.notes),
     detectedDocumentType: result.detectedDocumentType,
   };
 }
@@ -1080,7 +1094,7 @@ export async function POST(request: Request) {
       governmentIdNotes.push('已通过身份证校验规则验证社会保障号码，并用于补全可确认字段。');
     }
 
-    const notes = [
+    const notes = toSimplifiedChinese([
       result.notes || '识别完成，请人工核对后提交。',
       result.detectedDocumentType === 'medical_card'
         ? '系统已将该图片判定为社保卡/医保卡卡面。'
@@ -1091,7 +1105,7 @@ export async function POST(request: Request) {
       provider === 'ocrspace' ? '当前识别服务：OCR.space。' : '当前识别服务：OpenAI。',
     ]
       .filter(Boolean)
-      .join(' ');
+      .join(' '));
 
     if (result.detectedDocumentType !== 'unknown' && !normalizedGovernmentId) {
       const scanErrorMessage =

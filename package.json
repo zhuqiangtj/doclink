@@ -27,6 +27,7 @@
     "next-auth": "^4.24.11",
     "node-cron": "^4.2.1",
     "node-fetch": "^2.7.0",
+    "opencc-js": "^1.0.5",
     "pinyin": "^4.0.0",
     "pinyin-pro": "^3.27.0",
     "react": "^19.2.3",

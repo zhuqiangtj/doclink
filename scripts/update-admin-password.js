@@ -5,7 +5,7 @@ const prisma = new PrismaClient();
 
 async function run() {
   const username = 'admin';
-  const newPasswordPlain = 'admin123';
+  const newPasswordPlain = '123456';
   try {
     let user = await prisma.user.findUnique({ where: { username } });
     if (!user) {
