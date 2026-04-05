@@ -11,6 +11,7 @@ import {
 
 import { fetchWithTimeout } from '@/utils/network';
 
+const SHOW_STANDARD_SCAN_UI = false;
 const FRAME_WIDTH_RATIO = 0.96;
 const FRAME_HEIGHT_RATIO = 0.84;
 const AUTO_CAPTURE_REQUIRED_STABLE_FRAMES = 2;
@@ -1417,7 +1418,7 @@ export default function PatientDocumentScanner({
       closeSmartCamera();
     } catch (err) {
       setCameraError(
-        err instanceof Error ? err.message : '智能扫描失败，请改用普通扫描。'
+        err instanceof Error ? err.message : '智能扫描失败，请稍后重试。'
       );
       setCameraHint('请重新对准后再试');
       setFrameFeedback('error');
@@ -1433,7 +1434,7 @@ export default function PatientDocumentScanner({
   useEffect(() => {
     if (!smartCameraOpen) return;
     if (typeof window === 'undefined' || !navigator.mediaDevices?.getUserMedia) {
-      setCameraError('当前浏览器不支持网页内相机，请改用普通扫描。');
+      setCameraError('当前浏览器不支持网页内相机，请换浏览器或稍后重试。');
       return;
     }
 
@@ -1484,7 +1485,7 @@ export default function PatientDocumentScanner({
         setFrameFeedback('idle');
       } catch (err) {
         console.error('[Smart Camera] Failed to start:', err);
-        setCameraError('无法打开相机，请检查权限，或改用普通扫描。');
+        setCameraError('无法打开相机，请检查权限后重试。');
         setFrameFeedback('error');
       }
     };
@@ -1706,19 +1707,21 @@ export default function PatientDocumentScanner({
               )}
               智能扫描
             </button>
-            <button
-              type="button"
-              onClick={openScanPicker}
-              disabled={disabled || isScanning}
-              className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-3 py-2 text-xs font-semibold text-white transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:bg-slate-300"
-            >
-              {isScanning ? (
-                <Loader2 size={16} className="animate-spin" />
-              ) : (
-                <ScanSearch size={16} />
-              )}
-              普通扫描
-            </button>
+            {SHOW_STANDARD_SCAN_UI ? (
+              <button
+                type="button"
+                onClick={openScanPicker}
+                disabled={disabled || isScanning}
+                className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-3 py-2 text-xs font-semibold text-white transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:bg-slate-300"
+              >
+                {isScanning ? (
+                  <Loader2 size={16} className="animate-spin" />
+                ) : (
+                  <ScanSearch size={16} />
+                )}
+                普通扫描
+              </button>
+            ) : null}
           </div>
         </div>
 

@@ -23,6 +23,7 @@ import {
 import { fetchWithTimeout, withTimeout } from '../../../utils/network';
 
 const DEFAULT_PASSWORD = '123456';
+const SHOW_STANDARD_SCAN_UI = false;
 const FRAME_WIDTH_RATIO = 0.96;
 const FRAME_HEIGHT_RATIO = 0.84;
 const AUTO_CAPTURE_REQUIRED_STABLE_FRAMES = 2;
@@ -1630,7 +1631,7 @@ export default function RegisterPage() {
       closeSmartCamera();
     } catch (err) {
       setCameraError(
-        err instanceof Error ? err.message : '智能扫描失败，请改用普通扫描。'
+        err instanceof Error ? err.message : '智能扫描失败，请稍后重试。'
       );
       setCameraHint('请重新对准后再试');
       setFrameFeedback('error');
@@ -1728,7 +1729,7 @@ export default function RegisterPage() {
   useEffect(() => {
     if (!smartCameraOpen) return;
     if (typeof window === 'undefined' || !navigator.mediaDevices?.getUserMedia) {
-      setCameraError('当前浏览器不支持网页内相机，请改用普通扫描。');
+      setCameraError('当前浏览器不支持网页内相机，请换浏览器或稍后重试。');
       return;
     }
 
@@ -1782,7 +1783,7 @@ export default function RegisterPage() {
         setFrameFeedback('idle');
       } catch (err) {
         console.error('[Smart Camera] Failed to start:', err);
-        setCameraError('无法打开相机，请检查权限，或改用普通扫描。');
+        setCameraError('无法打开相机，请检查权限后重试。');
         setFrameFeedback('error');
       }
     };
@@ -2145,21 +2146,23 @@ export default function RegisterPage() {
             )}
             <span className="mt-1 text-[10px] font-medium leading-none">智能</span>
           </button>
-          <button
-            type="button"
-            onClick={openScanPicker}
-            disabled={isScanning || submitting}
-            title="扫描身份证或社保卡"
-            aria-label="扫描身份证或社保卡"
-            className="flex h-14 w-14 flex-col items-center justify-center rounded-2xl bg-blue-600 text-white shadow-sm transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-gray-300"
-          >
-            {isScanning ? (
-              <Loader2 size={18} className="animate-spin" />
-            ) : (
-              <ScanSearch size={18} />
-            )}
-            <span className="mt-1 text-[10px] font-medium leading-none">扫描</span>
-          </button>
+          {SHOW_STANDARD_SCAN_UI ? (
+            <button
+              type="button"
+              onClick={openScanPicker}
+              disabled={isScanning || submitting}
+              title="扫描身份证或社保卡"
+              aria-label="扫描身份证或社保卡"
+              className="flex h-14 w-14 flex-col items-center justify-center rounded-2xl bg-blue-600 text-white shadow-sm transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-gray-300"
+            >
+              {isScanning ? (
+                <Loader2 size={18} className="animate-spin" />
+              ) : (
+                <ScanSearch size={18} />
+              )}
+              <span className="mt-1 text-[10px] font-medium leading-none">扫描</span>
+            </button>
+          ) : null}
         </div>
       </div>
 
@@ -2420,7 +2423,9 @@ export default function RegisterPage() {
               <div className="flex items-center justify-between border-b border-white/10 px-4 py-3 text-white">
                 <div>
                   <h2 className="text-lg font-semibold">智能扫描</h2>
-                  <p className="text-xs text-white/70">原有普通扫描入口仍然保留</p>
+                  {SHOW_STANDARD_SCAN_UI ? (
+                    <p className="text-xs text-white/70">原有普通扫描入口仍然保留</p>
+                  ) : null}
                 </div>
                 <button
                   type="button"
