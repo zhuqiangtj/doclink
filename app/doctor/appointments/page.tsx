@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
-import { FaTimes, FaCheckCircle, FaBell, FaHistory } from 'react-icons/fa';
+import { FaTimes, FaCheckCircle, FaBell, FaHistory, FaTrash, FaPen, FaPlus } from 'react-icons/fa';
 import './mobile.css';
 import { getStatusText } from '../../../utils/statusText';
 import { fetchWithTimeout } from '../../../utils/network';
@@ -11,19 +11,43 @@ import EnhancedDatePicker, { DateStatus } from '../../../components/EnhancedDate
 import AppointmentHistoryModal from '../../../components/AppointmentHistoryModal';
 import CancelAppointmentModal from '../../../components/CancelAppointmentModal';
 import PatientDetailModal from '../../../components/PatientDetailModal';
+import PatientEditModal, {
+  EditablePatientData,
+  PatientEditPayload,
+} from '../../../components/PatientEditModal';
 
 // --- Interfaces ---
 interface PatientListItem {
   id: string;
+  username?: string | null;
   name: string;
   gender: string | null;
+  dateOfBirth?: string | null;
   age: number | null;
   phone: string | null;
+  socialSecurityNumber?: string | null;
   credibilityScore: number;
   visitCount: number;
   noShowCount: number;
   totalAppointments: number;
 }
+
+const PATIENTS_PAGE_SIZE = 50;
+
+const CREATE_PATIENT_TEMPLATE: EditablePatientData = {
+  id: '',
+  username: null,
+  name: '',
+  gender: null,
+  dateOfBirth: '',
+  age: null,
+  phone: '13930555555',
+  socialSecurityNumber: '',
+  credibilityScore: 15,
+  visitCount: 0,
+  noShowCount: 0,
+  totalAppointments: 0,
+};
 
 interface Patient {
   id: string;
@@ -154,6 +178,14 @@ export default function DoctorAppointmentsPage() {
   const [patientPage, setPatientPage] = useState(1);
   const [selectedPatient, setSelectedPatient] = useState<PatientListItem | null>(null);
   const [showPatientModal, setShowPatientModal] = useState(false);
+  const [showEditPatientModal, setShowEditPatientModal] = useState(false);
+  const [selectedPatientForEdit, setSelectedPatientForEdit] = useState<EditablePatientData | null>(null);
+  const [editPatientLoading, setEditPatientLoading] = useState(false);
+  const [showCreatePatientModal, setShowCreatePatientModal] = useState(false);
+  const [createPatientLoading, setCreatePatientLoading] = useState(false);
+  const [showDeletePatientDialog, setShowDeletePatientDialog] = useState(false);
+  const [selectedPatientForDelete, setSelectedPatientForDelete] = useState<PatientListItem | null>(null);
+  const [deletePatientLoading, setDeletePatientLoading] = useState(false);
   
   // --- Filter Modal States ---
   const [showFilterModal, setShowFilterModal] = useState(false);
@@ -534,7 +566,9 @@ export default function DoctorAppointmentsPage() {
   const fetchPatients = async (page = 1) => {
     setPatientLoading(true);
     try {
-      const res = await fetchWithTimeout(`/api/doctor/patients?page=${page}&limit=10`);
+      const res = await fetchWithTimeout(
+        `/api/doctor/patients?page=${page}&limit=${PATIENTS_PAGE_SIZE}`
+      );
       if (!res.ok) throw new Error('Failed to fetch patients');
       const data = await res.json();
       setPatients(data.patients);
@@ -762,6 +796,202 @@ export default function DoctorAppointmentsPage() {
     }
   };
 
+  const openEditPatientDialog = (patient: PatientListItem) => {
+    setSelectedPatientForEdit(patient);
+    setShowEditPatientModal(true);
+  };
+
+  const closeEditPatientDialog = () => {
+    if (editPatientLoading) return;
+    setShowEditPatientModal(false);
+    setSelectedPatientForEdit(null);
+  };
+
+  const openCreatePatientDialog = () => {
+    setShowCreatePatientModal(true);
+  };
+
+  const closeCreatePatientDialog = () => {
+    if (createPatientLoading) return;
+    setShowCreatePatientModal(false);
+  };
+
+  const handleEditPatientSave = async (
+    patientId: string,
+    payload: PatientEditPayload
+  ) => {
+    try {
+      setEditPatientLoading(true);
+      setError(null);
+
+      const response = await fetchWithTimeout(`/api/patients/${patientId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const data = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        throw new Error(data.error || '保存病人信息失败');
+      }
+
+      const updatedPatient = data.patient as PatientListItem | undefined;
+      if (!updatedPatient) {
+        throw new Error('病人信息已保存，但返回数据异常。');
+      }
+
+      setPatients((prev) =>
+        prev.map((patient) => (patient.id === patientId ? { ...patient, ...updatedPatient } : patient))
+      );
+
+      setAppointments((prev) =>
+        prev.map((appointment) =>
+          appointment.patient.id === patientId
+            ? {
+                ...appointment,
+                patient: {
+                  ...appointment.patient,
+                  user: {
+                    ...appointment.patient.user,
+                    name: updatedPatient.name,
+                    phone: updatedPatient.phone || undefined,
+                    gender: updatedPatient.gender || undefined,
+                    dateOfBirth: updatedPatient.dateOfBirth || undefined,
+                  },
+                },
+              }
+            : appointment
+        )
+      );
+
+      if (selectedPatient?.id === patientId) {
+        setSelectedPatient((prev) => (prev ? { ...prev, ...updatedPatient } : null));
+      }
+
+      setSelectedPatientForEdit(updatedPatient);
+      setShowEditPatientModal(false);
+      setSuccess(`已更新 ${updatedPatient.name} 的病人信息`);
+      setTimeout(() => setSuccess(null), 3000);
+    } catch (err) {
+      console.error(err);
+      setError(err instanceof Error ? err.message : '保存病人信息失败');
+      setTimeout(() => setError(null), 3000);
+      throw err;
+    } finally {
+      setEditPatientLoading(false);
+    }
+  };
+
+  const openDeletePatientDialog = (patient: PatientListItem) => {
+    setSelectedPatientForDelete(patient);
+    setShowDeletePatientDialog(true);
+  };
+
+  const closeDeletePatientDialog = (force = false) => {
+    if (deletePatientLoading && !force) return;
+    setShowDeletePatientDialog(false);
+    setSelectedPatientForDelete(null);
+  };
+
+  const handleDeletePatient = async () => {
+    if (!selectedPatientForDelete) return;
+
+    const patientId = selectedPatientForDelete.id;
+    const patientName = selectedPatientForDelete.name;
+
+    try {
+      setDeletePatientLoading(true);
+      setError(null);
+
+      const response = await fetchWithTimeout(`/api/patients/${patientId}`, {
+        method: 'DELETE',
+      });
+      const data = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        throw new Error(data.error || '删除病人失败');
+      }
+
+      setPatients(prev => prev.filter(patient => patient.id !== patientId));
+      setAppointments(prev => prev.filter(appointment => appointment.patient.id !== patientId));
+
+      if (selectedPatient?.id === patientId) {
+        setSelectedPatient(null);
+        setShowPatientModal(false);
+      }
+
+      const nextTotal = Math.max(0, patientTotal - 1);
+      const nextPage = Math.min(patientPage, Math.max(1, Math.ceil(nextTotal / PATIENTS_PAGE_SIZE)));
+
+      setPatientTotal(nextTotal);
+      closeDeletePatientDialog(true);
+      setSuccess(data.message || `已删除病人 ${patientName}`);
+      setTimeout(() => setSuccess(null), 3000);
+
+      if (nextPage !== patientPage) {
+        setPatientPage(nextPage);
+      } else {
+        await fetchPatients(nextPage);
+      }
+    } catch (err) {
+      console.error(err);
+      setError(err instanceof Error ? err.message : '删除病人失败');
+      setTimeout(() => setError(null), 3000);
+    } finally {
+      setDeletePatientLoading(false);
+    }
+  };
+
+  const handleCreatePatientSave = async (
+    _patientId: string,
+    payload: PatientEditPayload
+  ) => {
+    try {
+      setCreatePatientLoading(true);
+      setError(null);
+
+      const response = await fetchWithTimeout('/api/doctor/patients', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const data = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        throw new Error(data.error || '创建病人失败');
+      }
+
+      const createdPatient = data.patient as PatientListItem | undefined;
+      if (!createdPatient) {
+        throw new Error('病人已创建，但返回数据异常。');
+      }
+
+      setPatientTotal((prev) => prev + 1);
+      setPatients((prev) =>
+        patientPage === 1
+          ? [createdPatient, ...prev].slice(0, PATIENTS_PAGE_SIZE)
+          : prev
+      );
+
+      if (patientPage !== 1) {
+        setPatientPage(1);
+      }
+
+      setShowCreatePatientModal(false);
+      setSuccess(
+        `已创建病人 ${createdPatient.name}，用户名是 ${createdPatient.username}，默认密码是 ${data.defaultPassword || '123456'}`
+      );
+      setTimeout(() => setSuccess(null), 4000);
+    } catch (err) {
+      console.error(err);
+      setError(err instanceof Error ? err.message : '创建病人失败');
+      setTimeout(() => setError(null), 3000);
+      throw err;
+    } finally {
+      setCreatePatientLoading(false);
+    }
+  };
+
   // --- Render Logic ---
   if (status === 'loading' || isLoading) {
     return <div className="mobile-loading">正在加載...</div>;
@@ -847,6 +1077,7 @@ export default function DoctorAppointmentsPage() {
       )}
       
       
+      {error && <div className="mobile-error">{error}</div>}
       {success && <div className="mobile-success">{success}</div>}
 
       {/* Tabs */}
@@ -1054,7 +1285,25 @@ export default function DoctorAppointmentsPage() {
 
       {activeTab === 'patients' && (
         <div className="mobile-content-card">
-          <div className="overflow-x-auto">
+          <div className="mb-4 flex flex-col gap-3 border-b border-gray-100 pb-4 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h2 className="text-base font-semibold text-gray-900">病人管理</h2>
+              <p className="mt-1 text-sm text-gray-500">
+                共 {patientTotal} 位病人，可手填建档，也可扫描社保卡快速创建
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={openCreatePatientDialog}
+              disabled={createPatientLoading}
+              className="inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-500 disabled:cursor-not-allowed disabled:bg-emerald-300"
+            >
+              <FaPlus className="text-xs" />
+              {createPatientLoading ? '创建中...' : '添加病人'}
+            </button>
+          </div>
+
+          <div className="relative min-h-[34rem] overflow-x-auto">
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="bg-gray-50 border-b border-gray-200">
@@ -1063,13 +1312,24 @@ export default function DoctorAppointmentsPage() {
                   <th className="p-4 text-xs font-medium text-gray-500 uppercase tracking-wider hidden sm:table-cell">年龄</th>
                   <th className="p-4 text-xs font-medium text-gray-500 uppercase tracking-wider">积分</th>
                   <th className="p-4 text-xs font-medium text-gray-500 uppercase tracking-wider hidden sm:table-cell">爽约</th>
+                  <th className="p-4 text-xs font-medium text-gray-500 uppercase tracking-wider">操作</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {patientLoading ? (
-                  <tr><td colSpan={5} className="p-8 text-center text-gray-500">加载中...</td></tr>
-                ) : patients.length === 0 ? (
-                  <tr><td colSpan={5} className="p-8 text-center text-gray-500">暂无病人记录</td></tr>
+                {patients.length === 0 ? (
+                  patientLoading ? (
+                    <tr>
+                      <td colSpan={6} className="p-8 text-center text-gray-500">
+                        加载中...
+                      </td>
+                    </tr>
+                  ) : (
+                    <tr>
+                      <td colSpan={6} className="p-8 text-center text-gray-500">
+                        暂无病人记录
+                      </td>
+                    </tr>
+                  )
                 ) : (
                   patients.map((patient) => (
                     <tr 
@@ -1106,29 +1366,65 @@ export default function DoctorAppointmentsPage() {
                       <td className="p-4 hidden sm:table-cell text-red-600 font-medium">
                         {patient.noShowCount} 次
                       </td>
+                      <td className="p-4">
+                        <div className="flex flex-col gap-2 sm:flex-row">
+                          <button
+                            type="button"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              openEditPatientDialog(patient);
+                            }}
+                            disabled={editPatientLoading && selectedPatientForEdit?.id === patient.id}
+                            className="inline-flex items-center gap-1 rounded-lg border border-blue-200 px-3 py-1.5 text-xs font-medium text-blue-600 transition-colors hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-50"
+                          >
+                            <FaPen className="text-[0.7rem]" />
+                            {editPatientLoading && selectedPatientForEdit?.id === patient.id ? '保存中' : '编辑'}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              openDeletePatientDialog(patient);
+                            }}
+                            disabled={deletePatientLoading && selectedPatientForDelete?.id === patient.id}
+                            className="inline-flex items-center gap-1 rounded-lg border border-red-200 px-3 py-1.5 text-xs font-medium text-red-600 transition-colors hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
+                          >
+                            <FaTrash className="text-[0.7rem]" />
+                            {deletePatientLoading && selectedPatientForDelete?.id === patient.id ? '删除中' : '删除'}
+                          </button>
+                        </div>
+                      </td>
                     </tr>
                   ))
                 )}
               </tbody>
             </table>
+
+            {patientLoading && patients.length > 0 && (
+              <div className="absolute inset-0 flex items-center justify-center bg-white/75 backdrop-blur-[1px]">
+                <div className="rounded-full bg-white px-5 py-3 text-sm font-medium text-gray-600 shadow-sm">
+                  加载中...
+                </div>
+              </div>
+            )}
           </div>
           
           {/* Patient Pagination */}
-          {Math.ceil(patientTotal / 10) > 1 && (
+          {Math.ceil(patientTotal / PATIENTS_PAGE_SIZE) > 1 && (
             <div className="mobile-pagination">
               <button
                 onClick={() => setPatientPage(prev => Math.max(prev - 1, 1))}
-                disabled={patientPage === 1}
+                disabled={patientPage === 1 || patientLoading}
                 className="mobile-pagination-btn"
               >
                 上一页
               </button>
               <span className="mobile-pagination-info">
-                第 {patientPage} 页，共 {Math.ceil(patientTotal / 10)} 页
+                第 {patientPage} 页，共 {Math.ceil(patientTotal / PATIENTS_PAGE_SIZE)} 页
               </span>
               <button
-                onClick={() => setPatientPage(prev => Math.min(prev + 1, Math.ceil(patientTotal / 10)))}
-                disabled={patientPage >= Math.ceil(patientTotal / 10)}
+                onClick={() => setPatientPage(prev => Math.min(prev + 1, Math.ceil(patientTotal / PATIENTS_PAGE_SIZE)))}
+                disabled={patientPage >= Math.ceil(patientTotal / PATIENTS_PAGE_SIZE) || patientLoading}
                 className="mobile-pagination-btn"
               >
                 下一页
@@ -1343,6 +1639,88 @@ export default function DoctorAppointmentsPage() {
           isProcessing={cancelLoading}
         />
       )}
+
+      {showDeletePatientDialog && selectedPatientForDelete && (
+        <div className="mobile-dialog-overlay">
+          <div className="mobile-dialog">
+            <div className="mobile-dialog-header">
+              <h3 className="mobile-dialog-title">确认删除病人</h3>
+              <button
+                onClick={() => closeDeletePatientDialog()}
+                className="mobile-dialog-close"
+                disabled={deletePatientLoading}
+              >
+                <FaTimes />
+              </button>
+            </div>
+
+            <div className="mobile-dialog-content">
+              <p className="mobile-dialog-message">
+                删除后将同时移除该病人的账号、关联预约、通知与登录信息，且无法恢复。
+              </p>
+
+              <div className="mobile-dialog-appointment-info">
+                <div className="mobile-dialog-info-row">
+                  <span className="mobile-dialog-label">病人：</span>
+                  <span className="mobile-dialog-value">{selectedPatientForDelete.name}</span>
+                </div>
+                <div className="mobile-dialog-info-row">
+                  <span className="mobile-dialog-label">电话：</span>
+                  <span className="mobile-dialog-value">{selectedPatientForDelete.phone || '-'}</span>
+                </div>
+                <div className="mobile-dialog-info-row">
+                  <span className="mobile-dialog-label">性别：</span>
+                  <span className="mobile-dialog-value">{getGenderInfo(selectedPatientForDelete.gender).text}</span>
+                </div>
+                <div className="mobile-dialog-info-row">
+                  <span className="mobile-dialog-label">关联预约：</span>
+                  <span className="mobile-dialog-value">{selectedPatientForDelete.totalAppointments} 条</span>
+                </div>
+              </div>
+
+              <div className="mobile-dialog-warning">
+                <p>建议仅删除确认重复、后续准备重新补录社保号的病人记录。</p>
+              </div>
+            </div>
+
+            <div className="mobile-dialog-actions">
+              <button
+                onClick={() => closeDeletePatientDialog()}
+                className="mobile-dialog-cancel-btn"
+                disabled={deletePatientLoading}
+              >
+                取消
+              </button>
+              <button
+                onClick={handleDeletePatient}
+                className="mobile-dialog-confirm-btn"
+                disabled={deletePatientLoading}
+              >
+                {deletePatientLoading ? '删除中...' : '确认删除'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <PatientEditModal
+        isOpen={showCreatePatientModal}
+        patient={CREATE_PATIENT_TEMPLATE}
+        isSaving={createPatientLoading}
+        mode="create"
+        requireSocialSecurityNumber
+        onClose={closeCreatePatientDialog}
+        onSave={handleCreatePatientSave}
+      />
+
+      <PatientEditModal
+        isOpen={showEditPatientModal}
+        patient={selectedPatientForEdit}
+        isSaving={editPatientLoading}
+        mode="edit"
+        onClose={closeEditPatientDialog}
+        onSave={handleEditPatientSave}
+      />
 
       {/* Patient Detail Modal */}
       <PatientDetailModal

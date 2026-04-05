@@ -1,5 +1,10 @@
 import { NextResponse } from 'next/server';
 import sharp from 'sharp';
+import {
+  checkResidentIdConsistency,
+  normalizeChineseResidentId,
+  validateChineseResidentId,
+} from '@/lib/china-resident-id';
 
 export const runtime = 'nodejs';
 
@@ -14,6 +19,13 @@ type ScanDocType = 'id_card' | 'medical_card' | 'auto';
 type DetectedDocumentType = 'id_card' | 'medical_card' | 'unknown';
 type OutputGender = 'Male' | 'Female' | 'Other' | null;
 type OcrProvider = 'ocrspace' | 'openai';
+
+interface DocumentTypeInference {
+  detectedDocumentType: DetectedDocumentType;
+  matchedSignals: string[];
+  medicalCardScore: number;
+  idCardScore: number;
+}
 
 interface OcrModelResult {
   name: string | null;
@@ -80,41 +92,114 @@ function buildPrompt(docType: ScanDocType): string {
     '9. 如果图片存在反光、遮挡、严重模糊，notes 要明确提醒人工核对。',
     '10. notes 用一句简短中文说明识别情况，提醒人工核对。',
     '11. detectedDocumentType 根据图片判断为 id_card、medical_card 或 unknown。',
+    '12. 天津社保卡/居民服务一卡通常见特征包括：社会保障号码、卡号、发卡日期、居民服务一卡通、医保、银行名称、银联或 UnionPay、芯片、人像卡面。看到这类特征时，应优先判断为 medical_card。',
+    '13. 居民身份证正面常见特征包括：姓名、性别、民族、出生、住址、公民身份号码、中华人民共和国居民身份证。看到这类特征时，应优先判断为 id_card。',
     '输出必须严格匹配 JSON Schema，不要输出额外文字。',
   ].join('\n');
+}
+
+function inferDocumentTypeFromTextDetailed(
+  rawText: string,
+  docType: ScanDocType
+): DocumentTypeInference {
+  if (docType === 'id_card' || docType === 'medical_card') {
+    return {
+      detectedDocumentType: docType,
+      matchedSignals: ['前端已指定证件类型'],
+      medicalCardScore: docType === 'medical_card' ? 100 : 0,
+      idCardScore: docType === 'id_card' ? 100 : 0,
+    };
+  }
+
+  const compact = compactText(rawText).toUpperCase();
+  const rawUpper = rawText.toUpperCase();
+
+  const medicalCardSignals: Array<{ label: string; score: number; pattern: RegExp }> = [
+    { label: '社会保障号码', score: 8, pattern: /社会保障号码|社会保障号/u },
+    { label: '社会保障卡', score: 8, pattern: /社会保障卡/u },
+    { label: '居民服务一卡通', score: 7, pattern: /居民服务一卡通|居保服务一卡通|居民服务卡|一卡通/u },
+    { label: '医保', score: 7, pattern: /医保|医疗保险/u },
+    { label: '发卡日期', score: 5, pattern: /发卡日期/u },
+    { label: '卡号', score: 4, pattern: /卡号/u },
+    { label: '银联', score: 4, pattern: /银联|UNIONPAY/u },
+    {
+      label: '银行标识',
+      score: 3,
+      pattern:
+        /建设银行|中国建设银行|工商银行|中国工商银行|农业银行|中国农业银行|中国银行|交通银行|邮储银行|邮政储蓄银行|农商银行|农村商业银行|天津银行|渤海银行/u,
+    },
+    { label: 'ATM', score: 1, pattern: /ATM/u },
+  ];
+
+  const idCardSignals: Array<{ label: string; score: number; pattern: RegExp }> = [
+    { label: '居民身份证', score: 8, pattern: /居民身份证/u },
+    { label: '中华人民共和国', score: 6, pattern: /中华人民共和国/u },
+    { label: '公民身份号码', score: 7, pattern: /公民身份号码|身份证号码|身份证号/u },
+    { label: '住址', score: 4, pattern: /住址/u },
+    { label: '民族', score: 3, pattern: /民族/u },
+    { label: '签发机关', score: 3, pattern: /签发机关/u },
+    { label: '有效期限', score: 3, pattern: /有效期限|有效期/u },
+  ];
+
+  const matchedMedicalSignals = medicalCardSignals.filter(
+    (signal) => signal.pattern.test(compact) || signal.pattern.test(rawUpper)
+  );
+  const matchedIdSignals = idCardSignals.filter(
+    (signal) => signal.pattern.test(compact) || signal.pattern.test(rawUpper)
+  );
+
+  const medicalCardScore = matchedMedicalSignals.reduce(
+    (total, signal) => total + signal.score,
+    0
+  );
+  const idCardScore = matchedIdSignals.reduce(
+    (total, signal) => total + signal.score,
+    0
+  );
+
+  if (
+    matchedMedicalSignals.some((signal) =>
+      ['社会保障号码', '社会保障卡', '居民服务一卡通', '医保'].includes(signal.label)
+    ) ||
+    (medicalCardScore >= 8 && medicalCardScore >= idCardScore + 2) ||
+    (medicalCardScore >= 11 && matchedMedicalSignals.length >= 2)
+  ) {
+    return {
+      detectedDocumentType: 'medical_card',
+      matchedSignals: matchedMedicalSignals.map((signal) => signal.label),
+      medicalCardScore,
+      idCardScore,
+    };
+  }
+
+  if (
+    matchedIdSignals.some((signal) =>
+      ['居民身份证', '公民身份号码'].includes(signal.label)
+    ) ||
+    (idCardScore >= 8 && idCardScore >= medicalCardScore + 2) ||
+    (idCardScore >= 11 && matchedIdSignals.length >= 2)
+  ) {
+    return {
+      detectedDocumentType: 'id_card',
+      matchedSignals: matchedIdSignals.map((signal) => signal.label),
+      medicalCardScore,
+      idCardScore,
+    };
+  }
+
+  return {
+    detectedDocumentType: 'unknown',
+    matchedSignals: [],
+    medicalCardScore,
+    idCardScore,
+  };
 }
 
 function inferDocumentTypeFromText(
   rawText: string,
   docType: ScanDocType
 ): DetectedDocumentType {
-  if (docType === 'id_card' || docType === 'medical_card') {
-    return docType;
-  }
-
-  const compact = compactText(rawText).toUpperCase();
-
-  if (
-    compact.includes('社会保障卡') ||
-    compact.includes('社会保障号码') ||
-    compact.includes('社会保障号') ||
-    compact.includes('医保') ||
-    compact.includes('医疗保险')
-  ) {
-    return 'medical_card';
-  }
-
-  if (
-    compact.includes('居民身份证') ||
-    compact.includes('中华人民共和国') ||
-    compact.includes('公民身份号码') ||
-    compact.includes('签发机关') ||
-    compact.includes('有效期限')
-  ) {
-    return 'id_card';
-  }
-
-  return 'unknown';
+  return inferDocumentTypeFromTextDetailed(rawText, docType).detectedDocumentType;
 }
 
 function extractResponseText(payload: unknown): string {
@@ -580,29 +665,19 @@ function extractGovernmentIdFromText(
 }
 
 function normalizeGovernmentId(value: string | null | undefined): string | null {
-  if (!value) return null;
-  const normalized = value
-    .trim()
-    .toUpperCase()
-    .replace(/[^0-9X]/g, '');
-
-  if (/^\d{17}[\dX]$/.test(normalized)) {
-    return normalized;
-  }
-  return null;
+  return normalizeChineseResidentId(value);
 }
 
 function deriveDateOfBirthFromGovernmentId(value: string | null): string | null {
   if (!value) return null;
-  const candidate = `${value.slice(6, 10)}-${value.slice(10, 12)}-${value.slice(12, 14)}`;
-  return isValidDate(candidate) ? candidate : null;
+  const validation = validateChineseResidentId(value);
+  return validation.isValid ? validation.derivedDateOfBirth : null;
 }
 
 function deriveGenderFromGovernmentId(value: string | null): OutputGender {
   if (!value) return null;
-  const genderDigit = Number(value.charAt(16));
-  if (Number.isNaN(genderDigit)) return null;
-  return genderDigit % 2 === 0 ? 'Female' : 'Male';
+  const validation = validateChineseResidentId(value);
+  return validation.isValid ? validation.derivedGender : null;
 }
 
 function isValidDate(value: string): boolean {
@@ -644,7 +719,7 @@ async function runOcrSpace(
     const response = await fetch(OCR_SPACE_ENDPOINT, {
       method: 'POST',
       headers: {
-        apikey: process.env.OCR_SPACE_API_KEY,
+        apikey: process.env.OCR_SPACE_API_KEY!,
       },
       body: formData,
     });
@@ -722,7 +797,8 @@ async function runOcrSpace(
   };
 
   const parseFieldsFromRawText = (rawText: string, retryUsed = false): ParsedOcrFields => {
-    const detectedDocumentType = inferDocumentTypeFromText(rawText, docType);
+    const typeInference = inferDocumentTypeFromTextDetailed(rawText, docType);
+    const detectedDocumentType = typeInference.detectedDocumentType;
     const socialSecurityNumber = extractGovernmentIdFromText(rawText, detectedDocumentType);
     const textGender = extractGenderFromText(rawText, detectedDocumentType);
     const textDob = extractDateOfBirthFromText(rawText, detectedDocumentType);
@@ -736,6 +812,11 @@ async function runOcrSpace(
       notes: [
         '已使用 OCR.space 识别文本，请人工核对。',
         retryUsed ? '姓名已尝试通过增强图像二次识别。' : '',
+        detectedDocumentType === 'medical_card'
+          ? `已识别为社保卡/医保卡，命中特征：${typeInference.matchedSignals.slice(0, 4).join('、') || '卡面特征' }。`
+          : detectedDocumentType === 'id_card'
+            ? `已识别为身份证，命中特征：${typeInference.matchedSignals.slice(0, 4).join('、') || '证件文字特征'}。`
+            : '',
         socialSecurityNumber ? '已识别可用于推导字段的证件号码。' : '',
         detectedDocumentType === 'medical_card'
           ? '医保卡/社保卡建议优先拍姓名和社会保障号清晰的一面。'
@@ -957,7 +1038,25 @@ export async function POST(request: Request) {
     const normalizedName = normalizeName(result.name);
     const normalizedGenderFromText = normalizeGender(result.gender);
     const normalizedDateOfBirthFromText = normalizeDate(result.dateOfBirth);
-    const normalizedGovernmentId = normalizeGovernmentId(result.socialSecurityNumber);
+    const residentIdValidation = validateChineseResidentId(result.socialSecurityNumber);
+    const hasGovernmentIdCandidate = Boolean(
+      typeof result.socialSecurityNumber === 'string' && result.socialSecurityNumber.trim()
+    );
+    const residentIdConsistency =
+      residentIdValidation.isValid && residentIdValidation.normalized
+        ? checkResidentIdConsistency({
+            governmentId: residentIdValidation.normalized,
+            gender: normalizedGenderFromText,
+            dateOfBirth: normalizedDateOfBirthFromText,
+          })
+        : null;
+    const shouldUseGovernmentId =
+      residentIdValidation.isValid &&
+      residentIdValidation.normalized &&
+      (!residentIdConsistency || residentIdConsistency.isConsistent);
+    const normalizedGovernmentId = shouldUseGovernmentId
+      ? residentIdValidation.normalized
+      : null;
     const derivedDateOfBirth = deriveDateOfBirthFromGovernmentId(normalizedGovernmentId);
     const derivedGender = deriveGenderFromGovernmentId(normalizedGovernmentId);
     const normalizedGender = normalizedGenderFromText || derivedGender;
@@ -968,26 +1067,61 @@ export async function POST(request: Request) {
         ? Math.max(0, Math.min(1, result.confidence))
         : null;
 
+    const governmentIdNotes: string[] = [];
+    if (hasGovernmentIdCandidate && !residentIdValidation.isValid) {
+      governmentIdNotes.push(
+        residentIdValidation.error || '识别到的社保号未通过身份证规则校验，本次不会自动使用该号码。'
+      );
+    } else if (residentIdConsistency && !residentIdConsistency.isConsistent) {
+      governmentIdNotes.push(
+        `${residentIdConsistency.message} 为避免误建档，本次不会自动使用该号码。`
+      );
+    } else if (normalizedGovernmentId) {
+      governmentIdNotes.push('已通过身份证校验规则验证社会保障号码，并用于补全可确认字段。');
+    }
+
     const notes = [
       result.notes || '识别完成，请人工核对后提交。',
-      normalizedGovernmentId
-        ? '已根据社会保障号码推导可补全的字段。'
-        : '',
+      result.detectedDocumentType === 'medical_card'
+        ? '系统已将该图片判定为社保卡/医保卡卡面。'
+        : result.detectedDocumentType === 'id_card'
+          ? '系统已将该图片判定为身份证正面。'
+          : '',
+      ...governmentIdNotes,
       provider === 'ocrspace' ? '当前识别服务：OCR.space。' : '当前识别服务：OpenAI。',
     ]
       .filter(Boolean)
       .join(' ');
 
+    if (result.detectedDocumentType !== 'unknown' && !normalizedGovernmentId) {
+      const scanErrorMessage =
+        residentIdValidation.error ||
+        residentIdConsistency?.message ||
+        (result.detectedDocumentType === 'medical_card'
+          ? '未识别到通过校验的社会保障号码，请重新扫描，确保号码区域清晰完整。'
+          : '未识别到通过校验的身份证号码，请重新扫描，确保号码区域清晰完整。');
+
+      return NextResponse.json(
+        {
+          error: scanErrorMessage,
+        },
+        { status: 400 }
+      );
+    }
+
     return NextResponse.json({
       name: normalizedName,
       gender: normalizedGender,
       dateOfBirth: normalizedDateOfBirth,
+      socialSecurityNumber: normalizedGovernmentId,
       password: DEFAULT_PASSWORD,
       confirmPassword: DEFAULT_PASSWORD,
       confidence,
       detectedDocumentType: result.detectedDocumentType,
       notes,
-      shouldReview: !(normalizedName && normalizedGender && normalizedDateOfBirth),
+      shouldReview:
+        !(normalizedName && normalizedGender && normalizedDateOfBirth) ||
+        (hasGovernmentIdCandidate && !normalizedGovernmentId),
     });
   } catch (error) {
     console.error('[OCR] Route error:', error);

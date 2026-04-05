@@ -3,21 +3,27 @@ import { prisma } from '@/lib/prisma';
 import { NextResponse } from 'next/server';
 import bcrypt from 'bcrypt';
 import { createAuditLog } from '@/lib/audit'; // Adjust path as needed
-
-function normalizePatientName(name: string): string {
-  return name.trim().replace(/\s+/g, '');
-}
-
-function getUtcDayRange(dateString: string) {
-  const start = new Date(`${dateString}T00:00:00.000Z`);
-  const end = new Date(start);
-  end.setUTCDate(end.getUTCDate() + 1);
-  return { start, end };
-}
+import {
+  checkResidentIdConsistency,
+  getResidentIdValidationError,
+} from '@/lib/china-resident-id';
+import {
+  getUtcDayRange,
+  normalizeGovernmentId,
+  normalizePatientName,
+} from '@/lib/patient-scan-auth';
 
 export async function POST(request: Request) {
   try {
-    const { name, phone, gender, dateOfBirth, username: initialUsername, password } = await request.json();
+    const {
+      name,
+      phone,
+      gender,
+      dateOfBirth,
+      username: initialUsername,
+      password,
+      socialSecurityNumber,
+    } = await request.json();
 
     if (!name || !initialUsername || !gender || !dateOfBirth || !password || !phone) {
       return NextResponse.json({ error: '缺少必填字段：姓名、用户名、性别、出生日期、联系电话、密码。' }, { status: 400 });
@@ -49,6 +55,14 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: '姓名至少需要2个字符。' }, { status: 400 });
     }
 
+    const normalizedSocialSecurityNumber = normalizeGovernmentId(socialSecurityNumber);
+    if (socialSecurityNumber && !normalizedSocialSecurityNumber) {
+      return NextResponse.json(
+        { error: getResidentIdValidationError(socialSecurityNumber) || '社保号格式无效，请重新扫描后再试。' },
+        { status: 400 }
+      );
+    }
+
     const dob = new Date(dateOfBirth);
     if (Number.isNaN(dob.getTime())) {
       return NextResponse.json({ error: '出生日期格式无效。' }, { status: 400 });
@@ -57,6 +71,45 @@ export async function POST(request: Request) {
     const age = today.getFullYear() - dob.getFullYear();
     if (age < 0 || age > 150) {
       return NextResponse.json({ error: '请输入有效的出生日期。' }, { status: 400 });
+    }
+
+    if (normalizedSocialSecurityNumber) {
+      const consistency = checkResidentIdConsistency({
+        governmentId: normalizedSocialSecurityNumber,
+        gender,
+        dateOfBirth,
+      });
+
+      if (!consistency.isConsistent) {
+        return NextResponse.json(
+          { error: consistency.message || '社保号与出生日期或性别不一致，请核对后重试。' },
+          { status: 400 }
+        );
+      }
+    }
+
+    if (normalizedSocialSecurityNumber) {
+      const userWithSameSocialSecurityNumber = await prisma.user.findFirst({
+        where: {
+          role: Role.PATIENT,
+          socialSecurityNumber: normalizedSocialSecurityNumber,
+        },
+        select: {
+          id: true,
+          name: true,
+          username: true,
+        },
+      });
+
+      if (userWithSameSocialSecurityNumber) {
+        return NextResponse.json(
+          {
+            error: `该社保号已关联病人 ${userWithSameSocialSecurityNumber.name}，用户名是 ${userWithSameSocialSecurityNumber.username}。`,
+            existingUsername: userWithSameSocialSecurityNumber.username,
+          },
+          { status: 409 }
+        );
+      }
     }
 
     const { start, end } = getUtcDayRange(dateOfBirth);
@@ -107,6 +160,7 @@ export async function POST(request: Request) {
           phone,
           dateOfBirth: new Date(dateOfBirth),
           gender,
+          socialSecurityNumber: normalizedSocialSecurityNumber,
           password: hashedPassword,
           role: Role.PATIENT,
         },

@@ -1,28 +1,16 @@
 'use client';
 
-import { useState, useEffect, FormEvent, forwardRef, useRef } from 'react';
-import { signIn, getSession } from 'next-auth/react';
-import DatePicker, { registerLocale, setDefaultLocale } from 'react-datepicker';
-import 'react-datepicker/dist/react-datepicker.css';
-import { zhCN } from 'date-fns/locale/zh-CN';
+import { ChangeEvent, useEffect, useRef, useState } from 'react';
 import {
-  CheckCircle2,
-  XCircle,
-  Loader2,
-  ScanSearch,
-  ScanLine,
   Camera,
+  Loader2,
+  ScanLine,
+  ScanSearch,
   X,
 } from 'lucide-react';
-import { useRouter } from 'next/navigation';
-import pinyin from 'pinyin';
-import {
-  checkResidentIdConsistency,
-  getResidentIdValidationError,
-} from '@/lib/china-resident-id';
-import { fetchWithTimeout, withTimeout } from '../../../utils/network';
 
-const DEFAULT_PASSWORD = '123456';
+import { fetchWithTimeout } from '@/utils/network';
+
 const FRAME_WIDTH_RATIO = 0.96;
 const FRAME_HEIGHT_RATIO = 0.84;
 const AUTO_CAPTURE_REQUIRED_STABLE_FRAMES = 2;
@@ -44,8 +32,9 @@ const CARD_PORTRAIT_ASPECT = 1 / CARD_LANDSCAPE_ASPECT;
 
 type ScanDocType = 'id_card' | 'medical_card' | 'auto';
 type SmartFrameFeedback = 'idle' | 'steady' | 'capturing' | 'success' | 'error';
+type ScannerNoticeTone = 'success' | 'warning' | 'error';
 
-interface ScanResponse {
+export interface PatientDocumentScanResult {
   name: string;
   gender: 'Male' | 'Female' | 'Other' | null;
   dateOfBirth: string | null;
@@ -56,12 +45,6 @@ interface ScanResponse {
   detectedDocumentType: 'id_card' | 'medical_card' | 'unknown';
   notes: string;
   shouldReview: boolean;
-}
-
-interface UsernameAvailabilityResponse {
-  available?: boolean;
-  message?: string;
-  suggestedUsername?: string;
 }
 
 interface FrameMetrics {
@@ -96,15 +79,19 @@ interface EdgePeak {
   score: number;
 }
 
-function smoothScores(
-  scores: ArrayLike<number>,
-  radius = 2
-): Float32Array {
+interface PatientDocumentScannerProps {
+  disabled?: boolean;
+  onScanResult: (result: PatientDocumentScanResult) => void | Promise<void>;
+  onBusyChange?: (busy: boolean) => void;
+}
+
+function smoothScores(scores: ArrayLike<number>, radius = 2): Float32Array {
   const smoothed = new Float32Array(scores.length);
 
   for (let index = 0; index < scores.length; index += 1) {
     let total = 0;
     let count = 0;
+
     for (
       let cursor = Math.max(0, index - radius);
       cursor <= Math.min(scores.length - 1, index + radius);
@@ -113,6 +100,7 @@ function smoothScores(
       total += scores[cursor];
       count += 1;
     }
+
     smoothed[index] = count > 0 ? total / count : 0;
   }
 
@@ -507,9 +495,7 @@ function getCornerRoundnessScore(
     )
   );
 
-  return (
-    topLeftScore + topRightScore + bottomLeftScore + bottomRightScore
-  ) / 4;
+  return (topLeftScore + topRightScore + bottomLeftScore + bottomRightScore) / 4;
 }
 
 function detectRectangleCandidate(
@@ -528,9 +514,7 @@ function detectRectangleCandidate(
     cornerRoundness: 0,
   };
 
-  if (width < 48 || height < 48) {
-    return emptyResult;
-  }
+  if (width < 48 || height < 48) return emptyResult;
 
   const verticalGradient = new Float32Array(width * height);
   const horizontalGradient = new Float32Array(width * height);
@@ -747,31 +731,15 @@ function scoreRearCameraDevice(device: MediaDeviceInfo): number {
   const label = device.label.toLowerCase();
   let score = 0;
 
-  if (
-    /front|user|前置|前摄|自拍|facetime/i.test(label)
-  ) {
+  if (/front|user|前置|前摄|自拍|facetime/i.test(label)) {
     return -1000;
   }
 
-  if (/back|rear|environment|后置|后摄/i.test(label)) {
-    score += 80;
-  }
-
-  if (/wide|main|standard|normal|广角|主摄|标准/i.test(label)) {
-    score += 35;
-  }
-
-  if (/tele|telephoto|长焦|macro|微距|depth|景深|bokeh/i.test(label)) {
-    score -= 45;
-  }
-
-  if (/ultra|超广/i.test(label)) {
-    score -= 18;
-  }
-
-  if (/0,\s*facing\s*back|camera0|cam0/i.test(label)) {
-    score += 20;
-  }
+  if (/back|rear|environment|后置|后摄/i.test(label)) score += 80;
+  if (/wide|main|standard|normal|广角|主摄|标准/i.test(label)) score += 35;
+  if (/tele|telephoto|长焦|macro|微距|depth|景深|bokeh/i.test(label)) score -= 45;
+  if (/ultra|超广/i.test(label)) score -= 18;
+  if (/0,\s*facing\s*back|camera0|cam0/i.test(label)) score += 20;
 
   return score;
 }
@@ -808,9 +776,7 @@ async function prepareImageForVercelUpload(file: File): Promise<File> {
   const TARGET_MAX_BYTES = 950 * 1024;
   const SAFE_TARGET_BYTES = 900 * 1024;
 
-  if (file.size <= SAFE_TARGET_BYTES) {
-    return file;
-  }
+  if (file.size <= SAFE_TARGET_BYTES) return file;
 
   const image = await loadImageFromFile(file);
   const maxEdge = 1800;
@@ -840,31 +806,14 @@ async function prepareImageForVercelUpload(file: File): Promise<File> {
   throw new Error('图片仍然过大，请靠近一点重拍，或裁掉多余背景后再试。');
 }
 
-export default function RegisterPage() {
-  registerLocale('zh-CN', zhCN);
-  setDefaultLocale('zh-CN');
-
-  const [name, setName] = useState('');
-  const [phone, setPhone] = useState('13930555555');
-  const [gender, setGender] = useState('');
-  const [dateOfBirth, setDateOfBirth] = useState('');
-  const [username, setUsername] = useState('');
-  const [socialSecurityNumber, setSocialSecurityNumber] = useState('');
-  const [password, setPassword] = useState(DEFAULT_PASSWORD);
-  const [confirmPassword, setConfirmPassword] = useState(DEFAULT_PASSWORD);
-  const [isUsernameManuallyEdited, setIsUsernameManuallyEdited] = useState(false);
-  const [usernameAvailability, setUsernameAvailability] = useState<{
-    status: 'idle' | 'checking' | 'available' | 'taken';
-    message: string;
-  }>({ status: 'idle', message: '' });
-  const [debouncedUsername, setDebouncedUsername] = useState(username);
-  const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
-  const [submitting, setSubmitting] = useState(false);
-  const [progress, setProgress] = useState(0);
-  const [stage, setStage] = useState<string | null>(null);
+export default function PatientDocumentScanner({
+  disabled = false,
+  onScanResult,
+  onBusyChange,
+}: PatientDocumentScannerProps) {
+  const [notice, setNotice] = useState<string | null>(null);
+  const [noticeTone, setNoticeTone] = useState<ScannerNoticeTone>('success');
   const [isScanning, setIsScanning] = useState(false);
-  const [scanDocType] = useState<ScanDocType>('auto');
   const [smartCameraOpen, setSmartCameraOpen] = useState(false);
   const [cameraReady, setCameraReady] = useState(false);
   const [cameraError, setCameraError] = useState<string | null>(null);
@@ -877,8 +826,7 @@ export default function RegisterPage() {
   const [capturedPreviewUrl, setCapturedPreviewUrl] = useState<string | null>(null);
   const [previewLayout, setPreviewLayout] = useState<PreviewLayout | null>(null);
 
-  const router = useRouter();
-  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const scanDocType: ScanDocType = 'auto';
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const smartViewportRef = useRef<HTMLDivElement | null>(null);
   const smartVideoRef = useRef<HTMLVideoElement | null>(null);
@@ -893,148 +841,32 @@ export default function RegisterPage() {
   const torchAttemptedRef = useRef(false);
   const autoCaptureReadyAtRef = useRef(0);
 
-  const DateInput = forwardRef<HTMLInputElement, React.InputHTMLAttributes<HTMLInputElement>>(
-    (props, ref) => (
-      <input ref={ref} {...props} inputMode="numeric" className="input-base mt-2 w-full" />
-    )
-  );
-  DateInput.displayName = 'DateInput';
+  useEffect(() => {
+    onBusyChange?.(isScanning || isAutoCapturing);
+  }, [isAutoCapturing, isScanning, onBusyChange]);
 
-  const setDOBFromInput = (raw: string) => {
-    const normalized = raw
-      .replace(/[年|月|日]/g, '-')
-      .replace(/[./]/g, '-')
-      .replace(/\s+/g, '')
-      .replace(/-+/g, '-')
-      .trim();
-    const m = normalized.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
-    if (!m) return;
-    const y = Number(m[1]);
-    const mm = Number(m[2]);
-    const dd = Number(m[3]);
-    if (mm < 1 || mm > 12) return;
-    const test = new Date(y, mm - 1, dd);
-    if (test.getFullYear() !== y || test.getMonth() !== mm - 1 || test.getDate() !== dd) return;
-    const t = new Date();
-    const age = t.getFullYear() - y;
-    if (age < 0 || age > 150) return;
-    const pmm = String(mm).padStart(2, '0');
-    const pdd = String(dd).padStart(2, '0');
-    setDateOfBirth(`${y}-${pmm}-${pdd}`);
-  };
+  useEffect(() => {
+    return () => {
+      if (smartAutoCaptureTimerRef.current) {
+        clearInterval(smartAutoCaptureTimerRef.current);
+        smartAutoCaptureTimerRef.current = null;
+      }
+      if (audioContextRef.current) {
+        void audioContextRef.current.close().catch(() => undefined);
+        audioContextRef.current = null;
+      }
+      stopSmartCameraStream();
+    };
+  }, []);
 
-  const handleBlur = (e: React.FocusEvent<HTMLInputElement>) => {
-    setDOBFromInput(e.target.value);
-  };
-
-  const stopSubmitting = () => {
-    setSubmitting(false);
-    setStage(null);
-    setProgress(0);
-    if (timerRef.current) {
-      clearInterval(timerRef.current);
-      timerRef.current = null;
-    }
-  };
-
-  const startSubmittingProgress = (initialStage: string, initialProgress = 8) => {
-    setSubmitting(true);
-    setStage(initialStage);
-    setProgress(initialProgress);
-    if (timerRef.current) clearInterval(timerRef.current);
-    timerRef.current = setInterval(() => {
-      setProgress((p) => {
-        const next = p + 4;
-        return next >= 90 ? 90 : next;
-      });
-    }, 200);
-  };
-
-  const redirectAfterAuth = async () => {
-    const session = await withTimeout(
-      getSession(),
-      10000,
-      '获取会话超时'
-    );
-
-    if (timerRef.current) {
-      clearInterval(timerRef.current);
-      timerRef.current = null;
-    }
-    setStage('正在跳转…');
-    setProgress(100);
-
-    if (session?.user?.role === 'ADMIN') {
-      router.push('/admin/dashboard');
-    } else if (session?.user?.role === 'DOCTOR') {
-      router.push('/doctor/schedule');
-    } else {
-      router.push('/');
-    }
-  };
-
-  const resetRegistrationFieldsForScan = () => {
-    setName('');
-    setPhone('13930555555');
-    setGender('');
-    setDateOfBirth('');
-    setUsername('');
-    setSocialSecurityNumber('');
-    setDebouncedUsername('');
-    setPassword(DEFAULT_PASSWORD);
-    setConfirmPassword(DEFAULT_PASSWORD);
-    setIsUsernameManuallyEdited(false);
-    setUsernameAvailability({ status: 'idle', message: '' });
-    setError(null);
-    setSuccess(null);
+  const setScannerNotice = (message: string | null, tone: ScannerNoticeTone = 'success') => {
+    setNotice(message);
+    setNoticeTone(tone);
   };
 
   const vibrateDevice = (pattern: number | number[]) => {
     if (typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function') {
       navigator.vibrate(pattern);
-    }
-  };
-
-  const runScanAutoAuth = async (scanResult: ScanResponse) => {
-    if (!scanResult.socialSecurityNumber) {
-      return false;
-    }
-
-    startSubmittingProgress('已识别社保号，正在匹配病人账户…', 12);
-    setSuccess('已识别社保号，正在自动登录…');
-
-    try {
-      const loginResult = await withTimeout(
-        signIn('patient-scan', {
-          redirect: false,
-          socialSecurityNumber: scanResult.socialSecurityNumber,
-          name: scanResult.name || '',
-          gender: scanResult.gender || '',
-          dateOfBirth: scanResult.dateOfBirth || '',
-        }),
-        20000,
-        '扫卡登录超时，请稍后重试。'
-      );
-
-      if (loginResult?.error) {
-        throw new Error('未能完成自动匹配，请核对信息后点击注册。');
-      }
-
-      if (timerRef.current) {
-        clearInterval(timerRef.current);
-        timerRef.current = null;
-      }
-      setStage('正在建立会话…');
-      setProgress(96);
-      await redirectAfterAuth();
-      return true;
-    } catch (err) {
-      setSuccess(null);
-      setError(
-        err instanceof Error ? err.message : '未能完成自动匹配，请核对信息后点击注册。'
-      );
-      stopSubmitting();
-      return false;
     }
   };
 
@@ -1048,8 +880,7 @@ export default function RegisterPage() {
 
     const AudioContextCtor =
       window.AudioContext ||
-      (window as typeof window & { webkitAudioContext?: typeof AudioContext })
-        .webkitAudioContext;
+      (window as typeof window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
 
     if (!AudioContextCtor) return;
 
@@ -1163,9 +994,7 @@ export default function RegisterPage() {
 
     try {
       const capabilities = typeof track.getCapabilities === 'function'
-        ? (track.getCapabilities() as MediaTrackCapabilities & {
-            focusMode?: string[];
-          })
+        ? (track.getCapabilities() as MediaTrackCapabilities & { focusMode?: string[] })
         : null;
 
       if (Array.isArray(capabilities?.focusMode) && capabilities.focusMode.includes('continuous')) {
@@ -1196,9 +1025,7 @@ export default function RegisterPage() {
           : null;
 
       const zoomCapability = capabilities?.zoom;
-      if (!zoomCapability || typeof zoomCapability !== 'object') {
-        return false;
-      }
+      if (!zoomCapability || typeof zoomCapability !== 'object') return false;
 
       const minZoom =
         typeof zoomCapability.min === 'number' ? zoomCapability.min : undefined;
@@ -1209,11 +1036,7 @@ export default function RegisterPage() {
         return false;
       }
 
-      const targetZoom =
-        minZoom <= 1 && maxZoom >= 1
-          ? 1
-          : minZoom;
-
+      const targetZoom = minZoom <= 1 && maxZoom >= 1 ? 1 : minZoom;
       await track.applyConstraints({
         advanced: [{ zoom: targetZoom } as MediaTrackConstraintSet],
       });
@@ -1243,16 +1066,12 @@ export default function RegisterPage() {
   });
 
   const pickPreferredRearCamera = async (): Promise<string | null> => {
-    if (!navigator.mediaDevices?.enumerateDevices) {
-      return null;
-    }
+    if (!navigator.mediaDevices?.enumerateDevices) return null;
 
     try {
       const devices = await navigator.mediaDevices.enumerateDevices();
       const videoInputs = devices.filter((device) => device.kind === 'videoinput');
-      if (videoInputs.length === 0) {
-        return null;
-      }
+      if (videoInputs.length === 0) return null;
 
       const sorted = [...videoInputs].sort(
         (left, right) => scoreRearCameraDevice(right) - scoreRearCameraDevice(left)
@@ -1263,137 +1082,6 @@ export default function RegisterPage() {
       console.warn('Unable to enumerate video devices:', error);
       return null;
     }
-  };
-
-  const openScanPicker = () => {
-    resetRegistrationFieldsForScan();
-    if (fileInputRef.current) {
-      fileInputRef.current.value = '';
-      fileInputRef.current.click();
-    }
-  };
-
-  const uploadScanFile = async (file: File) => {
-    const currentDocType = scanDocType;
-    setIsScanning(true);
-    setError(null);
-    setSuccess(null);
-
-    try {
-      const uploadFile = await prepareImageForVercelUpload(file);
-      const formData = new FormData();
-      formData.append('file', uploadFile);
-      formData.append('docType', currentDocType);
-
-      const response = await fetchWithTimeout(
-        '/api/ocr/patient-registration',
-        {
-          method: 'POST',
-          body: formData,
-        },
-        45000
-      );
-
-      const data = (await response.json()) as ScanResponse | { error?: string };
-      if (!response.ok) {
-        throw new Error(
-          'error' in data && typeof data.error === 'string'
-            ? data.error
-            : '证件识别失败，请重试。'
-        );
-      }
-
-      const result = data as ScanResponse;
-
-      if (result.name) {
-        setIsUsernameManuallyEdited(false);
-        setName(result.name);
-      }
-      if (result.gender) {
-        setGender(result.gender);
-      }
-      if (result.dateOfBirth) {
-        setDateOfBirth(result.dateOfBirth);
-      }
-      setSocialSecurityNumber(result.socialSecurityNumber || '');
-      setPassword(result.password || DEFAULT_PASSWORD);
-      setConfirmPassword(result.confirmPassword || result.password || DEFAULT_PASSWORD);
-
-      if (result.socialSecurityNumber) {
-        const autoAuthSucceeded = await runScanAutoAuth(result);
-        if (autoAuthSucceeded) {
-          return;
-        }
-      } else {
-        setSuccess(result.notes || '证件信息已填入，请核对后点击注册。');
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : '证件识别失败，请重试。');
-    } finally {
-      setIsScanning(false);
-      if (fileInputRef.current) {
-        fileInputRef.current.value = '';
-      }
-    }
-  };
-
-  const handleScanFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    await uploadScanFile(file);
-  };
-
-  const stopSmartCameraFeed = () => {
-    if (smartAutoCaptureTimerRef.current) {
-      clearInterval(smartAutoCaptureTimerRef.current);
-      smartAutoCaptureTimerRef.current = null;
-    }
-    if (smartStreamRef.current) {
-      for (const track of smartStreamRef.current.getTracks()) {
-        track.stop();
-      }
-      smartStreamRef.current = null;
-    }
-    if (smartVideoRef.current) {
-      smartVideoRef.current.srcObject = null;
-    }
-    lastFrameRef.current = null;
-    autoCapturedRef.current = false;
-    lastStableSignalRef.current = false;
-    darkFrameCountRef.current = 0;
-    torchAttemptedRef.current = false;
-    setStableFrameCount(0);
-    setCameraReady(false);
-    setTorchAvailable(false);
-    setTorchEnabled(false);
-    autoCaptureReadyAtRef.current = 0;
-    setPreviewLayout(null);
-  };
-
-  const stopSmartCameraStream = () => {
-    stopSmartCameraFeed();
-    setIsAutoCapturing(false);
-    setFrameFeedback('idle');
-    setCapturedPreviewUrl(null);
-  };
-
-  const closeSmartCamera = () => {
-    stopSmartCameraStream();
-    setSmartCameraOpen(false);
-    setCameraError(null);
-    setCameraHint('把证件放进大框里');
-    setFrameFeedback('idle');
-    setCapturedPreviewUrl(null);
-  };
-
-  const openSmartCamera = () => {
-    resetRegistrationFieldsForScan();
-    setCameraError(null);
-    setCameraHint('把证件放进大框里');
-    setFrameFeedback('idle');
-    setCapturedPreviewUrl(null);
-    setPreviewLayout(null);
-    setSmartCameraOpen(true);
   };
 
   const computePreviewLayout = (video: HTMLVideoElement): PreviewLayout | null => {
@@ -1494,9 +1182,7 @@ export default function RegisterPage() {
         borderClippingTotal += diff;
         borderClippingSamples += 1;
         leftEdgeSamples += 1;
-        if (diff >= strongEdgeThreshold) {
-          leftEdgeHits += 1;
-        }
+        if (diff >= strongEdgeThreshold) leftEdgeHits += 1;
       }
 
       for (let x = width - borderBand; x < width; x += 1) {
@@ -1504,37 +1190,27 @@ export default function RegisterPage() {
         borderClippingTotal += diff;
         borderClippingSamples += 1;
         rightEdgeSamples += 1;
-        if (diff >= strongEdgeThreshold) {
-          rightEdgeHits += 1;
-        }
+        if (diff >= strongEdgeThreshold) rightEdgeHits += 1;
       }
     }
 
     for (let y = 0; y < borderBand; y += 1) {
       for (let x = 0; x < width; x += 1) {
-        const diff = Math.abs(
-          grayscale[y * width + x] - grayscale[(y + 1) * width + x]
-        );
+        const diff = Math.abs(grayscale[y * width + x] - grayscale[(y + 1) * width + x]);
         borderClippingTotal += diff;
         borderClippingSamples += 1;
         topEdgeSamples += 1;
-        if (diff >= strongEdgeThreshold) {
-          topEdgeHits += 1;
-        }
+        if (diff >= strongEdgeThreshold) topEdgeHits += 1;
       }
     }
 
     for (let y = height - borderBand; y < height; y += 1) {
       for (let x = 0; x < width; x += 1) {
-        const diff = Math.abs(
-          grayscale[y * width + x] - grayscale[(y - 1) * width + x]
-        );
+        const diff = Math.abs(grayscale[y * width + x] - grayscale[(y - 1) * width + x]);
         borderClippingTotal += diff;
         borderClippingSamples += 1;
         bottomEdgeSamples += 1;
-        if (diff >= strongEdgeThreshold) {
-          bottomEdgeHits += 1;
-        }
+        if (diff >= strongEdgeThreshold) bottomEdgeHits += 1;
       }
     }
 
@@ -1566,9 +1242,7 @@ export default function RegisterPage() {
       sharpness: sharpnessTotal / (width * height),
       brightness: brightnessTotal / grayscale.length,
       borderClipping:
-        borderClippingSamples > 0
-          ? borderClippingTotal / borderClippingSamples
-          : 0,
+        borderClippingSamples > 0 ? borderClippingTotal / borderClippingSamples : 0,
       borderEdgeCoverage: Math.max(
         leftEdgeSamples > 0 ? leftEdgeHits / leftEdgeSamples : 0,
         rightEdgeSamples > 0 ? rightEdgeHits / rightEdgeSamples : 0,
@@ -1577,6 +1251,119 @@ export default function RegisterPage() {
       ),
       rectangle,
     };
+  };
+
+  const stopSmartCameraFeed = () => {
+    if (smartAutoCaptureTimerRef.current) {
+      clearInterval(smartAutoCaptureTimerRef.current);
+      smartAutoCaptureTimerRef.current = null;
+    }
+    if (smartStreamRef.current) {
+      for (const track of smartStreamRef.current.getTracks()) {
+        track.stop();
+      }
+      smartStreamRef.current = null;
+    }
+    if (smartVideoRef.current) {
+      smartVideoRef.current.srcObject = null;
+    }
+    lastFrameRef.current = null;
+    autoCapturedRef.current = false;
+    lastStableSignalRef.current = false;
+    darkFrameCountRef.current = 0;
+    torchAttemptedRef.current = false;
+    setStableFrameCount(0);
+    setCameraReady(false);
+    setTorchAvailable(false);
+    setTorchEnabled(false);
+    autoCaptureReadyAtRef.current = 0;
+    setPreviewLayout(null);
+  };
+
+  const stopSmartCameraStream = () => {
+    stopSmartCameraFeed();
+    setIsAutoCapturing(false);
+    setFrameFeedback('idle');
+    setCapturedPreviewUrl(null);
+  };
+
+  const closeSmartCamera = () => {
+    stopSmartCameraStream();
+    setSmartCameraOpen(false);
+    setCameraError(null);
+    setCameraHint('把证件放进大框里');
+    setFrameFeedback('idle');
+    setCapturedPreviewUrl(null);
+  };
+
+  const openSmartCamera = () => {
+    setCameraError(null);
+    setCameraHint('把证件放进大框里');
+    setFrameFeedback('idle');
+    setCapturedPreviewUrl(null);
+    setPreviewLayout(null);
+    setScannerNotice(null);
+    setSmartCameraOpen(true);
+  };
+
+  const uploadScanFile = async (file: File) => {
+    setIsScanning(true);
+    setScannerNotice(null);
+
+    try {
+      const uploadFile = await prepareImageForVercelUpload(file);
+      const formData = new FormData();
+      formData.append('file', uploadFile);
+      formData.append('docType', scanDocType);
+
+      const response = await fetchWithTimeout(
+        '/api/ocr/patient-registration',
+        {
+          method: 'POST',
+          body: formData,
+        },
+        45000
+      );
+
+      const data = (await response.json()) as PatientDocumentScanResult | { error?: string };
+      if (!response.ok) {
+        throw new Error(
+          'error' in data && typeof data.error === 'string'
+            ? data.error
+            : '证件识别失败，请重试。'
+        );
+      }
+
+      const result = data as PatientDocumentScanResult;
+      await onScanResult(result);
+
+      setScannerNotice(
+        result.notes || (result.shouldReview ? '证件信息已回填，请人工核对后保存。' : '证件信息已回填。'),
+        result.shouldReview ? 'warning' : 'success'
+      );
+    } catch (err) {
+      setScannerNotice(
+        err instanceof Error ? err.message : '证件识别失败，请重试。',
+        'error'
+      );
+      throw err;
+    } finally {
+      setIsScanning(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }
+  };
+
+  const handleScanFileChange = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    try {
+      await uploadScanFile(file);
+    } catch {
+      // handled above
+    }
   };
 
   const captureSmartCameraFrame = async () => {
@@ -1644,88 +1431,6 @@ export default function RegisterPage() {
   };
 
   useEffect(() => {
-    if (name && !isUsernameManuallyEdited) {
-      const pinyinName = pinyin(name, { style: pinyin.STYLE_NORMAL })
-        .flat()
-        .join('')
-        .replace(/[^a-zA-Z0-9]/g, '')
-        .toLowerCase();
-      setUsername(pinyinName);
-    }
-  }, [name, isUsernameManuallyEdited]);
-
-  useEffect(() => {
-    const handler = setTimeout(() => {
-      setDebouncedUsername(username);
-    }, isUsernameManuallyEdited ? 500 : 0);
-
-    return () => {
-      clearTimeout(handler);
-    };
-  }, [username, isUsernameManuallyEdited]);
-
-  useEffect(() => {
-    if (debouncedUsername.length < 3) {
-      setUsernameAvailability({ status: 'idle', message: '' });
-      return;
-    }
-
-    const checkUsername = async () => {
-      setUsernameAvailability({ status: 'checking', message: '' });
-      try {
-        const res = await fetchWithTimeout(
-          `/api/users/availability?username=${encodeURIComponent(debouncedUsername)}`
-        );
-        const data = (await res.json()) as UsernameAvailabilityResponse;
-        if (data.available) {
-          setUsernameAvailability({
-            status: 'available',
-            message: data.message || '用户名可用。',
-          });
-        } else if (
-          !isUsernameManuallyEdited &&
-          typeof data.suggestedUsername === 'string' &&
-          data.suggestedUsername !== debouncedUsername
-        ) {
-          setUsernameAvailability({
-            status: 'checking',
-            message: `已自动改为 ${data.suggestedUsername}，正在检查...`,
-          });
-          setUsername(data.suggestedUsername);
-        } else {
-          setUsernameAvailability({
-            status: 'taken',
-            message: data.message || '用户名已占用。',
-          });
-        }
-      } catch {
-        setUsernameAvailability({ status: 'taken', message: '无法检查用户名。' });
-      }
-    };
-
-    checkUsername();
-  }, [debouncedUsername, isUsernameManuallyEdited]);
-
-  useEffect(() => {
-    return () => {
-      if (timerRef.current) {
-        clearInterval(timerRef.current);
-        timerRef.current = null;
-      }
-      stopSmartCameraStream();
-    };
-  }, []);
-
-  useEffect(() => {
-    return () => {
-      if (audioContextRef.current) {
-        void audioContextRef.current.close().catch(() => undefined);
-        audioContextRef.current = null;
-      }
-    };
-  }, []);
-
-  useEffect(() => {
     if (!smartCameraOpen) return;
     if (typeof window === 'undefined' || !navigator.mediaDevices?.getUserMedia) {
       setCameraError('当前浏览器不支持网页内相机，请改用普通扫描。');
@@ -1748,10 +1453,7 @@ export default function RegisterPage() {
         const currentTrack = stream.getVideoTracks()[0];
         const currentDeviceId = currentTrack?.getSettings().deviceId;
 
-        if (
-          preferredRearCameraId &&
-          preferredRearCameraId !== currentDeviceId
-        ) {
+        if (preferredRearCameraId && preferredRearCameraId !== currentDeviceId) {
           for (const track of stream.getTracks()) {
             track.stop();
           }
@@ -1933,7 +1635,7 @@ export default function RegisterPage() {
         smartAutoCaptureTimerRef.current = null;
       }
     };
-  }, [cameraError, cameraReady, isAutoCapturing, isScanning, smartCameraOpen]);
+  }, [cameraError, cameraReady, isAutoCapturing, isScanning, smartCameraOpen, torchAvailable, torchEnabled]);
 
   useEffect(() => {
     if (!smartCameraOpen || !cameraReady) return;
@@ -1950,662 +1652,286 @@ export default function RegisterPage() {
     };
   }, [cameraReady, smartCameraOpen]);
 
-  const handleSubmit = async (e: FormEvent) => {
-    e.preventDefault();
-    setError(null);
-    setSuccess(null);
-    startSubmittingProgress('正在创建账户…', 8);
-
-    if (usernameAvailability.status !== 'available') {
-      setError('用户名不可用');
-      stopSubmitting();
-      return;
-    }
-
-    if (!name || name.trim().length < 2) {
-      setError('姓名至少需要2个字符');
-      stopSubmitting();
-      return;
-    }
-
-    if (!/^[1-9]\d{10}$/.test(phone)) {
-      setError('请输入有效的11位手机号码');
-      stopSubmitting();
-      return;
-    }
-
-    if (!['Male', 'Female', 'Other'].includes(gender)) {
-      setError('请选择有效的性别');
-      stopSubmitting();
-      return;
-    }
-
-    if (!dateOfBirth) {
-      setError('请输入出生日期');
-      stopSubmitting();
-      return;
-    }
-
-    const birthDate = new Date(dateOfBirth);
-    if (Number.isNaN(birthDate.getTime())) {
-      setError('请输入有效的出生日期');
-      stopSubmitting();
-      return;
-    }
-    const today = new Date();
-    const age = today.getFullYear() - birthDate.getFullYear();
-    if (age < 0 || age > 150) {
-      setError('请输入有效的出生日期');
-      stopSubmitting();
-      return;
-    }
-
-    if (password !== confirmPassword) {
-      setError('密码不匹配');
-      stopSubmitting();
-      return;
-    }
-
-    if (!password || password.length < 6) {
-      setError('密码至少需要6个字符');
-      stopSubmitting();
-      return;
-    }
-
-    if (socialSecurityNumber) {
-      const validationError = getResidentIdValidationError(socialSecurityNumber);
-      if (validationError) {
-        setError(validationError);
-        stopSubmitting();
-        return;
-      }
-
-      const consistency = checkResidentIdConsistency({
-        governmentId: socialSecurityNumber,
-        gender,
-        dateOfBirth,
-      });
-      if (!consistency.isConsistent) {
-        setError(consistency.message || '社保号与出生日期或性别不一致，请核对后重试。');
-        stopSubmitting();
-        return;
-      }
-    }
-
-    try {
-      const response = await fetchWithTimeout(
-        '/api/register',
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            name,
-            phone,
-            gender,
-            dateOfBirth,
-            username,
-            password,
-            socialSecurityNumber: socialSecurityNumber || undefined,
-          }),
-        },
-        20000
-      );
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || '发生错误');
-      }
-
-      const finalUsername =
-        typeof data.username === 'string' && data.username ? data.username : username;
-      setUsername(finalUsername);
-      setUsernameAvailability({ status: 'available', message: '用户名可用。' });
-
-      setSuccess('账户创建成功！正在登录…');
-      setStage('注册成功，正在登录…');
-      setProgress(92);
-      if (timerRef.current) {
-        clearInterval(timerRef.current);
-        timerRef.current = null;
-      }
-
-      try {
-        const loginResult = await withTimeout(
-          signIn('credentials', {
-            redirect: false,
-            username: finalUsername,
-            password,
-          }),
-          15000,
-          '自动登录超时'
-        );
-
-        if (loginResult?.error) {
-          throw new Error('自动登录失败');
-        }
-
-        setStage('正在建立会话…');
-        setProgress(96);
-        await redirectAfterAuth();
-      } catch (loginErr) {
-        console.warn('Auto-login failed:', loginErr);
-        setSuccess(null);
-        setError(`账户已创建，但自动登录失败或超时，请使用用户名 ${finalUsername} 手动登录。`);
-        stopSubmitting();
-        setTimeout(() => router.push('/auth/signin'), 2000);
-      }
-    } catch (submitError) {
-      setError(
-        submitError instanceof Error ? submitError.message : '发生未知错误'
-      );
-      stopSubmitting();
+  const openScanPicker = () => {
+    setScannerNotice(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+      fileInputRef.current.click();
     }
   };
 
   return (
-    <div className="flex items-center justify-center min-h-screen bg-background">
+    <>
       <style jsx global>{`
-        @keyframes smart-scan-line {
+        @keyframes patient-smart-scan-line {
           0% {
-            top: 0;
-            opacity: 0.55;
-          }
-          50% {
-            opacity: 1;
+            transform: translateY(0);
           }
           100% {
-            top: calc(100% - 0.375rem);
-            opacity: 0.75;
+            transform: translateY(calc(100% - 0.375rem));
           }
         }
 
-        .smart-scan-line {
-          animation: smart-scan-line 1s linear infinite alternate;
+        .patient-smart-scan-line {
+          animation: patient-smart-scan-line 1s linear infinite alternate;
         }
       `}</style>
-      <div className="fixed right-3 top-1/2 z-40 -translate-y-1/2 md:right-4">
-        <div className="flex flex-col gap-2 rounded-3xl border border-slate-200 bg-white/92 p-2 shadow-xl backdrop-blur">
-          <button
-            type="button"
-            onClick={openSmartCamera}
-            disabled={isScanning || submitting}
-            title="智能扫描"
-            aria-label="智能扫描"
-            className="flex h-14 w-14 flex-col items-center justify-center rounded-2xl bg-emerald-600 text-white shadow-sm transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-gray-300"
-          >
-            {smartCameraOpen && (cameraReady || isAutoCapturing) ? (
-              <Loader2 size={18} className="animate-spin" />
-            ) : (
-              <ScanLine size={18} />
-            )}
-            <span className="mt-1 text-[10px] font-medium leading-none">智能</span>
-          </button>
-          <button
-            type="button"
-            onClick={openScanPicker}
-            disabled={isScanning || submitting}
-            title="扫描身份证或社保卡"
-            aria-label="扫描身份证或社保卡"
-            className="flex h-14 w-14 flex-col items-center justify-center rounded-2xl bg-blue-600 text-white shadow-sm transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-gray-300"
-          >
-            {isScanning ? (
-              <Loader2 size={18} className="animate-spin" />
-            ) : (
-              <ScanSearch size={18} />
-            )}
-            <span className="mt-1 text-[10px] font-medium leading-none">扫描</span>
-          </button>
-        </div>
-      </div>
 
-      <div className="w-full max-w-md p-10 space-y-8 bg-white rounded-2xl shadow-xl">
-        <h1 className="text-3xl font-bold text-center text-foreground">创建账户</h1>
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/jpeg,image/png,image/webp,image/*"
+        capture="environment"
+        className="hidden"
+        onChange={handleScanFileChange}
+      />
 
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="image/jpeg,image/png,image/webp,image/*"
-          capture="environment"
-          className="hidden"
-          onChange={handleScanFileChange}
-        />
-
-        <form onSubmit={handleSubmit} className="space-y-8">
+      <div className="rounded-2xl border border-slate-200 bg-slate-50/80 p-3">
+        <div className="flex items-center justify-between gap-3">
           <div>
-            <label htmlFor="name" className="block text-lg font-medium text-foreground">
-              姓名
-            </label>
-            <input
-              id="name"
-              name="name"
-              type="text"
-              autoComplete="name"
-              required
-              value={name}
-              onChange={(e) => {
-                setName(e.target.value);
-                setIsUsernameManuallyEdited(false);
-              }}
-              className="input-base mt-2"
-            />
+            <p className="text-sm font-semibold text-slate-800">证件识别补录</p>
+            <p className="text-xs text-slate-500">支持社保卡、医保卡、身份证，识别后自动覆盖可识别字段</p>
           </div>
-
-          <div>
-            <label htmlFor="username" className="block text-lg font-medium text-foreground">
-              用户名 (可修改)
-            </label>
-            <input
-              id="username"
-              name="username"
-              type="text"
-              autoComplete="username"
-              required
-              value={username}
-              onChange={(e) => {
-                setUsername(e.target.value);
-                setIsUsernameManuallyEdited(true);
-              }}
-              className="input-base mt-2"
-            />
-            <div className="mt-2 text-sm h-5">
-              {usernameAvailability.status === 'checking' && (
-                <p className="text-gray-500 flex items-center gap-1">
-                  <Loader2 size={16} className="animate-spin" />
-                  正在检查...
-                </p>
-              )}
-              {usernameAvailability.status === 'available' && (
-                <p className="text-success flex items-center gap-1">
-                  <CheckCircle2 size={16} />
-                  {usernameAvailability.message || '用户名可用'}
-                </p>
-              )}
-              {usernameAvailability.status === 'taken' && (
-                <p className="text-error flex items-center gap-1">
-                  <XCircle size={16} />
-                  {usernameAvailability.message || '用户名已占用'}
-                </p>
-              )}
-            </div>
-          </div>
-
-          <div>
-            <label htmlFor="gender" className="block text-lg font-medium text-foreground">
-              性别
-            </label>
-            <select
-              id="gender"
-              name="gender"
-              required
-              value={gender}
-              onChange={(e) => setGender(e.target.value)}
-              className="input-base mt-2"
-            >
-              <option value="">选择性别</option>
-              <option value="Male">男</option>
-              <option value="Female">女</option>
-              <option value="Other">其他</option>
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-lg font-medium text-foreground">出生日期</label>
-            <DatePicker
-              selected={dateOfBirth ? new Date(dateOfBirth) : null}
-              onChange={(date: Date | null) => {
-                if (!date) {
-                  setDateOfBirth('');
-                  return;
-                }
-                const y = date.getFullYear();
-                const m = String(date.getMonth() + 1).padStart(2, '0');
-                const d = String(date.getDate()).padStart(2, '0');
-                setDateOfBirth(`${y}-${m}-${d}`);
-              }}
-              placeholderText="选择或直接输入 YYYY-MM-DD"
-              dateFormat="yyyy-MM-dd"
-              locale="zh-CN"
-              showYearDropdown
-              yearDropdownItemNumber={(() => {
-                const t = new Date();
-                return t.getFullYear() - (t.getFullYear() - 150) + 1;
-              })()}
-              scrollableYearDropdown
-              showMonthDropdown
-              withPortal
-              openToDate={
-                dateOfBirth
-                  ? undefined
-                  : (() => {
-                      const t = new Date();
-                      return new Date(t.getFullYear() - 60, 0, 1);
-                    })()
-              }
-              minDate={(() => {
-                const t = new Date();
-                return new Date(t.getFullYear() - 150, t.getMonth(), t.getDate());
-              })()}
-              maxDate={new Date()}
-              onBlur={handleBlur}
-              customInput={<DateInput />}
-              shouldCloseOnSelect
-              required
-            />
-          </div>
-
-          <div>
-            <label htmlFor="phone" className="block text-lg font-medium text-foreground">
-              电话（必填）
-            </label>
-            <input
-              id="phone"
-              name="phone"
-              type="text"
-              autoComplete="tel"
-              required
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              className="input-base mt-2"
-            />
-          </div>
-
-          <div>
-            <label
-              htmlFor="socialSecurityNumber"
-              className="block text-lg font-medium text-foreground"
-            >
-              社保号 / 身份证号
-            </label>
-            <input
-              id="socialSecurityNumber"
-              name="socialSecurityNumber"
-              type="text"
-              readOnly
-              value={socialSecurityNumber}
-              placeholder="请通过扫描获取，不能手工修改"
-              className="input-base mt-2 cursor-not-allowed bg-gray-50 text-gray-600"
-            />
-            <p className="mt-2 text-sm text-gray-500">
-              该号码只能通过身份证/社保卡扫描写入；如果识别结果不通过校验，系统会要求重新扫描。
-            </p>
-          </div>
-
-          <div>
-            <label htmlFor="password" className="block text-lg font-medium text-foreground">
-              密码
-            </label>
-            <input
-              id="password"
-              name="password"
-              type="password"
-              autoComplete="new-password"
-              required
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="input-base mt-2"
-            />
-          </div>
-
-          <div>
-            <label
-              htmlFor="confirmPassword"
-              className="block text-lg font-medium text-foreground"
-            >
-              确认密码
-            </label>
-            <input
-              id="confirmPassword"
-              name="confirmPassword"
-              type="password"
-              autoComplete="new-password"
-              required
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              className="input-base mt-2"
-            />
-          </div>
-
-          {error && (
-            <div className="p-4 text-sm text-error bg-red-100 rounded-lg">{error}</div>
-          )}
-          {success && (
-            <div className="p-4 text-sm text-success bg-green-100 rounded-lg">
-              {success}
-            </div>
-          )}
-
-          <div>
+          <div className="flex gap-2">
             <button
-              type="submit"
-              disabled={
-                usernameAvailability.status !== 'available' || submitting || isScanning
-              }
-              className="w-full btn btn-primary text-lg disabled:bg-gray-400 disabled:cursor-not-allowed"
+              type="button"
+              onClick={openSmartCamera}
+              disabled={disabled || isScanning}
+              className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-3 py-2 text-xs font-semibold text-white transition hover:bg-emerald-500 disabled:cursor-not-allowed disabled:bg-slate-300"
             >
-              注册
+              {smartCameraOpen && (cameraReady || isAutoCapturing) ? (
+                <Loader2 size={16} className="animate-spin" />
+              ) : (
+                <ScanLine size={16} />
+              )}
+              智能扫描
+            </button>
+            <button
+              type="button"
+              onClick={openScanPicker}
+              disabled={disabled || isScanning}
+              className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-3 py-2 text-xs font-semibold text-white transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:bg-slate-300"
+            >
+              {isScanning ? (
+                <Loader2 size={16} className="animate-spin" />
+              ) : (
+                <ScanSearch size={16} />
+              )}
+              普通扫描
             </button>
           </div>
-        </form>
+        </div>
 
-        {submitting && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-            <div className="w-80 bg-white rounded-xl p-6 shadow-xl space-y-4">
-              <div className="flex items-center space-x-3">
-                <div className="h-5 w-5 rounded-full border-2 border-primary border-t-transparent animate-spin" />
-                <div className="text-sm text-foreground">{stage || '正在处理…'}</div>
-              </div>
-              <div className="w-full h-2 bg-gray-200 rounded">
-                <div
-                  className="h-2 bg-primary rounded transition-all"
-                  style={{
-                    width: `${Math.min(100, Math.max(0, progress))}%`,
-                  }}
-                />
-              </div>
-              <div className="text-xs text-gray-500 text-right">
-                {Math.min(100, Math.max(0, Math.floor(progress)))}%
-              </div>
-            </div>
+        {notice && (
+          <div
+            className={`mt-3 rounded-xl px-3 py-2 text-xs ${
+              noticeTone === 'error'
+                ? 'bg-red-50 text-red-700'
+                : noticeTone === 'warning'
+                  ? 'bg-amber-50 text-amber-700'
+                  : 'bg-emerald-50 text-emerald-700'
+            }`}
+          >
+            {notice}
           </div>
         )}
+      </div>
 
-        {smartCameraOpen && (
-          <div className="fixed inset-0 z-50 bg-black/80 px-2 py-3 sm:px-4 sm:py-6">
-            <div className="mx-auto flex h-full w-full max-w-lg flex-col overflow-hidden rounded-3xl bg-slate-950 shadow-2xl">
-              <div className="flex items-center justify-between border-b border-white/10 px-4 py-3 text-white">
-                <div>
-                  <h2 className="text-lg font-semibold">智能扫描</h2>
-                  <p className="text-xs text-white/70">原有普通扫描入口仍然保留</p>
+      {smartCameraOpen && (
+        <div className="fixed inset-0 z-[1200] bg-black/80 px-2 py-3 sm:px-4 sm:py-6">
+          <div className="mx-auto flex h-full w-full max-w-lg flex-col overflow-hidden rounded-3xl bg-slate-950 shadow-2xl">
+            <div className="flex items-center justify-between border-b border-white/10 px-4 py-3 text-white">
+              <div>
+                <h2 className="text-lg font-semibold">智能扫描</h2>
+                <p className="text-xs text-white/70">对准社保卡或身份证，自动对焦后拍照识别</p>
+              </div>
+              <button
+                type="button"
+                onClick={closeSmartCamera}
+                className="rounded-full p-2 text-white/80 transition hover:bg-white/10 hover:text-white"
+                aria-label="关闭智能扫描"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="flex flex-1 flex-col gap-3 p-3 sm:gap-4 sm:p-4">
+              <div
+                ref={smartViewportRef}
+                className="relative flex-1 overflow-hidden rounded-3xl bg-black"
+              >
+                <video
+                  ref={smartVideoRef}
+                  className="absolute h-full w-full object-fill"
+                  autoPlay
+                  muted
+                  playsInline
+                  onLoadedMetadata={updatePreviewLayout}
+                  style={
+                    previewLayout
+                      ? {
+                          left: `${previewLayout.left}px`,
+                          top: `${previewLayout.top}px`,
+                          width: `${previewLayout.width}px`,
+                          height: `${previewLayout.height}px`,
+                        }
+                      : { inset: 0 }
+                  }
+                />
+                <div className="pointer-events-none absolute inset-0 bg-black/35" />
+                {capturedPreviewUrl && (
+                  <div className="pointer-events-none absolute inset-0 bg-slate-950/22" />
+                )}
+                {capturedPreviewUrl && (
+                  <div
+                    className="pointer-events-none absolute z-[1] overflow-hidden rounded-2xl"
+                    style={{
+                      left: previewLayout
+                        ? `${previewLayout.left + (previewLayout.width * (1 - FRAME_WIDTH_RATIO)) / 2}px`
+                        : undefined,
+                      top: previewLayout
+                        ? `${previewLayout.top + (previewLayout.height * (1 - FRAME_HEIGHT_RATIO)) / 2}px`
+                        : undefined,
+                      width: previewLayout
+                        ? `${previewLayout.width * FRAME_WIDTH_RATIO}px`
+                        : `${FRAME_WIDTH_RATIO * 100}%`,
+                      height: previewLayout
+                        ? `${previewLayout.height * FRAME_HEIGHT_RATIO}px`
+                        : `${FRAME_HEIGHT_RATIO * 100}%`,
+                      transform: previewLayout ? 'none' : undefined,
+                    }}
+                  >
+                    <img
+                      src={capturedPreviewUrl}
+                      alt="已拍摄的证件照片"
+                      className="h-full w-full object-fill"
+                    />
+                  </div>
+                )}
+                <div
+                  className={`pointer-events-none absolute rounded-2xl border-[3px] border-dashed shadow-[0_0_0_9999px_rgba(15,23,42,0.38)] transition-all duration-200 ${
+                    frameFeedback === 'capturing'
+                      ? 'animate-pulse border-amber-100 shadow-[0_0_0_9999px_rgba(15,23,42,0.14),0_0_0_14px_rgba(252,211,77,0.82)]'
+                      : frameFeedback === 'steady'
+                        ? 'animate-pulse border-emerald-100 shadow-[0_0_0_9999px_rgba(15,23,42,0.16),0_0_0_14px_rgba(110,231,183,0.8)]'
+                        : frameFeedback === 'success'
+                          ? 'border-sky-100 shadow-[0_0_0_9999px_rgba(15,23,42,0.1),0_0_0_16px_rgba(125,211,252,0.88)]'
+                          : frameFeedback === 'error'
+                            ? 'animate-pulse border-rose-100 shadow-[0_0_0_9999px_rgba(15,23,42,0.18),0_0_0_14px_rgba(253,164,175,0.82)]'
+                            : 'border-white'
+                  }`}
+                  style={{
+                    left: previewLayout
+                      ? `${previewLayout.left + (previewLayout.width * (1 - FRAME_WIDTH_RATIO)) / 2}px`
+                      : `${((1 - FRAME_WIDTH_RATIO) / 2) * 100}%`,
+                    top: previewLayout
+                      ? `${previewLayout.top + (previewLayout.height * (1 - FRAME_HEIGHT_RATIO)) / 2}px`
+                      : `${((1 - FRAME_HEIGHT_RATIO) / 2) * 100}%`,
+                    width: previewLayout
+                      ? `${previewLayout.width * FRAME_WIDTH_RATIO}px`
+                      : `${FRAME_WIDTH_RATIO * 100}%`,
+                    height: previewLayout
+                      ? `${previewLayout.height * FRAME_HEIGHT_RATIO}px`
+                      : `${FRAME_HEIGHT_RATIO * 100}%`,
+                  }}
+                />
+                {capturedPreviewUrl && (
+                  <div
+                    className="pointer-events-none absolute z-10"
+                    style={{
+                      left: previewLayout
+                        ? `${previewLayout.left + (previewLayout.width * (1 - FRAME_WIDTH_RATIO)) / 2}px`
+                        : `${((1 - FRAME_WIDTH_RATIO) / 2) * 100}%`,
+                      top: previewLayout
+                        ? `${previewLayout.top + (previewLayout.height * (1 - FRAME_HEIGHT_RATIO)) / 2}px`
+                        : `${((1 - FRAME_HEIGHT_RATIO) / 2) * 100}%`,
+                      width: previewLayout
+                        ? `${previewLayout.width * FRAME_WIDTH_RATIO}px`
+                        : `${FRAME_WIDTH_RATIO * 100}%`,
+                      height: previewLayout
+                        ? `${previewLayout.height * FRAME_HEIGHT_RATIO}px`
+                        : `${FRAME_HEIGHT_RATIO * 100}%`,
+                    }}
+                  >
+                    <div className="relative h-full overflow-hidden rounded-2xl border border-cyan-200/60 bg-cyan-200/10 shadow-[0_0_42px_rgba(34,211,238,0.28)]">
+                      <div className="absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-cyan-300/25 to-transparent" />
+                      <div className="patient-smart-scan-line absolute inset-x-3 h-1.5 rounded-full bg-cyan-200 shadow-[0_0_24px_rgba(103,232,249,1)]" />
+                      <div className="absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-cyan-300/20 to-transparent" />
+                    </div>
+                  </div>
+                )}
+                <div
+                  className={`pointer-events-none absolute rounded-[1.1rem] transition-opacity duration-200 ${
+                    frameFeedback === 'capturing'
+                      ? 'animate-pulse bg-amber-200/30 opacity-100'
+                      : frameFeedback === 'steady'
+                        ? 'animate-pulse bg-emerald-200/28 opacity-100'
+                        : 'opacity-0'
+                  }`}
+                  style={{
+                    left: previewLayout
+                      ? `${previewLayout.left + (previewLayout.width * (1 - FRAME_WIDTH_RATIO)) / 2}px`
+                      : `${((1 - FRAME_WIDTH_RATIO) / 2) * 100}%`,
+                    top: previewLayout
+                      ? `${previewLayout.top + (previewLayout.height * (1 - FRAME_HEIGHT_RATIO)) / 2}px`
+                      : `${((1 - FRAME_HEIGHT_RATIO) / 2) * 100}%`,
+                    width: previewLayout
+                      ? `${previewLayout.width * FRAME_WIDTH_RATIO}px`
+                      : `${FRAME_WIDTH_RATIO * 100}%`,
+                    height: previewLayout
+                      ? `${previewLayout.height * FRAME_HEIGHT_RATIO}px`
+                      : `${FRAME_HEIGHT_RATIO * 100}%`,
+                  }}
+                />
+                {torchEnabled && (
+                  <div className="pointer-events-none absolute right-4 top-4 rounded-full bg-amber-300/90 px-3 py-1 text-xs font-semibold text-slate-950 shadow-lg">
+                    补光已开启
+                  </div>
+                )}
+                {capturedPreviewUrl && (
+                  <div className="pointer-events-none absolute inset-x-0 top-5 flex justify-center px-5">
+                    <div className="flex items-center gap-3 rounded-full bg-slate-950/82 px-5 py-3 text-base font-semibold text-white shadow-xl backdrop-blur">
+                      <Loader2 size={18} className="animate-spin text-cyan-300" />
+                      <span>照片已固定，正在扫码识别，现在可以放下手机</span>
+                    </div>
+                  </div>
+                )}
+                <div className="pointer-events-none absolute inset-x-0 bottom-4 flex justify-center px-4">
+                  <div className="rounded-full bg-black/55 px-3 py-2 text-center text-sm text-white/95 backdrop-blur">
+                    {cameraError || cameraHint}
+                  </div>
                 </div>
+              </div>
+
+              <div className="flex gap-3">
                 <button
                   type="button"
                   onClick={closeSmartCamera}
-                  className="rounded-full p-2 text-white/80 transition hover:bg-white/10 hover:text-white"
-                  aria-label="关闭智能扫描"
+                  className="flex-1 rounded-2xl bg-white/10 px-4 py-3 text-sm font-medium text-white transition hover:bg-white/15"
                 >
-                  <X size={18} />
+                  取消
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    autoCapturedRef.current = true;
+                    void captureSmartCameraFrame();
+                  }}
+                  disabled={!cameraReady || Boolean(cameraError) || isAutoCapturing || isScanning}
+                  className="flex flex-1 items-center justify-center gap-2 rounded-2xl bg-emerald-500 px-4 py-3 text-sm font-semibold text-white transition hover:bg-emerald-400 disabled:cursor-not-allowed disabled:bg-gray-500"
+                >
+                  {isAutoCapturing ? <Loader2 size={16} className="animate-spin" /> : <Camera size={16} />}
+                  手动拍照
                 </button>
               </div>
-
-              <div className="flex flex-1 flex-col gap-3 p-3 sm:gap-4 sm:p-4">
-                <div
-                  ref={smartViewportRef}
-                  className="relative flex-1 overflow-hidden rounded-3xl bg-black"
-                >
-                  <video
-                    ref={smartVideoRef}
-                    className="absolute h-full w-full object-fill"
-                    autoPlay
-                    muted
-                    playsInline
-                    onLoadedMetadata={updatePreviewLayout}
-                    style={
-                      previewLayout
-                        ? {
-                            left: `${previewLayout.left}px`,
-                            top: `${previewLayout.top}px`,
-                            width: `${previewLayout.width}px`,
-                            height: `${previewLayout.height}px`,
-                          }
-                        : { inset: 0 }
-                    }
-                  />
-                  <div className="pointer-events-none absolute inset-0 bg-black/35" />
-                  {capturedPreviewUrl && (
-                    <div className="pointer-events-none absolute inset-0 bg-slate-950/22" />
-                  )}
-                  {capturedPreviewUrl && (
-                    <div
-                      className="pointer-events-none absolute z-[1] overflow-hidden rounded-2xl"
-                      style={{
-                        left: previewLayout
-                          ? `${previewLayout.left + (previewLayout.width * (1 - FRAME_WIDTH_RATIO)) / 2}px`
-                          : undefined,
-                        top: previewLayout
-                          ? `${previewLayout.top + (previewLayout.height * (1 - FRAME_HEIGHT_RATIO)) / 2}px`
-                          : undefined,
-                        width: previewLayout
-                          ? `${previewLayout.width * FRAME_WIDTH_RATIO}px`
-                          : `${FRAME_WIDTH_RATIO * 100}%`,
-                        height: previewLayout
-                          ? `${previewLayout.height * FRAME_HEIGHT_RATIO}px`
-                          : `${FRAME_HEIGHT_RATIO * 100}%`,
-                        transform: previewLayout ? 'none' : undefined,
-                      }}
-                    >
-                      <img
-                        src={capturedPreviewUrl}
-                        alt="已拍摄的证件照片"
-                        className="h-full w-full object-fill"
-                      />
-                    </div>
-                  )}
-                  <div
-                    className={`pointer-events-none absolute rounded-2xl border-[3px] border-dashed shadow-[0_0_0_9999px_rgba(15,23,42,0.38)] transition-all duration-200 ${
-                      frameFeedback === 'capturing'
-                        ? 'animate-pulse border-amber-100 shadow-[0_0_0_9999px_rgba(15,23,42,0.14),0_0_0_14px_rgba(252,211,77,0.82)]'
-                        : frameFeedback === 'steady'
-                          ? 'animate-pulse border-emerald-100 shadow-[0_0_0_9999px_rgba(15,23,42,0.16),0_0_0_14px_rgba(110,231,183,0.8)]'
-                          : frameFeedback === 'success'
-                            ? 'border-sky-100 shadow-[0_0_0_9999px_rgba(15,23,42,0.1),0_0_0_16px_rgba(125,211,252,0.88)]'
-                            : frameFeedback === 'error'
-                              ? 'animate-pulse border-rose-100 shadow-[0_0_0_9999px_rgba(15,23,42,0.18),0_0_0_14px_rgba(253,164,175,0.82)]'
-                              : 'border-white'
-                    }`}
-                    style={{
-                      left: previewLayout
-                        ? `${previewLayout.left + (previewLayout.width * (1 - FRAME_WIDTH_RATIO)) / 2}px`
-                        : `${((1 - FRAME_WIDTH_RATIO) / 2) * 100}%`,
-                      top: previewLayout
-                        ? `${previewLayout.top + (previewLayout.height * (1 - FRAME_HEIGHT_RATIO)) / 2}px`
-                        : `${((1 - FRAME_HEIGHT_RATIO) / 2) * 100}%`,
-                      width: previewLayout
-                        ? `${previewLayout.width * FRAME_WIDTH_RATIO}px`
-                        : `${FRAME_WIDTH_RATIO * 100}%`,
-                      height: previewLayout
-                        ? `${previewLayout.height * FRAME_HEIGHT_RATIO}px`
-                        : `${FRAME_HEIGHT_RATIO * 100}%`,
-                    }}
-                  />
-                  {capturedPreviewUrl && (
-                    <div
-                      className="pointer-events-none absolute z-10"
-                      style={{
-                        left: previewLayout
-                          ? `${previewLayout.left + (previewLayout.width * (1 - FRAME_WIDTH_RATIO)) / 2}px`
-                          : `${((1 - FRAME_WIDTH_RATIO) / 2) * 100}%`,
-                        top: previewLayout
-                          ? `${previewLayout.top + (previewLayout.height * (1 - FRAME_HEIGHT_RATIO)) / 2}px`
-                          : `${((1 - FRAME_HEIGHT_RATIO) / 2) * 100}%`,
-                        width: previewLayout
-                          ? `${previewLayout.width * FRAME_WIDTH_RATIO}px`
-                          : `${FRAME_WIDTH_RATIO * 100}%`,
-                        height: previewLayout
-                          ? `${previewLayout.height * FRAME_HEIGHT_RATIO}px`
-                          : `${FRAME_HEIGHT_RATIO * 100}%`,
-                      }}
-                    >
-                      <div className="relative h-full overflow-hidden rounded-2xl border border-cyan-200/60 bg-cyan-200/10 shadow-[0_0_42px_rgba(34,211,238,0.28)]">
-                        <div className="absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-cyan-300/25 to-transparent" />
-                        <div className="smart-scan-line absolute inset-x-3 h-1.5 rounded-full bg-cyan-200 shadow-[0_0_24px_rgba(103,232,249,1)]" />
-                        <div className="absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-cyan-300/20 to-transparent" />
-                      </div>
-                    </div>
-                  )}
-                  <div
-                    className={`pointer-events-none absolute rounded-[1.1rem] transition-opacity duration-200 ${
-                      frameFeedback === 'capturing'
-                        ? 'animate-pulse bg-amber-200/30 opacity-100'
-                        : frameFeedback === 'steady'
-                          ? 'animate-pulse bg-emerald-200/28 opacity-100'
-                          : 'opacity-0'
-                    }`}
-                    style={{
-                      left: previewLayout
-                        ? `${previewLayout.left + (previewLayout.width * (1 - FRAME_WIDTH_RATIO)) / 2}px`
-                        : `${((1 - FRAME_WIDTH_RATIO) / 2) * 100}%`,
-                      top: previewLayout
-                        ? `${previewLayout.top + (previewLayout.height * (1 - FRAME_HEIGHT_RATIO)) / 2}px`
-                        : `${((1 - FRAME_HEIGHT_RATIO) / 2) * 100}%`,
-                      width: previewLayout
-                        ? `${previewLayout.width * FRAME_WIDTH_RATIO}px`
-                        : `${FRAME_WIDTH_RATIO * 100}%`,
-                      height: previewLayout
-                        ? `${previewLayout.height * FRAME_HEIGHT_RATIO}px`
-                        : `${FRAME_HEIGHT_RATIO * 100}%`,
-                    }}
-                  />
-                  {torchEnabled && (
-                    <div className="pointer-events-none absolute right-4 top-4 rounded-full bg-amber-300/90 px-3 py-1 text-xs font-semibold text-slate-950 shadow-lg">
-                      补光已开启
-                    </div>
-                  )}
-                  {capturedPreviewUrl && (
-                    <div className="pointer-events-none absolute inset-x-0 top-5 flex justify-center px-5">
-                      <div className="flex items-center gap-3 rounded-full bg-slate-950/82 px-5 py-3 text-base font-semibold text-white shadow-xl backdrop-blur">
-                        <Loader2 size={18} className="animate-spin text-cyan-300" />
-                        <span>照片已固定，正在扫码识别，现在可以放下手机</span>
-                      </div>
-                    </div>
-                  )}
-                  <div className="pointer-events-none absolute inset-x-0 bottom-4 flex justify-center px-4">
-                    <div className="rounded-full bg-black/55 px-3 py-2 text-center text-sm text-white/95 backdrop-blur">
-                      {cameraError || cameraHint}
-                    </div>
-                  </div>
-                </div>
-
-                <div className="flex gap-3">
-                  <button
-                    type="button"
-                    onClick={closeSmartCamera}
-                    className="flex-1 rounded-2xl bg-white/10 px-4 py-3 text-sm font-medium text-white transition hover:bg-white/15"
-                  >
-                    取消
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      autoCapturedRef.current = true;
-                      void captureSmartCameraFrame();
-                    }}
-                    disabled={!cameraReady || Boolean(cameraError) || isAutoCapturing || isScanning}
-                    className="flex flex-1 items-center justify-center gap-2 rounded-2xl bg-emerald-500 px-4 py-3 text-sm font-semibold text-white transition hover:bg-emerald-400 disabled:cursor-not-allowed disabled:bg-gray-500"
-                  >
-                    {isAutoCapturing ? <Loader2 size={16} className="animate-spin" /> : <Camera size={16} />}
-                    手动拍照
-                  </button>
-                </div>
-                <p className="text-center text-xs text-white/65">
-                  自动拍照不理想时，可直接点“手动拍照”
-                </p>
-              </div>
+              <p className="text-center text-xs text-white/65">
+                自动拍照不理想时，可直接点“手动拍照”
+              </p>
             </div>
-            <canvas ref={smartCanvasRef} className="hidden" />
           </div>
-        )}
-      </div>
-    </div>
+          <canvas ref={smartCanvasRef} className="hidden" />
+        </div>
+      )}
+    </>
   );
 }

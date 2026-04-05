@@ -1,0 +1,338 @@
+'use client';
+
+import { FormEvent, useEffect, useMemo, useState } from 'react';
+import { FaPen, FaPlus, FaSave, FaTimes } from 'react-icons/fa';
+
+import {
+  checkResidentIdConsistency,
+  getResidentIdValidationError,
+} from '@/lib/china-resident-id';
+import PatientDocumentScanner, {
+  PatientDocumentScanResult,
+} from '@/components/PatientDocumentScanner';
+
+export interface EditablePatientData {
+  id: string;
+  username?: string | null;
+  name: string;
+  gender: string | null;
+  dateOfBirth?: string | null;
+  age: number | null;
+  phone: string | null;
+  socialSecurityNumber?: string | null;
+  credibilityScore: number;
+  visitCount: number;
+  noShowCount: number;
+  totalAppointments: number;
+}
+
+export interface PatientEditPayload {
+  name: string;
+  gender: 'Male' | 'Female' | 'Other';
+  dateOfBirth: string;
+  phone: string;
+  socialSecurityNumber?: string;
+}
+
+interface PatientEditModalProps {
+  isOpen: boolean;
+  patient: EditablePatientData | null;
+  isSaving?: boolean;
+  mode?: 'edit' | 'create';
+  requireSocialSecurityNumber?: boolean;
+  onClose: () => void;
+  onSave: (patientId: string, payload: PatientEditPayload) => Promise<void>;
+}
+
+function normalizeGender(value: string | null | undefined): 'Male' | 'Female' | 'Other' | '' {
+  if (!value) return '';
+  if (value === 'Male' || value === 'Female' || value === 'Other') return value;
+
+  const normalized = value.toUpperCase();
+  if (normalized === 'M' || normalized === 'MALE') return 'Male';
+  if (normalized === 'F' || normalized === 'FEMALE') return 'Female';
+  return 'Other';
+}
+
+export default function PatientEditModal({
+  isOpen,
+  patient,
+  isSaving = false,
+  mode = 'edit',
+  requireSocialSecurityNumber = false,
+  onClose,
+  onSave,
+}: PatientEditModalProps) {
+  const [name, setName] = useState('');
+  const [gender, setGender] = useState<'Male' | 'Female' | 'Other' | ''>('');
+  const [dateOfBirth, setDateOfBirth] = useState('');
+  const [phone, setPhone] = useState('');
+  const [socialSecurityNumber, setSocialSecurityNumber] = useState('');
+  const [formError, setFormError] = useState<string | null>(null);
+  const [scannerBusy, setScannerBusy] = useState(false);
+
+  const isCreateMode = mode === 'create';
+
+  useEffect(() => {
+    if (!isOpen || !patient) return;
+
+    setName(patient.name || '');
+    setGender(normalizeGender(patient.gender));
+    setDateOfBirth(patient.dateOfBirth || '');
+    setPhone(patient.phone || (isCreateMode ? '13930555555' : ''));
+    setSocialSecurityNumber(patient.socialSecurityNumber || '');
+    setFormError(null);
+  }, [isCreateMode, isOpen, patient]);
+
+  const genderText = useMemo(() => {
+    if (gender === 'Male') return '男';
+    if (gender === 'Female') return '女';
+    if (gender === 'Other') return '其他';
+    return '未填写';
+  }, [gender]);
+
+  if (!isOpen || !patient) return null;
+
+  const handleApplyScan = async (result: PatientDocumentScanResult) => {
+    setFormError(null);
+    if (result.name) setName(result.name);
+    if (result.gender) setGender(result.gender);
+    if (result.dateOfBirth) setDateOfBirth(result.dateOfBirth);
+    if (result.socialSecurityNumber) setSocialSecurityNumber(result.socialSecurityNumber);
+  };
+
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setFormError(null);
+
+    const trimmedName = name.trim();
+    const trimmedPhone = phone.trim();
+    const normalizedSocialSecurityNumber = socialSecurityNumber.trim().toUpperCase();
+
+    if (trimmedName.length < 2) {
+      setFormError('姓名至少需要 2 个字。');
+      return;
+    }
+
+    if (!gender) {
+      setFormError('请选择性别。');
+      return;
+    }
+
+    if (!dateOfBirth) {
+      setFormError('请选择出生日期。');
+      return;
+    }
+
+    if (!/^[1-9]\d{10}$/.test(trimmedPhone)) {
+      setFormError('请输入有效的 11 位手机号码。');
+      return;
+    }
+
+    if (!normalizedSocialSecurityNumber && requireSocialSecurityNumber) {
+      setFormError('请先通过扫描识别有效的社保号或身份证号，不能手工填写。');
+      return;
+    }
+
+    if (normalizedSocialSecurityNumber) {
+      const validationError = getResidentIdValidationError(normalizedSocialSecurityNumber);
+      if (validationError) {
+        setFormError(validationError);
+        return;
+      }
+
+      const consistency = checkResidentIdConsistency({
+        governmentId: normalizedSocialSecurityNumber,
+        gender,
+        dateOfBirth,
+      });
+      if (!consistency.isConsistent) {
+        setFormError(consistency.message || '社保号与出生日期或性别不一致，请核对后再保存。');
+        return;
+      }
+    }
+
+    try {
+      await onSave(patient.id, {
+        name: trimmedName,
+        gender,
+        dateOfBirth,
+        phone: trimmedPhone,
+        socialSecurityNumber: normalizedSocialSecurityNumber || undefined,
+      });
+    } catch (error) {
+      setFormError(error instanceof Error ? error.message : '保存病人信息失败。');
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-[1100] flex items-center justify-center bg-black/45 p-4 backdrop-blur-sm">
+      <div className="flex max-h-[92vh] w-full max-w-2xl flex-col overflow-hidden rounded-3xl bg-white shadow-2xl">
+        <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
+          <div>
+            <h2 className="flex items-center gap-2 text-lg font-semibold text-slate-900">
+              {isCreateMode ? (
+                <FaPlus className="text-emerald-600" />
+              ) : (
+                <FaPen className="text-blue-600" />
+              )}
+              {isCreateMode ? '添加病人' : '编辑病人信息'}
+            </h2>
+            <p className="mt-1 text-xs text-slate-500">
+              {isCreateMode
+                ? '可手工填写，也可通过社保卡/身份证扫描自动补齐资料'
+                : '可通过社保卡/身份证扫描补齐并覆盖识别到的字段'}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={isSaving || scannerBusy}
+            className="rounded-full p-2 text-slate-500 transition hover:bg-slate-100 hover:text-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            <FaTimes />
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="flex flex-1 flex-col overflow-hidden">
+          <div className="space-y-4 overflow-y-auto px-5 py-4">
+            <div className="grid gap-3 rounded-2xl border border-slate-100 bg-slate-50/70 p-4 text-sm text-slate-600 sm:grid-cols-4">
+              <div>
+                <p className="text-xs text-slate-400">{isCreateMode ? '用户名' : '当前用户名'}</p>
+                <p className="mt-1 font-semibold text-slate-800">
+                  {isCreateMode ? '自动生成' : patient.username || '-'}
+                </p>
+              </div>
+              <div>
+                <p className="text-xs text-slate-400">{isCreateMode ? '默认密码' : '当前性别'}</p>
+                <p className="mt-1 font-semibold text-slate-800">
+                  {isCreateMode ? '123456' : genderText}
+                </p>
+              </div>
+              <div>
+                <p className="text-xs text-slate-400">{isCreateMode ? '当前性别' : '当前积分'}</p>
+                <p className="mt-1 font-semibold text-slate-800">
+                  {isCreateMode ? genderText : patient.credibilityScore}
+                </p>
+              </div>
+              <div>
+                <p className="text-xs text-slate-400">{isCreateMode ? '建档方式' : '关联预约'}</p>
+                <p className="mt-1 font-semibold text-slate-800">
+                  {isCreateMode ? '手填 / 智能扫描' : `${patient.totalAppointments} 条`}
+                </p>
+              </div>
+            </div>
+
+            <PatientDocumentScanner
+              disabled={isSaving}
+              onBusyChange={setScannerBusy}
+              onScanResult={handleApplyScan}
+            />
+
+            <div className="grid gap-4 sm:grid-cols-2">
+              <label className="block">
+                <span className="text-sm font-medium text-slate-700">姓名</span>
+                <input
+                  type="text"
+                  value={name}
+                  onChange={(event) => setName(event.target.value)}
+                  className="mt-2 w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
+                  placeholder="请输入病人姓名"
+                />
+              </label>
+
+              <label className="block">
+                <span className="text-sm font-medium text-slate-700">电话</span>
+                <input
+                  type="text"
+                  value={phone}
+                  onChange={(event) => setPhone(event.target.value)}
+                  className="mt-2 w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
+                  placeholder="请输入 11 位手机号"
+                />
+              </label>
+
+              <label className="block">
+                <span className="text-sm font-medium text-slate-700">性别</span>
+                <select
+                  value={gender}
+                  onChange={(event) =>
+                    setGender(event.target.value as 'Male' | 'Female' | 'Other' | '')
+                  }
+                  className="mt-2 w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
+                >
+                  <option value="">请选择</option>
+                  <option value="Male">男</option>
+                  <option value="Female">女</option>
+                  <option value="Other">其他</option>
+                </select>
+              </label>
+
+              <label className="block">
+                <span className="text-sm font-medium text-slate-700">出生日期</span>
+                <input
+                  type="date"
+                  value={dateOfBirth}
+                  onChange={(event) => setDateOfBirth(event.target.value)}
+                  className="mt-2 w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
+                />
+              </label>
+            </div>
+
+            <label className="block">
+              <span className="text-sm font-medium text-slate-700">
+                社保号 / 身份证号
+                {requireSocialSecurityNumber ? (
+                  <span className="ml-1 text-red-500">*</span>
+                ) : null}
+              </span>
+              <input
+                type="text"
+                value={socialSecurityNumber}
+                readOnly
+                className="mt-2 w-full cursor-not-allowed rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700 outline-none"
+                placeholder={
+                  requireSocialSecurityNumber
+                    ? '请通过扫描获取社保号 / 身份证号'
+                    : '仅可通过扫描自动填入'
+                }
+              />
+              <p className="mt-2 text-xs text-slate-500">
+                {isCreateMode
+                  ? '新建病人会自动生成用户名，默认密码为 123456；社保号只能通过扫描获取，不能手工修改。'
+                  : '社保号只能通过扫描获取，不能手工修改；扫描社保卡时会优先提取社会保障号码。'}
+              </p>
+            </label>
+
+            {formError && (
+              <div className="rounded-2xl bg-red-50 px-4 py-3 text-sm text-red-700">
+                {formError}
+              </div>
+            )}
+          </div>
+
+          <div className="flex gap-3 border-t border-slate-100 px-5 py-4">
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={isSaving || scannerBusy}
+              className="flex-1 rounded-2xl border border-slate-200 px-4 py-3 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              取消
+            </button>
+            <button
+              type="submit"
+              disabled={isSaving || scannerBusy}
+              className={`flex flex-1 items-center justify-center gap-2 rounded-2xl px-4 py-3 text-sm font-semibold text-white transition disabled:cursor-not-allowed disabled:bg-slate-300 ${
+                isCreateMode ? 'bg-emerald-600 hover:bg-emerald-500' : 'bg-blue-600 hover:bg-blue-500'
+              }`}
+            >
+              <FaSave />
+              {isSaving ? (isCreateMode ? '创建中...' : '保存中...') : (isCreateMode ? '立即创建' : '保存修改')}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}

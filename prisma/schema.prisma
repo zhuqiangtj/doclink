@@ -15,6 +15,7 @@ model User {
   phone                String?
   dateOfBirth          DateTime?
   gender               String?
+  socialSecurityNumber String?               @unique
   password             String
   role                 Role                  @default(PATIENT)
   accounts             Account[]
