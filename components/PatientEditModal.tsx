@@ -36,6 +36,7 @@ export interface PatientEditPayload {
   dateOfBirth: string;
   phone: string;
   socialSecurityNumber?: string;
+  password?: string;
 }
 
 interface PatientEditModalProps {
@@ -72,6 +73,7 @@ export default function PatientEditModal({
   const [dateOfBirth, setDateOfBirth] = useState('');
   const [phone, setPhone] = useState('');
   const [socialSecurityNumber, setSocialSecurityNumber] = useState('');
+  const [password, setPassword] = useState('');
   const [formError, setFormError] = useState<string | null>(null);
   const [scannerBusy, setScannerBusy] = useState(false);
   const [pendingScanReview, setPendingScanReview] = useState<{
@@ -89,6 +91,7 @@ export default function PatientEditModal({
     setDateOfBirth(patient.dateOfBirth || '');
     setPhone(patient.phone || (isCreateMode ? '13930555555' : ''));
     setSocialSecurityNumber(patient.socialSecurityNumber || '');
+    setPassword('');
     setFormError(null);
     setPendingScanReview(null);
   }, [isCreateMode, isOpen, patient]);
@@ -170,6 +173,11 @@ export default function PatientEditModal({
       return;
     }
 
+    if (!isCreateMode && password && password.length < 6) {
+      setFormError('新密码至少需要 6 个字符。');
+      return;
+    }
+
     if (!normalizedSocialSecurityNumber && requireSocialSecurityNumber) {
       setFormError('请先通过扫描识别有效的社保号或身份证号，不能手工填写。');
       return;
@@ -200,6 +208,7 @@ export default function PatientEditModal({
         dateOfBirth,
         phone: trimmedPhone,
         socialSecurityNumber: normalizedSocialSecurityNumber || undefined,
+        password: !isCreateMode && password ? password : undefined,
       });
     } catch (error) {
       setFormError(error instanceof Error ? error.message : '保存病人信息失败。');
@@ -237,38 +246,40 @@ export default function PatientEditModal({
 
         <form onSubmit={handleSubmit} className="flex flex-1 flex-col overflow-hidden">
           <div className="space-y-4 overflow-y-auto px-5 py-4">
-            <div className="grid gap-3 rounded-2xl border border-slate-100 bg-slate-50/70 p-4 text-sm text-slate-600 sm:grid-cols-4">
-              <div>
-                <p className="text-xs text-slate-400">{isCreateMode ? '用户名' : '当前用户名'}</p>
-                <p className="mt-1 font-semibold text-slate-800">
-                  {isCreateMode ? '自动生成' : patient.username || '-'}
-                </p>
-              </div>
-              <div>
-                <p className="text-xs text-slate-400">{isCreateMode ? '默认密码' : '当前性别'}</p>
-                <p className="mt-1 font-semibold text-slate-800">
-                  {isCreateMode ? '123456' : genderText}
-                </p>
-              </div>
-              <div>
-                <p className="text-xs text-slate-400">{isCreateMode ? '当前性别' : '当前积分'}</p>
-                <p className="mt-1 font-semibold text-slate-800">
-                  {isCreateMode ? genderText : patient.credibilityScore}
-                </p>
-              </div>
-              <div>
-                <p className="text-xs text-slate-400">{isCreateMode ? '建档方式' : '关联预约'}</p>
-                <p className="mt-1 font-semibold text-slate-800">
-                  {isCreateMode ? '手填 / 智能扫描' : `${patient.totalAppointments} 条`}
-                </p>
-              </div>
-            </div>
-
             <PatientDocumentScanner
               disabled={isSaving}
               onBusyChange={setScannerBusy}
               onScanResult={handleApplyScan}
             />
+
+            <div className="overflow-x-auto rounded-2xl border border-slate-100 bg-slate-50/70 p-3 text-sm text-slate-600">
+              <div className="flex min-w-max gap-3">
+                <div className="min-w-[132px] flex-1 rounded-2xl bg-white/80 px-4 py-3 shadow-sm">
+                  <p className="text-xs text-slate-400">{isCreateMode ? '用户名' : '当前用户名'}</p>
+                  <p className="mt-1 font-semibold text-slate-800">
+                    {isCreateMode ? '自动生成' : patient.username || '-'}
+                  </p>
+                </div>
+                <div className="min-w-[132px] flex-1 rounded-2xl bg-white/80 px-4 py-3 shadow-sm">
+                  <p className="text-xs text-slate-400">{isCreateMode ? '默认密码' : '当前性别'}</p>
+                  <p className="mt-1 font-semibold text-slate-800">
+                    {isCreateMode ? '123456' : genderText}
+                  </p>
+                </div>
+                <div className="min-w-[132px] flex-1 rounded-2xl bg-white/80 px-4 py-3 shadow-sm">
+                  <p className="text-xs text-slate-400">{isCreateMode ? '当前性别' : '当前积分'}</p>
+                  <p className="mt-1 font-semibold text-slate-800">
+                    {isCreateMode ? genderText : patient.credibilityScore}
+                  </p>
+                </div>
+                <div className="min-w-[132px] flex-1 rounded-2xl bg-white/80 px-4 py-3 shadow-sm">
+                  <p className="text-xs text-slate-400">{isCreateMode ? '建档方式' : '关联预约'}</p>
+                  <p className="mt-1 font-semibold text-slate-800">
+                    {isCreateMode ? '手填 / 智能扫描' : `${patient.totalAppointments} 条`}
+                  </p>
+                </div>
+              </div>
+            </div>
 
             <div className="grid gap-4 sm:grid-cols-2">
               <label className="block">
@@ -319,6 +330,31 @@ export default function PatientEditModal({
                 />
               </label>
             </div>
+
+            {!isCreateMode ? (
+              <label className="block">
+                <span className="text-sm font-medium text-slate-700">新密码</span>
+                <div className="mt-2 flex gap-2">
+                  <input
+                    type="text"
+                    value={password}
+                    onChange={(event) => setPassword(event.target.value)}
+                    className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
+                    placeholder="留空则不修改；如需重置，可输入 123456"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setPassword('123456')}
+                    className="shrink-0 rounded-2xl border border-slate-200 px-4 py-3 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+                  >
+                    填入 123456
+                  </button>
+                </div>
+                <p className="mt-2 text-xs text-slate-500">
+                  仅医生编辑已有病人时可修改密码，留空表示保持原密码不变。
+                </p>
+              </label>
+            ) : null}
 
             <label className="block">
               <span className="text-sm font-medium text-slate-700">

@@ -836,6 +836,7 @@ export default function DoctorAppointmentsPage() {
       }
 
       const updatedPatient = data.patient as PatientListItem | undefined;
+      const passwordUpdated = Boolean(data.passwordUpdated);
       if (!updatedPatient) {
         throw new Error('病人信息已保存，但返回数据异常。');
       }
@@ -870,7 +871,11 @@ export default function DoctorAppointmentsPage() {
 
       setSelectedPatientForEdit(updatedPatient);
       setShowEditPatientModal(false);
-      setSuccess(`已更新 ${updatedPatient.name} 的病人信息`);
+      setSuccess(
+        passwordUpdated
+          ? `已更新 ${updatedPatient.name} 的病人信息，并修改密码`
+          : `已更新 ${updatedPatient.name} 的病人信息`
+      );
       setTimeout(() => setSuccess(null), 3000);
     } catch (err) {
       console.error(err);
@@ -1304,15 +1309,15 @@ export default function DoctorAppointmentsPage() {
           </div>
 
           <div className="relative min-h-[34rem] overflow-x-auto">
-            <table className="w-full text-left border-collapse">
+            <table className="w-full table-fixed text-left border-collapse">
               <thead>
                 <tr className="bg-gray-50 border-b border-gray-200">
-                  <th className="p-4 text-xs font-medium text-gray-500 uppercase tracking-wider">姓名</th>
-                  <th className="p-4 text-xs font-medium text-gray-500 uppercase tracking-wider hidden sm:table-cell">性别</th>
-                  <th className="p-4 text-xs font-medium text-gray-500 uppercase tracking-wider hidden sm:table-cell">年龄</th>
-                  <th className="p-4 text-xs font-medium text-gray-500 uppercase tracking-wider">积分</th>
-                  <th className="p-4 text-xs font-medium text-gray-500 uppercase tracking-wider hidden sm:table-cell">爽约</th>
-                  <th className="p-4 text-xs font-medium text-gray-500 uppercase tracking-wider">操作</th>
+                  <th className="w-[6.25rem] p-3 text-xs font-medium text-gray-500 uppercase tracking-wider sm:w-[7rem]">姓名</th>
+                  <th className="hidden w-[5rem] p-3 text-xs font-medium text-gray-500 uppercase tracking-wider sm:table-cell">性别</th>
+                  <th className="hidden w-[5rem] p-3 text-xs font-medium text-gray-500 uppercase tracking-wider sm:table-cell">年龄</th>
+                  <th className="w-[4.25rem] p-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider sm:w-[4.75rem]">积分</th>
+                  <th className="hidden w-[5rem] p-3 text-xs font-medium text-gray-500 uppercase tracking-wider sm:table-cell">爽约</th>
+                  <th className="w-[8.5rem] p-3 text-xs font-medium text-gray-500 uppercase tracking-wider sm:w-[9.5rem]">操作</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
@@ -1337,13 +1342,18 @@ export default function DoctorAppointmentsPage() {
                       onClick={() => { setSelectedPatient(patient); setShowPatientModal(true); }}
                       className="hover:bg-gray-50 cursor-pointer transition-colors"
                     >
-                      <td className="p-4">
-                        <div className="font-medium text-gray-900">{patient.name}</div>
-                        <div className="text-xs text-gray-500 sm:hidden">
+                      <td className="p-3">
+                        <div
+                          className="truncate font-medium text-gray-900"
+                          title={patient.name}
+                        >
+                          {patient.name}
+                        </div>
+                        <div className="truncate text-xs text-gray-500 sm:hidden">
                           {getGenderInfo(patient.gender).text} · {patient.age ? `${patient.age}岁` : '未知'}
                         </div>
                       </td>
-                      <td className="p-4 hidden sm:table-cell">
+                      <td className="hidden p-3 sm:table-cell">
                         {(() => {
                           const g = getGenderInfo(patient.gender);
                           const colorClass = g.className === 'gender-male' ? 'bg-blue-100 text-blue-800' : 
@@ -1355,19 +1365,19 @@ export default function DoctorAppointmentsPage() {
                           );
                         })()}
                       </td>
-                      <td className="p-4 hidden sm:table-cell text-gray-600">
+                      <td className="hidden p-3 sm:table-cell text-gray-600">
                         {patient.age ? `${patient.age}岁` : '-'}
                       </td>
-                      <td className="p-4">
+                      <td className="p-3 text-center">
                         <span className={`font-semibold ${patient.credibilityScore < 60 ? 'text-red-600' : 'text-green-600'}`}>
                           {patient.credibilityScore}
                         </span>
                       </td>
-                      <td className="p-4 hidden sm:table-cell text-red-600 font-medium">
+                      <td className="hidden p-3 sm:table-cell text-red-600 font-medium">
                         {patient.noShowCount} 次
                       </td>
-                      <td className="p-4">
-                        <div className="flex flex-col gap-2 sm:flex-row">
+                      <td className="p-3">
+                        <div className="flex flex-row flex-nowrap items-center gap-2">
                           <button
                             type="button"
                             onClick={(event) => {
@@ -1375,7 +1385,7 @@ export default function DoctorAppointmentsPage() {
                               openEditPatientDialog(patient);
                             }}
                             disabled={editPatientLoading && selectedPatientForEdit?.id === patient.id}
-                            className="inline-flex items-center gap-1 rounded-lg border border-blue-200 px-3 py-1.5 text-xs font-medium text-blue-600 transition-colors hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-50"
+                            className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-blue-200 px-2.5 py-1.5 text-xs font-medium text-blue-600 transition-colors hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-50"
                           >
                             <FaPen className="text-[0.7rem]" />
                             {editPatientLoading && selectedPatientForEdit?.id === patient.id ? '保存中' : '编辑'}
@@ -1387,7 +1397,7 @@ export default function DoctorAppointmentsPage() {
                               openDeletePatientDialog(patient);
                             }}
                             disabled={deletePatientLoading && selectedPatientForDelete?.id === patient.id}
-                            className="inline-flex items-center gap-1 rounded-lg border border-red-200 px-3 py-1.5 text-xs font-medium text-red-600 transition-colors hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
+                            className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-red-200 px-2.5 py-1.5 text-xs font-medium text-red-600 transition-colors hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
                           >
                             <FaTrash className="text-[0.7rem]" />
                             {deletePatientLoading && selectedPatientForDelete?.id === patient.id ? '删除中' : '删除'}

@@ -1,3 +1,4 @@
+import bcrypt from 'bcrypt';
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '../../auth/[...nextauth]/route';
@@ -193,10 +194,11 @@ export async function PATCH(
     }
 
     const { credibilityScore } = body as { credibilityScore?: number };
+    const hasPasswordField = Object.prototype.hasOwnProperty.call(body, 'password');
     const hasProfileFields = ['name', 'phone', 'gender', 'dateOfBirth', 'socialSecurityNumber']
       .some((field) => Object.prototype.hasOwnProperty.call(body, field));
 
-    if (!hasProfileFields) {
+    if (!hasProfileFields && !hasPasswordField) {
       if (credibilityScore === undefined || typeof credibilityScore !== 'number') {
         return NextResponse.json({ error: 'Valid credibilityScore is required' }, { status: 400 });
       }
@@ -280,6 +282,14 @@ export async function PATCH(
       return NextResponse.json({ error: '请输入有效的 11 位手机号码。' }, { status: 400 });
     }
 
+    const nextPassword = hasPasswordField && typeof body.password === 'string'
+      ? body.password
+      : '';
+    if (hasPasswordField && nextPassword.length < 6) {
+      return NextResponse.json({ error: '新密码至少需要 6 个字符。' }, { status: 400 });
+    }
+    const hashedPassword = hasPasswordField ? await bcrypt.hash(nextPassword, 10) : undefined;
+
     const hasSocialSecurityNumberField = Object.prototype.hasOwnProperty.call(
       body,
       'socialSecurityNumber'
@@ -352,6 +362,7 @@ export async function PATCH(
           gender: nextGender,
           dateOfBirth: new Date(nextDateOfBirth),
           socialSecurityNumber: normalizedSocialSecurityNumber,
+          password: hashedPassword,
         },
       });
 
@@ -408,6 +419,7 @@ export async function PATCH(
             dateOfBirth: formatDateOnly(existingPatient.user.dateOfBirth),
             socialSecurityNumber: existingPatient.user.socialSecurityNumber,
             credibilityScore: existingPatient.credibilityScore,
+            passwordUpdated: false,
           },
           after: {
             name: updatedPatient.user.name,
@@ -416,6 +428,7 @@ export async function PATCH(
             dateOfBirth: formatDateOnly(updatedPatient.user.dateOfBirth),
             socialSecurityNumber: updatedPatient.user.socialSecurityNumber,
             credibilityScore: updatedPatient.credibilityScore,
+            passwordUpdated: Boolean(hashedPassword),
           },
           updatedBy: session.user.id,
         }),
@@ -424,6 +437,7 @@ export async function PATCH(
 
     return NextResponse.json({
       patient: formatPatientSummary(updatedPatient),
+      passwordUpdated: Boolean(hashedPassword),
     });
 
   } catch (error) {
