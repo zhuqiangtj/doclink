@@ -56,9 +56,9 @@ export async function POST(request: Request) {
     }
 
     const normalizedSocialSecurityNumber = normalizeGovernmentId(socialSecurityNumber);
-    if (socialSecurityNumber && !normalizedSocialSecurityNumber) {
+    if (!normalizedSocialSecurityNumber) {
       return NextResponse.json(
-        { error: getResidentIdValidationError(socialSecurityNumber) || '社保号格式无效，请重新扫描后再试。' },
+        { error: getResidentIdValidationError(socialSecurityNumber) || '新病人注册必须先扫描社保卡或身份证，识别出有效社保号后才能提交。' },
         { status: 400 }
       );
     }
@@ -73,43 +73,39 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: '请输入有效的出生日期。' }, { status: 400 });
     }
 
-    if (normalizedSocialSecurityNumber) {
-      const consistency = checkResidentIdConsistency({
-        governmentId: normalizedSocialSecurityNumber,
-        gender,
-        dateOfBirth,
-      });
+    const consistency = checkResidentIdConsistency({
+      governmentId: normalizedSocialSecurityNumber,
+      gender,
+      dateOfBirth,
+    });
 
-      if (!consistency.isConsistent) {
-        return NextResponse.json(
-          { error: consistency.message || '社保号与出生日期或性别不一致，请核对后重试。' },
-          { status: 400 }
-        );
-      }
+    if (!consistency.isConsistent) {
+      return NextResponse.json(
+        { error: consistency.message || '社保号与出生日期或性别不一致，请核对后重试。' },
+        { status: 400 }
+      );
     }
 
-    if (normalizedSocialSecurityNumber) {
-      const userWithSameSocialSecurityNumber = await prisma.user.findFirst({
-        where: {
-          role: Role.PATIENT,
-          socialSecurityNumber: normalizedSocialSecurityNumber,
-        },
-        select: {
-          id: true,
-          name: true,
-          username: true,
-        },
-      });
+    const userWithSameSocialSecurityNumber = await prisma.user.findFirst({
+      where: {
+        role: Role.PATIENT,
+        socialSecurityNumber: normalizedSocialSecurityNumber,
+      },
+      select: {
+        id: true,
+        name: true,
+        username: true,
+      },
+    });
 
-      if (userWithSameSocialSecurityNumber) {
-        return NextResponse.json(
-          {
-            error: `该社保号已关联病人 ${userWithSameSocialSecurityNumber.name}，用户名是 ${userWithSameSocialSecurityNumber.username}。`,
-            existingUsername: userWithSameSocialSecurityNumber.username,
-          },
-          { status: 409 }
-        );
-      }
+    if (userWithSameSocialSecurityNumber) {
+      return NextResponse.json(
+        {
+          error: `该社保号已关联病人 ${userWithSameSocialSecurityNumber.name}，用户名是 ${userWithSameSocialSecurityNumber.username}。`,
+          existingUsername: userWithSameSocialSecurityNumber.username,
+        },
+        { status: 409 }
+      );
     }
 
     const { start, end } = getUtcDayRange(dateOfBirth);

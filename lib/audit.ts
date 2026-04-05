@@ -2,16 +2,22 @@ import { Role } from '@prisma/client';
 import { prisma } from './prisma';
 
 interface SessionUser {
-  id: string;
-  username: string; // New: for username-based login
-  name: string;     // New: for all users
-  phone?: string;   // New: optional for all users
-  dateOfBirth?: Date; // New: optional for all users
-  gender?: string;  // New: optional for all users
-  role: Role;
+  id?: string;
+  username?: string | null;
+  name?: string | null;
+  phone?: string | null;
+  dateOfBirth?: Date | null;
+  gender?: string | null;
+  role?: Role | null;
 }
 
-export async function createAuditLog(session: { user: SessionUser } | null, action: string, entityType: string, entityId?: string, details?: Record<string, unknown>) {
+export async function createAuditLog(
+  session: { user?: SessionUser | null } | null,
+  action: string,
+  entityType: string,
+  entityId?: string,
+  details?: Record<string, unknown>
+) {
   console.log('Creating audit log with:', { session, action, entityType, entityId, details });
   try {
     await prisma.auditLog.create({

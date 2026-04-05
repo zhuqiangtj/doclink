@@ -7,6 +7,10 @@ import {
   checkResidentIdConsistency,
   getResidentIdValidationError,
 } from '@/lib/china-resident-id';
+import {
+  detectPatientIdentityConflicts,
+  type PatientIdentityConflictItem,
+} from '@/lib/patient-identity-conflict';
 import PatientDocumentScanner, {
   PatientDocumentScanResult,
 } from '@/components/PatientDocumentScanner';
@@ -70,6 +74,10 @@ export default function PatientEditModal({
   const [socialSecurityNumber, setSocialSecurityNumber] = useState('');
   const [formError, setFormError] = useState<string | null>(null);
   const [scannerBusy, setScannerBusy] = useState(false);
+  const [pendingScanReview, setPendingScanReview] = useState<{
+    result: PatientDocumentScanResult;
+    conflicts: PatientIdentityConflictItem[];
+  } | null>(null);
 
   const isCreateMode = mode === 'create';
 
@@ -82,6 +90,7 @@ export default function PatientEditModal({
     setPhone(patient.phone || (isCreateMode ? '13930555555' : ''));
     setSocialSecurityNumber(patient.socialSecurityNumber || '');
     setFormError(null);
+    setPendingScanReview(null);
   }, [isCreateMode, isOpen, patient]);
 
   const genderText = useMemo(() => {
@@ -93,12 +102,44 @@ export default function PatientEditModal({
 
   if (!isOpen || !patient) return null;
 
-  const handleApplyScan = async (result: PatientDocumentScanResult) => {
+  const applyScanResult = (result: PatientDocumentScanResult) => {
     setFormError(null);
     if (result.name) setName(result.name);
     if (result.gender) setGender(result.gender);
     if (result.dateOfBirth) setDateOfBirth(result.dateOfBirth);
     if (result.socialSecurityNumber) setSocialSecurityNumber(result.socialSecurityNumber);
+  };
+
+  const handleApplyScan = async (result: PatientDocumentScanResult) => {
+    if (!patient || isCreateMode) {
+      applyScanResult(result);
+      return;
+    }
+
+    const conflicts = detectPatientIdentityConflicts(
+      {
+        name: patient.name,
+        gender: patient.gender,
+        dateOfBirth: patient.dateOfBirth,
+        socialSecurityNumber: patient.socialSecurityNumber,
+      },
+      {
+        name: result.name,
+        gender: result.gender,
+        dateOfBirth: result.dateOfBirth,
+        socialSecurityNumber: result.socialSecurityNumber,
+      }
+    );
+
+    if (conflicts.hasConflict) {
+      setPendingScanReview({
+        result,
+        conflicts: conflicts.items,
+      });
+      return;
+    }
+
+    applyScanResult(result);
   };
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
@@ -333,6 +374,47 @@ export default function PatientEditModal({
           </div>
         </form>
       </div>
+
+      {pendingScanReview && (
+        <div className="fixed inset-0 z-[1160] flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-lg rounded-3xl bg-white p-5 shadow-2xl">
+            <h3 className="text-lg font-semibold text-slate-900">发现社保卡信息与当前档案不一致</h3>
+            <p className="mt-2 text-sm text-slate-600">
+              如果继续覆盖，系统将以本次扫描出的姓名、性别、出生日期和社保号为准，更新当前病人资料。
+            </p>
+
+            <div className="mt-4 space-y-3 rounded-2xl bg-amber-50 p-4">
+              {pendingScanReview.conflicts.map((item) => (
+                <div key={item.field} className="text-sm text-slate-700">
+                  <p className="font-medium text-slate-900">{item.label}</p>
+                  <p className="mt-1">当前：{item.currentValue}</p>
+                  <p>扫描：{item.scannedValue}</p>
+                </div>
+              ))}
+            </div>
+
+            <div className="mt-5 flex gap-3">
+              <button
+                type="button"
+                onClick={() => setPendingScanReview(null)}
+                className="flex-1 rounded-2xl border border-slate-200 px-4 py-3 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+              >
+                取消，保留原资料
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  applyScanResult(pendingScanReview.result);
+                  setPendingScanReview(null);
+                }}
+                className="flex-1 rounded-2xl bg-amber-500 px-4 py-3 text-sm font-semibold text-white transition hover:bg-amber-400"
+              >
+                继续，用社保卡信息覆盖
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

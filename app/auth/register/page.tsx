@@ -2012,24 +2012,28 @@ export default function RegisterPage() {
       return;
     }
 
-    if (socialSecurityNumber) {
-      const validationError = getResidentIdValidationError(socialSecurityNumber);
-      if (validationError) {
-        setError(validationError);
-        stopSubmitting();
-        return;
-      }
+    if (!socialSecurityNumber) {
+      setError('新病人注册必须先扫描社保卡或身份证，识别出有效社保号后才能提交。');
+      stopSubmitting();
+      return;
+    }
 
-      const consistency = checkResidentIdConsistency({
-        governmentId: socialSecurityNumber,
-        gender,
-        dateOfBirth,
-      });
-      if (!consistency.isConsistent) {
-        setError(consistency.message || '社保号与出生日期或性别不一致，请核对后重试。');
-        stopSubmitting();
-        return;
-      }
+    const validationError = getResidentIdValidationError(socialSecurityNumber);
+    if (validationError) {
+      setError(validationError);
+      stopSubmitting();
+      return;
+    }
+
+    const consistency = checkResidentIdConsistency({
+      governmentId: socialSecurityNumber,
+      gender,
+      dateOfBirth,
+    });
+    if (!consistency.isConsistent) {
+      setError(consistency.message || '社保号与出生日期或性别不一致，请核对后重试。');
+      stopSubmitting();
+      return;
     }
 
     try {

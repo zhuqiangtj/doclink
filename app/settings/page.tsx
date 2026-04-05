@@ -2,6 +2,14 @@
 
 import { useState, useEffect, FormEvent, useRef } from 'react';
 import { useSession, signOut } from 'next-auth/react';
+import PatientDocumentScanner, {
+  PatientDocumentScanResult,
+} from '@/components/PatientDocumentScanner';
+import {
+  detectPatientIdentityConflicts,
+  type PatientIdentityConflictItem,
+  type PatientIdentitySnapshot,
+} from '@/lib/patient-identity-conflict';
 import { fetchWithTimeout } from '../../utils/network';
 import './mobile.css';
 
@@ -14,6 +22,13 @@ export default function SettingsPage() {
   const [phone, setPhone] = useState('');
   const [dateOfBirth, setDateOfBirth] = useState('');
   const [gender, setGender] = useState('');
+  const [socialSecurityNumber, setSocialSecurityNumber] = useState('');
+  const [profileScannerBusy, setProfileScannerBusy] = useState(false);
+  const [profileBaseline, setProfileBaseline] = useState<PatientIdentitySnapshot | null>(null);
+  const [pendingScanReview, setPendingScanReview] = useState<{
+    result: PatientDocumentScanResult;
+    conflicts: PatientIdentityConflictItem[];
+  } | null>(null);
   
   // Password states
   const [currentPassword, setCurrentPassword] = useState('');
@@ -43,6 +58,7 @@ export default function SettingsPage() {
         setDateOfBirth('');
       }
       setGender(session.user.gender || '');
+      setSocialSecurityNumber('');
     }
   }, [status, session]);
 
@@ -73,7 +89,7 @@ export default function SettingsPage() {
 
   useEffect(() => {
     if (status !== 'authenticated') return;
-    let timer: number | null = null;
+    let timer: ReturnType<typeof setInterval> | null = null;
     const sync = async () => {
       try {
         const res = await fetchWithTimeout('/api/user', { cache: 'no-store' });
@@ -81,7 +97,8 @@ export default function SettingsPage() {
         const data = await res.json();
         const dobVal = data?.dateOfBirth ? (() => { const d = new Date(data.dateOfBirth); const y = d.getFullYear(); const m = String(d.getMonth() + 1).padStart(2, '0'); const day = String(d.getDate()).padStart(2, '0'); return `${y}-${m}-${day}`; })() : '';
         const scoreVal = typeof data?.patientProfile?.credibilityScore === 'number' ? data.patientProfile.credibilityScore : null;
-        const snap = JSON.stringify({ u: data?.username || '', n: data?.name || '', p: data?.phone || '', dob: dobVal, g: data?.gender || '', s: scoreVal });
+        const socialSecurityNumberVal = data?.socialSecurityNumber || '';
+        const snap = JSON.stringify({ u: data?.username || '', n: data?.name || '', p: data?.phone || '', dob: dobVal, g: data?.gender || '', ssn: socialSecurityNumberVal, s: scoreVal });
         const changed = lastSnapRef.current && lastSnapRef.current !== snap;
         lastSnapRef.current = snap;
         setUsername(data?.username || '');
@@ -89,6 +106,13 @@ export default function SettingsPage() {
         setPhone(data?.phone || '');
         setDateOfBirth(dobVal);
         setGender(data?.gender || '');
+        setSocialSecurityNumber(socialSecurityNumberVal);
+        setProfileBaseline({
+          name: data?.name || '',
+          gender: data?.gender || '',
+          dateOfBirth: dobVal,
+          socialSecurityNumber: socialSecurityNumberVal,
+        });
         setCredibilityScore(scoreVal);
         if (changed) setOverlayText('已自动更新');
       } catch {}
@@ -146,13 +170,56 @@ export default function SettingsPage() {
       const response = await fetchWithTimeout('/api/account/profile', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, name, phone, dateOfBirth, gender }),
+        body: JSON.stringify({ username, name, phone, dateOfBirth, gender, socialSecurityNumber }),
       });
-      if (!response.ok) throw new Error('更新个人资料失败。');
+      if (!response.ok) {
+        const data = await response
+          .json()
+          .catch(() => null) as { error?: string; existingUsername?: string } | null;
+        throw new Error(data?.error || '更新个人资料失败。');
+      }
       setSuccess('个人资料更新成功！');
       // Update session if needed
       await update();
     } catch (err) { setError(err instanceof Error ? err.message : '更新失败'); }
+  };
+
+  const applyScannedProfile = (result: PatientDocumentScanResult) => {
+    if (result.name) setName(result.name);
+    if (result.gender) setGender(result.gender);
+    if (result.dateOfBirth) setDateOfBirth(result.dateOfBirth);
+    if (result.socialSecurityNumber) setSocialSecurityNumber(result.socialSecurityNumber);
+    setSuccess(result.notes || '已应用社保卡扫描结果，请核对后保存。');
+  };
+
+  const handleProfileScanResult = async (result: PatientDocumentScanResult) => {
+    setError(null);
+    setSuccess(null);
+
+    const conflicts = detectPatientIdentityConflicts(
+      profileBaseline || {
+        name,
+        gender,
+        dateOfBirth,
+        socialSecurityNumber,
+      },
+      {
+        name: result.name,
+        gender: result.gender,
+        dateOfBirth: result.dateOfBirth,
+        socialSecurityNumber: result.socialSecurityNumber,
+      }
+    );
+
+    if (conflicts.hasConflict) {
+      setPendingScanReview({
+        result,
+        conflicts: conflicts.items,
+      });
+      return;
+    }
+
+    applyScannedProfile(result);
   };
 
   const handlePasswordSubmit = async (e: FormEvent) => {
@@ -248,6 +315,13 @@ export default function SettingsPage() {
             <input type="text" value={phone} onChange={e => setPhone(e.target.value)} className="mobile-form-input" />
           </div>
           <div className="mobile-form-group">
+            <label className="mobile-form-label">社保号 / 身份证号</label>
+            <input type="text" value={socialSecurityNumber} readOnly className="mobile-form-input" />
+            <p className="mt-2 text-xs text-gray-500">
+              该号码只能通过社保卡/身份证扫描补录，不能手工修改。
+            </p>
+          </div>
+          <div className="mobile-form-group">
             <label className="mobile-form-label">出生日期</label>
             <input type="date" value={dateOfBirth} onChange={e => setDateOfBirth(e.target.value)} className="mobile-form-input" />
           </div>
@@ -260,7 +334,16 @@ export default function SettingsPage() {
               <option value="Other">其他</option>
             </select>
           </div>
-          <button type="submit" className="mobile-submit-btn">保存资料</button>
+          {session?.user?.role === 'PATIENT' ? (
+            <div className="mobile-form-group">
+              <PatientDocumentScanner
+                disabled={profileScannerBusy}
+                onBusyChange={setProfileScannerBusy}
+                onScanResult={handleProfileScanResult}
+              />
+            </div>
+          ) : null}
+          <button type="submit" className="mobile-submit-btn" disabled={profileScannerBusy}>保存资料</button>
         </form>
       </div>
 
@@ -292,6 +375,49 @@ export default function SettingsPage() {
           登出
         </button>
       </div>
+
+      {pendingScanReview && (
+        <div className="mobile-dialog-overlay">
+          <div className="mobile-dialog">
+            <div className="mobile-dialog-header">
+              <h3 className="mobile-dialog-title">发现社保卡信息与当前资料不一致</h3>
+            </div>
+            <div className="mobile-dialog-content">
+              <p className="mobile-dialog-message">
+                如果继续覆盖，系统将以本次扫描出的姓名、性别、出生日期和社保号为准，更新当前账户资料。
+              </p>
+              <div className="mobile-dialog-appointment-info">
+                {pendingScanReview.conflicts.map((item) => (
+                  <div key={item.field} className="mobile-dialog-info-row" style={{ display: 'block' }}>
+                    <div><strong>{item.label}</strong></div>
+                    <div>当前：{item.currentValue}</div>
+                    <div>扫描：{item.scannedValue}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div className="mobile-dialog-actions">
+              <button
+                type="button"
+                onClick={() => setPendingScanReview(null)}
+                className="mobile-dialog-cancel-btn"
+              >
+                取消，保留原资料
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  applyScannedProfile(pendingScanReview.result);
+                  setPendingScanReview(null);
+                }}
+                className="mobile-dialog-primary-btn"
+              >
+                继续，用社保卡信息覆盖
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
