@@ -189,7 +189,6 @@ export default function SettingsPage() {
     if (result.gender) setGender(result.gender);
     if (result.dateOfBirth) setDateOfBirth(result.dateOfBirth);
     if (result.socialSecurityNumber) setSocialSecurityNumber(result.socialSecurityNumber);
-    setSuccess(result.notes || '已应用社保卡扫描结果，请核对后保存。');
   };
 
   const handleProfileScanResult = async (result: PatientDocumentScanResult) => {

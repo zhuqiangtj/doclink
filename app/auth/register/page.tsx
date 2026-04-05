@@ -1325,8 +1325,6 @@ export default function RegisterPage() {
         if (autoAuthSucceeded) {
           return;
         }
-      } else {
-        setSuccess(result.notes || '证件信息已填入，请核对后点击注册。');
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : '证件识别失败，请重试。');

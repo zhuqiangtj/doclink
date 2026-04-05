@@ -1337,11 +1337,7 @@ export default function PatientDocumentScanner({
 
       const result = data as PatientDocumentScanResult;
       await onScanResult(result);
-
-      setScannerNotice(
-        result.notes || (result.shouldReview ? '证件信息已回填，请人工核对后保存。' : '证件信息已回填。'),
-        result.shouldReview ? 'warning' : 'success'
-      );
+      setScannerNotice(null);
     } catch (err) {
       setScannerNotice(
         err instanceof Error ? err.message : '证件识别失败，请重试。',
@@ -1691,7 +1687,6 @@ export default function PatientDocumentScanner({
         <div className="flex items-center justify-between gap-3">
           <div>
             <p className="text-sm font-semibold text-slate-800">证件识别补录</p>
-            <p className="text-xs text-slate-500">支持社保卡、医保卡、身份证，识别后自动覆盖可识别字段</p>
           </div>
           <div className="flex gap-2">
             <button
